@@ -1,7 +1,6 @@
-# MONOLOG (bymonolog.com) — offline site build
+# WEB3ASHLEY — offline site build
 
-A fully self-contained, offline copy of the MONOLOG studio website, rebuilt from an
-exported archive with **every resource localized** — CSS, JavaScript, images,
+A fully self-contained, offline website build, assembled from a Webflow export with **every resource localized** — CSS, JavaScript, images,
 **all fonts**, and **all videos**. Opening the page shows the exact same website with
 no internet connection required.
 
@@ -54,3 +53,20 @@ Assets are mirrored under their original host folders so the relative links reso
   localized CSS/JS `<link>`/`<script>` tags so the offline files are allowed to load.
 - The footer copyright line was removed for distraction-free study; site content is
   otherwise unchanged.
+
+## Hero fix
+
+The site loads its own JS bundle by building the URL in JavaScript
+(`base + "/" + env + "/3pc9/bundle.js"`) rather than a literal `src`, so URL rewriting
+missed it and the bundle silently failed offline. That bundle is what flips
+`[data-animate]` from `visibility:hidden; opacity:0` to visible and sizes the hero
+WebGL canvas — without it the page stayed black. The loader now points at the local
+copy, so the hero, shader background and intro animation render correctly.
+
+## Branding
+
+The original studio branding was removed: logotypes replaced with fitted `WEB3ASHLEY`
+wordmarks, JSON-LD (founder identity, awards, named reviews) dropped, page metadata and
+favicons neutralized, the Webflow partner badge removed, client/testimonial names
+replaced with placeholders, and outbound personal links pointed at `#`. Layout, styling
+and animation are untouched.
