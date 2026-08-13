@@ -9,7 +9,7 @@ no internet connection required.
 Open the main page:
 
 ```
-bymonolog.com/index.html
+site/index.html
 ```
 
 You can double-click that file to open it in a browser (all asset paths are relative),
@@ -18,7 +18,7 @@ or serve the folder for the most faithful result:
 ```bash
 # from the repo root
 python3 -m http.server 8080
-# then visit http://127.0.0.1:8080/bymonolog.com/index.html
+# then visit http://127.0.0.1:8080/site/index.html
 ```
 
 > The homepage opens on a dark, scroll-driven intro (by design). Scroll down to reveal
@@ -30,9 +30,9 @@ Assets are mirrored under their original host folders so the relative links reso
 
 | Folder | Contents |
 | --- | --- |
-| `bymonolog.com/` | `index.html` (the site) |
+| `site/` | `index.html` (the site) |
 | `cdn.prod.website-files.com/` | Webflow CSS, JS, **fonts** (`.woff2`), images (`.avif/.svg/.png`) |
-| `byhuy.b-cdn.net/WebM/` | **All showreel/case-study videos** (`.webm` / `.mp4`) |
+| `assets/stock/` | Stock photos, placeholder logo marks and generated video loops |
 | `cdn.jsdelivr.net/`, `cdn.odyn.dev/`, `d3e54v103j8qbb.cloudfront.net/` | GSAP, Barba, Lenis, Three.js, Howler, jQuery, WebGL bundle |
 
 ## Fonts (localized)
@@ -70,3 +70,15 @@ wordmarks, JSON-LD (founder identity, awards, named reviews) dropped, page metad
 favicons neutralized, the Webflow partner badge removed, client/testimonial names
 replaced with placeholders, and outbound personal links pointed at `#`. Layout, styling
 and animation are untouched.
+
+## Content
+
+All original studio content has been removed — body copy, case studies, testimonials,
+client and award claims, locations, bio and FAQ answers are replaced with neutral
+placeholder text. Photography is replaced with stock images from Lorem Picsum, client
+logos with simple geometric marks, and the nine case-study videos with generated
+abstract loops. The only original asset retained is the distorted hero key visual,
+which feeds the hero WebGL shader.
+
+Structure, styling, typography and animation are unchanged, so the build still
+demonstrates the original layout and motion techniques.
