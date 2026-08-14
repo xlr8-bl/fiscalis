@@ -63,3 +63,17 @@ assets/stock/        stock photos, placeholder marks, generated video loops, her
 - `assets/js/app.js` — the original site's custom animation bundle.
 - `assets/css/site.css` — the original stylesheet, with font families and asset URLs
   rewritten. It has **not** been re-authored from scratch.
+
+## Statement section (original)
+
+The scroll-split section that sat between the hero and the work list has been removed
+and replaced with an originally-authored section:
+
+- `assets/css/statement.css` and `assets/js/statement.js` — written from scratch,
+  namespaced `.ash-*`, no dependency on the animation bundle.
+- Mechanic is deliberately different: nothing splits and nothing scrubs on scroll.
+  A single clock drives a rotating word in the headline, an active row in a numbered
+  index, and a cross-fading image panel. Hover or focus takes over from the clock,
+  it pauses off-screen via IntersectionObserver, and it honours reduced-motion.
+- The old section's markup, its 36 `.gap_home_*` rules and its images were deleted;
+  the bundle's handler early-returns when the elements are absent, so nothing breaks.
