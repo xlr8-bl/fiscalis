@@ -1,0 +1,4 @@
+# Cloudflare Pages — static site, no build step.
+name = "web3ashley"
+compatibility_date = "2026-08-14"
+pages_build_output_dir = "."
