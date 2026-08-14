@@ -1,79 +1,77 @@
-# WEB3ASHLEY — offline site build
+# WEB3ASHLEY — portable static site
 
-A fully self-contained, offline website build, assembled from a Webflow export with **every resource localized** — CSS, JavaScript, images,
-**all fonts**, and **all videos**. Opening the page shows the exact same website with
-no internet connection required.
+A self-contained static site. No build step, no package manager, no server-side
+anything. Drop the folder into any project and it runs.
 
-## View the site
+## Use it in another project
 
-Open the main page:
+Copy `index.html` and `assets/` into the project (keeping them siblings), then open
+`index.html` — every path is relative, so it works from a subfolder, a CDN, GitHub
+Pages, or `file://`.
 
 ```
-site/index.html
+index.html          the page
+assets/css/         site.css (main sheet), statement.css
+assets/js/          libraries + app.js, statement.js, main behaviour
+assets/fonts/       four woff2 faces
+assets/img/         textures and icons
+assets/stock/       photos, placeholder marks, video loops, hero visual
 ```
 
-You can double-click that file to open it in a browser (all asset paths are relative),
-or serve the folder for the most faithful result:
+Serve it locally with anything:
 
 ```bash
-# from the repo root
-python3 -m http.server 8080
-# then visit http://127.0.0.1:8080/site/index.html
+python3 -m http.server 8080     # then open http://127.0.0.1:8080/
 ```
 
-> The homepage opens on a dark, scroll-driven intro (by design). Scroll down to reveal
-> the hero, case studies, service list, testimonials and footer.
+## Fonts
 
-## Folder layout
+All four are open-licensed (SIL OFL), substituted for the commercial faces the
+original design used:
 
-Assets are mirrored under their original host folders so the relative links resolve:
-
-| Folder | Contents |
+| Role | Substitute |
 | --- | --- |
-| `site/` | `index.html` (the site) |
-| `cdn.prod.website-files.com/` | Webflow CSS, JS, **fonts** (`.woff2`), images (`.avif/.svg/.png`) |
-| `assets/stock/` | Stock photos, placeholder logo marks and generated video loops |
-| `cdn.jsdelivr.net/`, `cdn.odyn.dev/`, `d3e54v103j8qbb.cloudfront.net/` | GSAP, Barba, Lenis, Three.js, Howler, jQuery, WebGL bundle |
+| Primary / UI | Inter 500 |
+| Display | Archivo 600 |
+| Mono | IBM Plex Mono 400 |
+| Wordmark | Syne 800 |
 
-## Fonts (open-licensed substitutes)
+## What has been removed
 
-The original commercial faces were replaced with the closest freely-licensed equivalents:
+- Google Analytics / Tag Manager — both script blocks, including the `G-…` measurement
+  ID, are gone. The site makes no analytics or tag-manager requests.
+- Webflow project identifiers (`data-wf-site`, `data-wf-page`) and all 21 generated
+  `w-node-<uuid>` grid ids, renamed to `layout-01…21`.
+- All original studio branding, copy, client names, awards, contact details and media.
+  Photography is stock, logos are placeholder marks, video is generated loops.
+- Dead CSS: 694 of 1044 selectors were unused framework rules.
 
-| Role | Original | Substitute (SIL OFL) |
-| --- | --- | --- |
-| Primary / UI | KH Teka Medium | Inter 500 |
-| Display | Animo | Archivo 600 |
-| Mono | Suisse Int'l Mono | IBM Plex Mono 400 |
+## What is still third-party
 
-## Layout
+Being straight about this, because it matters if you ship it:
 
-```
-site/index.html      the page
-assets/css/site.css  stylesheet
-assets/fonts/        open-licensed woff2
-assets/js/           gsap, barba, lenis, three, howler, jquery, webflow runtime, app bundle
-assets/img/          textures and icons
-assets/stock/        stock photos, placeholder marks, generated video loops, hero visual
-```
+- **`assets/css/site.css`** — derived from the original design's stylesheet. Dead rules
+  were pruned, generated ids renamed, fonts and asset URLs swapped, and it was expanded
+  to readable form — but it was **not** re-authored from scratch. It is the design.
+- **`assets/js/webflow.js`** — Webflow's runtime. **Cannot be removed.** Tested: without
+  it the hero never becomes visible (`visibility:hidden` is never released) and the hero
+  canvas never sizes, because `app.js` depends on it.
+- **`assets/js/app.js`** — the original site's custom animation bundle (hero shader,
+  scroll behaviour, transitions).
+- GSAP `SplitText` and `CustomEase` are paid Club GreenSock plugins.
 
-## Known third-party code still present
+Treat this as a study/reference build. Removing the three items above means rebuilding
+the design and its motion, not deleting files.
 
-- `assets/js/webflow.js` — Webflow's runtime. **Cannot be removed**: the app bundle
-  depends on it, and without it the hero never becomes visible.
-- `assets/js/app.js` — the original site's custom animation bundle.
-- `assets/css/site.css` — the original stylesheet, with font families and asset URLs
-  rewritten. It has **not** been re-authored from scratch.
+## Originally authored here
 
-## Statement section (original)
+- `assets/css/statement.css` + `assets/js/statement.js` — the statement section, written
+  from scratch and namespaced `.ash-*`. No dependency on the animation bundle: one clock
+  drives a rotating headline word, an active index row and a cross-fading image panel.
+  Hover and focus take over, `IntersectionObserver` pauses it off-screen, and
+  `prefers-reduced-motion` is honoured.
 
-The scroll-split section that sat between the hero and the work list has been removed
-and replaced with an originally-authored section:
+## Known noise
 
-- `assets/css/statement.css` and `assets/js/statement.js` — written from scratch,
-  namespaced `.ash-*`, no dependency on the animation bundle.
-- Mechanic is deliberately different: nothing splits and nothing scrubs on scroll.
-  A single clock drives a rotating word in the headline, an active row in a numbered
-  index, and a cross-fading image panel. Hover or focus takes over from the clock,
-  it pauses off-screen via IntersectionObserver, and it honours reduced-motion.
-- The old section's markup, its 36 `.gap_home_*` rules and its images were deleted;
-  the bundle's handler early-returns when the elements are absent, so nothing breaks.
+The sound toggle requests `assets/sound/*.mp3`, which are not shipped. The requests
+404 and the feature degrades silently; delete the toggle or add the files.
