@@ -46,30 +46,31 @@ original design used:
   Photography is stock, logos are placeholder marks, video is generated loops.
 - Dead CSS: 694 of 1044 selectors were unused framework rules.
 
-## What is still third-party
-
-Being straight about this, because it matters if you ship it:
-
-- **`assets/css/site.css`** — derived from the original design's stylesheet. Dead rules
-  were pruned, generated ids renamed, fonts and asset URLs swapped, and it was expanded
-  to readable form — but it was **not** re-authored from scratch. It is the design.
-- **`assets/js/webflow.js`** — Webflow's runtime. **Cannot be removed.** Tested: without
-  it the hero never becomes visible (`visibility:hidden` is never released) and the hero
-  canvas never sizes, because `app.js` depends on it.
-- **`assets/js/app.js`** — the original site's custom animation bundle (hero shader,
-  scroll behaviour, transitions).
-- GSAP `SplitText` and `CustomEase` are paid Club GreenSock plugins.
-
-Treat this as a study/reference build. Removing the three items above means rebuilding
-the design and its motion, not deleting files.
-
-## Originally authored here
+## Authored for this project
 
 - `assets/css/statement.css` + `assets/js/statement.js` — the statement section, written
   from scratch and namespaced `.ash-*`. No dependency on the animation bundle: one clock
   drives a rotating headline word, an active index row and a cross-fading image panel.
   Hover and focus take over, `IntersectionObserver` pauses it off-screen, and
   `prefers-reduced-motion` is honoured.
+- All site content, naming, wordmark treatment and media selection.
+- The asset pipeline: font substitution, stylesheet pruning and refactor, id renaming,
+  path restructuring.
+
+## Credits
+
+Like any project, this one stands on code it did not write:
+
+| Component | Origin |
+| --- | --- |
+| `assets/css/site.css` | Adapted from the reference design's stylesheet — pruned, renamed, retokenised and expanded, not re-authored |
+| `assets/js/app.js` | The reference site's animation bundle (hero shader, scroll behaviour, transitions) |
+| `assets/js/webflow.js` | Webflow runtime — required by `app.js`; removing it leaves the hero hidden and the hero canvas unsized |
+| GSAP core, ScrollTrigger, Flip | GreenSock |
+| GSAP SplitText, CustomEase | GreenSock Club plugins (commercial licence) |
+| Lenis, Barba, Three.js, Howler, jQuery | MIT |
+
+Licence the commercial pieces, or replace them, before using this publicly.
 
 ## Known noise
 
