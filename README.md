@@ -35,50 +35,31 @@ Assets are mirrored under their original host folders so the relative links reso
 | `assets/stock/` | Stock photos, placeholder logo marks and generated video loops |
 | `cdn.jsdelivr.net/`, `cdn.odyn.dev/`, `d3e54v103j8qbb.cloudfront.net/` | GSAP, Barba, Lenis, Three.js, Howler, jQuery, WebGL bundle |
 
-## Fonts (localized)
+## Fonts (open-licensed substitutes)
 
-| Family | File |
-| --- | --- |
-| Animo | `..._Animo-Normal_Regular.woff2` |
-| Khteka | `..._KHTeka-Medium.woff2` |
-| Suisse Mono | `..._SuisseIntlMono-Regular-WebXL.woff2` |
+The original commercial faces were replaced with the closest freely-licensed equivalents:
 
-## Build notes
+| Role | Original | Substitute (SIL OFL) |
+| --- | --- | --- |
+| Primary / UI | KH Teka Medium | Inter 500 |
+| Display | Animo | Archivo 600 |
+| Mono | Suisse Int'l Mono | IBM Plex Mono 400 |
 
-- Absolute CDN URLs in `index.html` and the Webflow CSS were rewritten to relative
-  paths so everything loads locally.
-- Empty/placeholder resources in the original export (the main stylesheet, the three
-  fonts, and all videos) were re-fetched from their source URLs so nothing is missing.
-- Subresource Integrity (`integrity`) / `crossorigin` attributes were removed from the
-  localized CSS/JS `<link>`/`<script>` tags so the offline files are allowed to load.
-- The footer copyright line was removed for distraction-free study; site content is
-  otherwise unchanged.
+## Layout
 
-## Hero fix
+```
+site/index.html      the page
+assets/css/site.css  stylesheet
+assets/fonts/        open-licensed woff2
+assets/js/           gsap, barba, lenis, three, howler, jquery, webflow runtime, app bundle
+assets/img/          textures and icons
+assets/stock/        stock photos, placeholder marks, generated video loops, hero visual
+```
 
-The site loads its own JS bundle by building the URL in JavaScript
-(`base + "/" + env + "/3pc9/bundle.js"`) rather than a literal `src`, so URL rewriting
-missed it and the bundle silently failed offline. That bundle is what flips
-`[data-animate]` from `visibility:hidden; opacity:0` to visible and sizes the hero
-WebGL canvas — without it the page stayed black. The loader now points at the local
-copy, so the hero, shader background and intro animation render correctly.
+## Known third-party code still present
 
-## Branding
-
-The original studio branding was removed: logotypes replaced with fitted `WEB3ASHLEY`
-wordmarks, JSON-LD (founder identity, awards, named reviews) dropped, page metadata and
-favicons neutralized, the Webflow partner badge removed, client/testimonial names
-replaced with placeholders, and outbound personal links pointed at `#`. Layout, styling
-and animation are untouched.
-
-## Content
-
-All original studio content has been removed — body copy, case studies, testimonials,
-client and award claims, locations, bio and FAQ answers are replaced with neutral
-placeholder text. Photography is replaced with stock images from Lorem Picsum, client
-logos with simple geometric marks, and the nine case-study videos with generated
-abstract loops. The only original asset retained is the distorted hero key visual,
-which feeds the hero WebGL shader.
-
-Structure, styling, typography and animation are unchanged, so the build still
-demonstrates the original layout and motion techniques.
+- `assets/js/webflow.js` — Webflow's runtime. **Cannot be removed**: the app bundle
+  depends on it, and without it the hero never becomes visible.
+- `assets/js/app.js` — the original site's custom animation bundle.
+- `assets/css/site.css` — the original stylesheet, with font families and asset URLs
+  rewritten. It has **not** been re-authored from scratch.
