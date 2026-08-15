@@ -31,32 +31,33 @@
 
     var settle = function () {
       queued = false;
+      // While the page is moving, touch nothing. Every play(), pause() or
+      // seek on a <video> can force decoder work, and issuing that from a
+      // scroll-driven callback is precisely the stutter being avoided. The
+      // idle timer re-runs this once the page stops.
+      if (scrolling) return;
+
       var best = null, bestScore = 0;
       visible.forEach(function (ratio, v) {
         if (ratio > bestScore) { bestScore = ratio; best = v; }
       });
-
-      if (best !== active && active) {
-        try { active.pause(); } catch (e) {}
-      }
       active = best;
 
       videos.forEach(function (v) {
-        var onScreen = visible.has(v);
-        if (v === active && !reduced && !scrolling) {
+        if (v === active && !reduced) {
           if (v.paused) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); }
-        } else {
-          if (!v.paused) { try { v.pause(); } catch (e) {} }
-          if (!onScreen && v.currentTime > 0.05) { try { v.currentTime = 0; } catch (e) {} }
+        } else if (!v.paused) {
+          try { v.pause(); } catch (e) {}
         }
+        // no rewind: clips loop, and a seek costs a decode
       });
     };
 
     window.addEventListener('scroll', function () {
       if (!scrolling) {
         scrolling = true;
-        // pause immediately so no decode competes with the scroll
-        videos.forEach(function (v) { if (!v.paused) { try { v.pause(); } catch (e) {} } });
+        // one pause of the single active clip; nothing else runs mid-scroll
+        if (active && !active.paused) { try { active.pause(); } catch (e) {} }
       }
       if (idleTimer) window.clearTimeout(idleTimer);
       idleTimer = window.setTimeout(function () {

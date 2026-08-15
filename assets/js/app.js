@@ -45,11 +45,13 @@ var OdynCode = (() => {
       o = document.body.getAttribute("data-page-type") === "horizontal" && !e;
     (b && b.destroy(),
       (b = new Lenis({
-        // A 0.5s settle reads as the page trailing behind the wheel. Lerp
-        // tracks the input instead of easing to it, so the page arrives with
-        // the gesture rather than after it.
-        lerp: 0.14,
-        wheelMultiplier: 1.05,
+        // Native scroll. Smoothed wheel means the page position is animated
+        // by JS every frame, so any main-thread work stalls the scroll itself
+        // — that is the lag. With smoothing off the compositor owns the
+        // scroll and it cannot fall behind the input; Lenis stays only as
+        // the scroll bus (events, programmatic scrollTo, the about modal).
+        smoothWheel: !1,
+        syncTouch: !1,
         orientation: o ? "horizontal" : "vertical",
       })));
     // Scrubs are driven off Lenis' own scroll event, so ScrollTrigger does not
@@ -590,19 +592,10 @@ var OdynCode = (() => {
       });
   }
   function initVideoPlayPause() {
-    gsap.utils.toArray('[data-video="playpause"]').forEach((t) => {
-      let o = t.querySelector("video");
-      o &&
-        ScrollTrigger.create({
-          trigger: t,
-          start: "0% 100%",
-          end: "100% 0%",
-          onEnter: () => Promise.resolve(o.play()).catch(function(){}),
-          onEnterBack: () => Promise.resolve(o.play()).catch(function(){}),
-          onLeave: () => o.pause(),
-          onLeaveBack: () => o.pause(),
-        });
-    });
+    // Playback is owned by the governor in site.js, which starts a clip only
+    // once scrolling has settled. Driving play()/pause() from ScrollTrigger
+    // callbacks here meant every clip crossing the viewport spun the decoder
+    // up and down mid-scroll — the largest single source of scroll jank.
   }
   function initHoverEffects() {
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
