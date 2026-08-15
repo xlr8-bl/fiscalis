@@ -41,3 +41,38 @@
     push: noop
   };
 })(window);
+
+/* ------------------------------------------------------------------
+   Silent audio stub.
+
+   The bundle constructs sound objects at module scope, so the symbol
+   has to exist before anything runs. No audio files are shipped with
+   this build, so every instance is inert: the calls resolve, the mute
+   toggle still flips state, and nothing is fetched or played.
+
+   Drop in the real audio library and remove this block to enable sound.
+   ------------------------------------------------------------------ */
+(function (global) {
+  'use strict';
+  if (global.Howl) return;
+
+  function SilentSound() {}
+  SilentSound.prototype.play    = function () { return this; };
+  SilentSound.prototype.pause   = function () { return this; };
+  SilentSound.prototype.stop    = function () { return this; };
+  SilentSound.prototype.load    = function () { return this; };
+  SilentSound.prototype.unload  = function () { return this; };
+  SilentSound.prototype.fade    = function () { return this; };
+  SilentSound.prototype.mute    = function () { return this; };
+  SilentSound.prototype.playing = function () { return false; };
+  SilentSound.prototype.state   = function () { return 'loaded'; };
+  SilentSound.prototype.volume  = function () { return 0; };
+  SilentSound.prototype.seek    = function () { return 0; };
+  SilentSound.prototype.rate    = function () { return 1; };
+  // Event hooks fire immediately so any "when loaded" callback still runs.
+  SilentSound.prototype.on      = function (e, cb) { if (typeof cb === 'function') cb(); return this; };
+  SilentSound.prototype.once    = function (e, cb) { if (typeof cb === 'function') cb(); return this; };
+  SilentSound.prototype.off     = function () { return this; };
+
+  global.Howl = SilentSound;
+})(window);
