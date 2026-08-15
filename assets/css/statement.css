@@ -138,10 +138,14 @@
   padding-left: 0.65rem;
 }
 .ash-index__num {
-  font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
+  /* folio numerals in the display face — the mono read as a terminal, not a list */
+  font-family: var(--_typography---font--secondary-family, sans-serif);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
   color: var(--ash-ink-dim);
+  translate: 0 -0.08em;
 }
 .ash-index__text {
   font-family: var(--_typography---font--primary-family, sans-serif);
@@ -183,19 +187,6 @@
 .ash-panel__img[data-active] {
   opacity: 1;
   transform: scale(1);
-}
-.ash-panel__caption {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  padding: 0.7rem 0.9rem;
-  font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ash-ink);
-  background: color-mix(in srgb, var(--ash-bg) 72%, transparent);
-  backdrop-filter: blur(6px);
 }
 
 @media (max-width: 991px) {
@@ -315,40 +306,47 @@
 .hero_home_content_p.u-text-style-h4 { margin-inline: 0; }
 
 /* ==================================================================
-   Button hover: one clean, consistent motion for every control.
-   The label lifts slightly, the arrow travels, and the fill wipes
-   in from the left instead of snapping.
+   Button hover: the button holds its own colour — no fill flip.
+   The motion is the arrow: the visible one leaves through the top-right
+   corner of the chip while the staged duplicate (which the markup
+   already ships at bottom-left) rides in behind it. The label leans
+   toward the arrow by a couple of pixels, and the chip breathes.
    ================================================================== */
-.g_btn_main {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  transition: color 320ms cubic-bezier(.22,1,.36,1);
-}
-.g_btn_main::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  /* the control is light by default, so the wipe has to darken it */
-  background: var(--swatch--black-400, #080807);
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 480ms cubic-bezier(.22,1,.36,1);
-}
-.g_btn_main:hover::after, .g_btn_main:focus-visible::after { transform: scaleX(1); }
-.g_btn_main:hover, .g_btn_main:focus-visible { color: var(--swatch--beige-100, #e8e8e3); }
-/* the inner chip that holds the arrow flips the other way */
-.g_btn_main .g_btn_aside_bg { transition: background 420ms cubic-bezier(.22,1,.36,1); }
-.g_btn_main:hover .g_btn_aside_bg { background: var(--swatch--beige-100, #e8e8e3); }
-.g_btn_main:hover .g_btn_svg { color: var(--swatch--black-400, #080807); }
+.g_btn_main { position: relative; }
 .g_btn_main .g_btn_text { transition: transform 420ms cubic-bezier(.22,1,.36,1); }
-.g_btn_main:hover .g_btn_text { transform: translateY(-1px); }
-.g_btn_main .g_btn_svg { transition: transform 460ms cubic-bezier(.22,1,.36,1); }
-.g_btn_main:hover .g_btn_svg { transform: translate(2px, -2px); }
-.g_btn_main.is-back:hover .g_btn_svg.is-flip { transform: scaleX(-1) translate(2px, -2px); }
+.g_btn_main:hover .g_btn_text,
+.g_btn_main:focus-visible .g_btn_text { transform: translateX(2px); }
 
-/* nav + footer links: a hairline that grows from the left */
+.g_btn_main .g_btn_svg { transition: transform 460ms cubic-bezier(.22,1,.36,1); }
+.g_btn_main:hover .g_btn_svg:not(.is-absolute),
+.g_btn_main:focus-visible .g_btn_svg:not(.is-absolute) { transform: translate(130%, -130%); }
+.g_btn_main:hover .g_btn_svg.is-absolute,
+.g_btn_main:focus-visible .g_btn_svg.is-absolute { transform: translate(0, 0); }
+
+/* mirrored button: the same journey, out through the top-left */
+.g_btn_main .g_btn_svg.is-flip { transform: scaleX(-1); }
+.g_btn_main .g_btn_svg.is-absolute.is-flip { transform: scaleX(-1) translate(-100%, 100%); }
+.g_btn_main.is-back:hover .g_btn_svg.is-flip:not(.is-absolute),
+.g_btn_main.is-back:focus-visible .g_btn_svg.is-flip:not(.is-absolute) { transform: scaleX(-1) translate(130%, -130%); }
+.g_btn_main.is-back:hover .g_btn_svg.is-absolute.is-flip,
+.g_btn_main.is-back:focus-visible .g_btn_svg.is-absolute.is-flip { transform: scaleX(-1) translate(0, 0); }
+
+.g_btn_main .g_btn_aside_bg { transition: transform 420ms cubic-bezier(.22,1,.36,1); }
+.g_btn_main:hover .g_btn_aside_bg,
+.g_btn_main:focus-visible .g_btn_aside_bg { transform: scale(1.12); }
+
+/* the About item is a <button>; without the bundle's inline reset it keeps
+   the user-agent background, which shows as a grey chip on any page that
+   does not load app.js */
+.navbar_link, .footer_nav_text {
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* nav + footer links */
 .navbar_link, .footer_nav_text, .footer_socials_link, .works_home_cta_link {
   position: relative;
   transition: color 300ms ease, opacity 300ms ease;
@@ -360,23 +358,24 @@
   height: 1px; width: 100%;
   background: currentColor;
   transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 420ms cubic-bezier(.22,1,.36,1);
+  /* origin flips between states, so the line enters from the left
+     and leaves through the right instead of retracting */
+  transform-origin: right center;
+  transition: transform 380ms cubic-bezier(.22,1,.36,1);
 }
 .navbar_link:hover::after, .navbar_link:focus-visible::after,
-.footer_socials_link:hover::after, .footer_socials_link:focus-visible::after { transform: scaleX(1); }
-.navbar_link:hover, .footer_socials_link:hover { opacity: 1; }
+.footer_socials_link:hover::after, .footer_socials_link:focus-visible::after {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+/* the row recedes, the hovered link stays lit */
+.navbar_links_ul:hover .navbar_link { opacity: .4; }
+.navbar_links_ul:hover .navbar_link:hover { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  .g_btn_main, .g_btn_main::after, .g_btn_main .g_btn_text, .g_btn_main .g_btn_svg,
-  .navbar_link::after, .footer_socials_link::after { transition: none; }
+  .g_btn_main .g_btn_text, .g_btn_main .g_btn_svg, .g_btn_main .g_btn_aside_bg,
+  .navbar_link, .navbar_link::after, .footer_socials_link::after { transition: none; }
 }
-
-/* the label carries its own colour, so recolour it explicitly on hover */
-.g_btn_main:hover .g_btn_text,
-.g_btn_main:focus-visible .g_btn_text { color: var(--swatch--beige-100, #e8e8e3); }
-.g_btn_main:hover .g_btn_text_contain,
-.g_btn_main:focus-visible .g_btn_text_contain { color: var(--swatch--beige-100, #e8e8e3); }
 
 /* ==================================================================
    Nav links: the 12-column grid area they sit in is not centred on
@@ -387,7 +386,10 @@
    so the display type reads as printed rather than flat.
    ================================================================== */
 /* the wordmark is SVG, so grain it with a filter instead */
-.hero_home_svg text { filter: url(#heroGrain); }
+/* the wordmark is a pixel face — crisp blocks, a CRT fringe and
+   scanlines rather than film grain, which only softened the edges */
+.hero_home_svg text { filter: url(#heroCRT); }
+.hero_home_svg, .navbar_home_svg { shape-rendering: crispEdges; }
 
 /* Nav links sit in columns 5-7 of a 12-column bar, which is left of centre.
    Widen them to the middle four and centre within — but the three cells are
@@ -398,4 +400,49 @@
   #layout-13 { grid-column: 5 / 9; justify-self: center; }
   #layout-14 { grid-column: 9 / 13; justify-self: end; }
   .navbar_links_ul { justify-content: center; }
+}
+
+/* ==================================================================
+   Route wipe — the panel that carries the eye between the home page
+   and /book. Two documents, one continuous motion: the outgoing page
+   wipes it up over itself, the incoming page wipes it off the top.
+   ================================================================== */
+.rt_wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  pointer-events: none;
+  background: var(--swatch--black-400, #080807);
+  transform: translateY(100%);
+  display: grid;
+  place-items: center;
+  will-change: transform;
+}
+/* set by the inline head script before first paint, so an arriving
+   page never flashes its content before the panel lifts */
+html.rt-arriving .rt_wipe { transform: translateY(0); }
+
+.rt_wipe.is-cover {
+  transform: translateY(0);
+  transition: transform 520ms cubic-bezier(.76, 0, .24, 1);
+}
+.rt_wipe.is-reveal {
+  transform: translateY(-100%);
+  transition: transform 640ms cubic-bezier(.76, 0, .24, 1);
+}
+
+.rt_wipe__label {
+  font-family: PixelDisplay, monospace;
+  font-size: clamp(.7rem, 1.6vw, 1rem);
+  letter-spacing: .06em;
+  color: var(--swatch--beige-100, #e8e8e3);
+  opacity: 0;
+  transform: translateY(.5em);
+  transition: opacity 300ms ease 120ms, transform 460ms cubic-bezier(.22,1,.36,1) 120ms;
+}
+.rt_wipe.is-cover .rt_wipe__label,
+html.rt-arriving .rt_wipe__label { opacity: .55; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rt_wipe, .rt_wipe__label { transition: none; }
 }

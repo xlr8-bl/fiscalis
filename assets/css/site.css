@@ -4,6 +4,13 @@
    Rule order is preserved so the cascade is unchanged.
    ------------------------------------------------------------------ */
 
+@font-face {
+  font-family:PixelDisplay;
+  src:url(../fonts/pixel.woff2)format("woff2");
+  font-weight:400;
+  font-style:normal;
+  font-display:swap;
+}
 /* --- at-rules / media queries ---------------------------------- */
 
 /* --- reset ----------------------------------------------------- */
@@ -3394,11 +3401,14 @@ figure {
   align-items:flex-start;
   display:flex;
 }
-.problems_home_label.u-text-mono {
+.problems_home_label {
   width:100%;
   margin-bottom:var(--_spacing---space--2);
   color:var(--swatch--black-200);
-  font-size:var(--_typography---font-size--text-micro);
+  font-family:var(--_typography---font--primary-family);
+  font-size:0.74rem;
+  font-weight:500;
+  letter-spacing:0.01em;
   text-align:center;
   align-self:center;
   position:absolute;

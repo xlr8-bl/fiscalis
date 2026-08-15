@@ -1,90 +1,192 @@
 /* ==================================================================
    book.css — intro call request page
-   Sits on top of site.css. Borderless: separation comes from surface
-   tone, not outlines. Labels use the primary face, never the mono one;
-   only the field values and the slot times stay monospaced.
+
+   This page borrows the home page's structural language rather than
+   inventing its own: hairline rules as the only separator, corners at
+   the site's --radius--small (which reads as square), the display face
+   for the heading at section scale, and the same vertical hairlines
+   that run behind the statement section.
+
+   Labels use the primary face. Only values the reader compares —
+   times, counts — stay monospaced.
    ================================================================== */
 
 :root {
-  --bk-surface: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 5%, transparent);
+  --bk-rule: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 14%, transparent);
+  --bk-rule-soft: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 8%, transparent);
+  --bk-surface: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 4%, transparent);
   --bk-surface-hi: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 9%, transparent);
   --bk-dim: var(--swatch--black-50, #938f8a);
   --bk-err: #ff8a7a;
   --bk-ease: cubic-bezier(.22, 1, .36, 1);
+  --bk-radius: var(--radius--small, .15rem);
 }
 
-body { margin: 0; background: var(--swatch--black-400, #080807); color: var(--swatch--beige-100, #e8e8e3); min-height: 100svh; }
+body {
+  margin: 0;
+  background: var(--swatch--black-400, #080807);
+  color: var(--swatch--beige-100, #e8e8e3);
+  min-height: 100svh;
+}
 fieldset { border: 0; margin: 0; padding: 0; }
 dl, dd, h1, p { margin: 0; }
 
-/* the shared navbar sits fixed on the home page; give the content room */
-.bk { padding: clamp(6.5rem, 14vh, 9rem) clamp(1rem, 4vw, 2.5rem) clamp(3rem, 8vh, 5rem); }
+/* the shared navbar is fixed; give the content room to clear it */
+.bk {
+  position: relative;
+  padding: clamp(7rem, 16vh, 11rem) clamp(1rem, 4vw, 2.5rem) clamp(3rem, 8vh, 6rem);
+  overflow: hidden;
+}
 
-/* --- layout: no borders, tone only ------------------------------- */
+/* the statement section's vertical hairlines, carried through here */
+.bk::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--bk-rule-soft) 0 1px,
+    transparent 1px calc(100% / 4)
+  );
+  background-position: left top;
+  opacity: .6;
+}
+
+/* --- layout ------------------------------------------------------ */
 .bk__grid {
+  position: relative;
   width: min(74rem, 100%);
   margin-inline: auto;
   display: grid;
   grid-template-columns: 1fr 1.08fr;
-  gap: clamp(1.5rem, 4vw, 4rem);
+  gap: clamp(1.5rem, 4vw, 4.5rem);
 }
-.bk__aside { padding-right: clamp(0rem, 2vw, 2rem); }
-.bk__kicker { color: var(--bk-dim); margin-bottom: clamp(.9rem, 2vh, 1.4rem); }
-.bk__title { text-wrap: balance; }
-.bk__lede { margin-top: 1.1rem; max-width: 38ch; color: var(--swatch--beige-400, #bfbfb1); }
 
-.bk__meta { margin-top: clamp(1.75rem, 4vh, 2.75rem); display: grid; gap: 1.05rem; }
+/* --- aside ------------------------------------------------------- */
+.bk__aside { padding-right: clamp(0rem, 2vw, 2rem); }
+
+/* the kicker sits on a rule that runs out to the column edge, the way
+   the statement section's label does */
+.bk__kicker {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  color: var(--bk-dim);
+  margin-bottom: clamp(1.1rem, 3vh, 1.8rem);
+}
+.bk__kicker::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--bk-rule);
+}
+
+/* section-scale display type, matching the home page's headings */
+.bk__title {
+  font-family: var(--_typography---font--secondary-family, sans-serif);
+  font-weight: 800;
+  font-size: clamp(2rem, 4.6vw, 3.9rem);
+  line-height: 1.0;
+  letter-spacing: -.025em;
+  text-wrap: balance;
+}
+.bk__lede {
+  margin-top: 1.3rem;
+  max-width: 38ch;
+  color: var(--swatch--beige-400, #bfbfb1);
+}
+
+/* the meta list reads as an index: hairline per row, no boxes */
+.bk__meta {
+  margin-top: clamp(2rem, 5vh, 3rem);
+  border-top: 1px solid var(--bk-rule);
+}
+.bk__meta > div {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  align-items: baseline;
+  gap: 1rem;
+  padding: .85rem 0;
+  border-bottom: 1px solid var(--bk-rule-soft);
+}
 .bk__meta dt { color: var(--bk-dim); }
-.bk__meta dd { margin-top: .15rem; }
-.bk__note { margin-top: clamp(1.5rem, 4vh, 2.25rem); color: var(--bk-dim); max-width: 40ch; }
+.bk__meta dd { margin: 0; }
+.bk__meta [data-clock] { font-variant-numeric: tabular-nums; }
+
+.bk__note {
+  margin-top: clamp(1.5rem, 4vh, 2.25rem);
+  color: var(--bk-dim);
+  max-width: 40ch;
+}
 
 /* --- form -------------------------------------------------------- */
 .bk__form { padding: 0; }
-.bk__field { margin-bottom: 1.5rem; }
-.bk__label { display: block; color: var(--swatch--beige-200, #ddddd5); margin-bottom: .6rem; }
-.bk__hint { display: block; margin-top: .2rem; color: var(--bk-dim); }
+
+/* every field group is a ruled row, like the index on the home page */
+.bk__field {
+  padding-bottom: 1.4rem;
+  margin-bottom: 1.4rem;
+  border-bottom: 1px solid var(--bk-rule-soft);
+}
+.bk__field:last-of-type { border-bottom: 0; }
+.bk__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(1rem, 2vw, 1.6rem);
+  padding-bottom: 1.4rem;
+  margin-bottom: 1.4rem;
+  border-bottom: 1px solid var(--bk-rule-soft);
+}
+.bk__row .bk__field { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+
+.bk__label {
+  display: block;
+  color: var(--swatch--beige-200, #ddddd5);
+  margin-bottom: .7rem;
+}
+.bk__hint { display: block; margin-top: .25rem; color: var(--bk-dim); }
 .bk__hint b { color: var(--swatch--beige-200, #ddddd5); font-weight: 600; }
-.bk__row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 
 input[type=text], input[type=email], input[type=date], textarea {
   width: 100%;
-  padding: .85rem .95rem;
-  font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: .92rem;
+  padding: .8rem .9rem;
+  font-family: var(--_typography---font--primary-family, sans-serif);
+  font-size: .95rem;
   color: var(--swatch--beige-100, #e8e8e3);
   background: var(--bk-surface);
   border: 0;
-  border-radius: .4rem;
+  border-radius: var(--bk-radius);
   transition: background .22s ease, box-shadow .22s ease;
 }
+input[type=date] { font-variant-numeric: tabular-nums; color-scheme: dark; }
 input:focus, textarea:focus {
   outline: none;
   background: var(--bk-surface-hi);
-  box-shadow: inset 0 -2px 0 0 var(--swatch--beige-100, #e8e8e3);
+  box-shadow: inset 0 -1px 0 0 var(--swatch--beige-100, #e8e8e3);
 }
 textarea { resize: vertical; min-height: 7rem; line-height: 1.55; }
-input[type=date] { color-scheme: dark; }
 ::placeholder { color: var(--bk-dim); opacity: 1; }
-[aria-invalid="true"] { box-shadow: inset 0 -2px 0 0 var(--bk-err); }
+[aria-invalid="true"] { box-shadow: inset 0 -1px 0 0 var(--bk-err); }
 
-/* chips + slots, borderless */
+/* chips + slots: square, the way every other control on the site is */
 .bk__chips { display: flex; gap: .5rem; flex-wrap: wrap; }
 .bk__chip input, .bk__slot input { position: absolute; opacity: 0; pointer-events: none; }
 .bk__chip span, .bk__slot span {
   display: block;
   cursor: pointer;
   background: var(--bk-surface);
-  border-radius: 999px;
+  border-radius: var(--bk-radius);
   transition: background .22s ease, color .22s ease, opacity .22s ease;
 }
-.bk__chip span { padding: .58rem 1.1rem; }
+.bk__chip span { padding: .6rem 1.15rem; }
 .bk__slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.2rem, 1fr)); gap: .5rem; }
 .bk__slot span {
   text-align: center;
-  padding: .62rem .3rem;
-  border-radius: .4rem;
+  padding: .65rem .3rem;
   font-family: var(--_typography---font--tertiary-family, monospace);
   font-size: .82rem;
+  font-variant-numeric: tabular-nums;
 }
 .bk__chip span:hover, .bk__slot span:hover { background: var(--bk-surface-hi); }
 .bk__chip input:checked + span,
@@ -97,16 +199,29 @@ input[type=date] { color-scheme: dark; }
 .bk__slot input:disabled + span { opacity: .3; cursor: not-allowed; }
 
 /* character meter */
-.bk__meter { display: flex; justify-content: flex-end; margin-top: .4rem; }
-.bk__meter span { color: var(--bk-dim); font-family: var(--_typography---font--tertiary-family, monospace); font-size: .72rem; }
+.bk__meter { display: flex; justify-content: flex-end; margin-top: .45rem; }
+.bk__meter span {
+  color: var(--bk-dim);
+  font-family: var(--_typography---font--tertiary-family, monospace);
+  font-size: .72rem;
+  font-variant-numeric: tabular-nums;
+}
 .bk__meter[data-state="over"] span { color: var(--bk-err); }
 
 /* --- actions + the one animated line ----------------------------- */
-.bk__actions { display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; margin-top: .5rem; }
+.bk__actions {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  margin-top: 1.8rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--bk-rule);
+}
 .bk__submit { border: 0; cursor: pointer; font: inherit; }
 .bk__submit[disabled] { opacity: .55; cursor: not-allowed; }
 
-/* same vertical swap the statement rotator uses */
+/* the same vertical swap the statement rotator uses */
 .bk__say {
   display: block;
   overflow: hidden;
@@ -126,21 +241,18 @@ input[type=date] { color-scheme: dark; }
 .bk__say[data-state="err"] .bk__say_item { color: var(--bk-err); }
 .bk__say[data-state="ok"] .bk__say_item { color: var(--swatch--beige-100, #e8e8e3); }
 
-.bk__alt { margin-top: 1.3rem; color: var(--bk-dim); }
-.bk__alt a { color: inherit; border-bottom: 1px solid currentColor; }
+.bk__alt { margin-top: 1.4rem; color: var(--bk-dim); }
+.bk__alt a { color: inherit; box-shadow: 0 1px 0 0 currentColor; }
 .bk__hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
-
-/* back button: same component, arrow mirrored */
-.g_btn_main.is-back .g_btn_svg.is-flip { transform: scaleX(-1); }
 
 @media (max-width: 900px) {
   .bk__grid { grid-template-columns: 1fr; }
   .bk__aside { padding-right: 0; }
-  .bk__row { grid-template-columns: 1fr; }
+  .bk__row { grid-template-columns: 1fr; gap: 1.4rem; }
+  .bk__row .bk__field:first-child { padding-bottom: 1.4rem; border-bottom: 1px solid var(--bk-rule-soft); }
+  .bk::before { background-image: repeating-linear-gradient(to right, var(--bk-rule-soft) 0 1px, transparent 1px 50%); }
+  .bk__meta > div { grid-template-columns: 7rem 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bk__say_item, .bk__chip span, .bk__slot span, input, textarea { transition: none; }
 }
-
-/* the email fallback link: underline via shadow, not a border */
-.bk__alt a { border-bottom: 0; box-shadow: 0 1px 0 0 currentColor; }
