@@ -279,7 +279,7 @@ var OdynCode = (() => {
           trigger: t,
           start: "clamp(top 85%)",
           once: !0,
-          onEnter: () => o.play(),
+          onEnter: () => Promise.resolve(o.play()).catch(function(){}),
         });
     });
   }
@@ -336,7 +336,7 @@ var OdynCode = (() => {
       (unlockAudioContext(),
       A.volume(le),
       A.state() === "unloaded" && A.load(),
-      A.playing() || A.play());
+      A.playing() || Promise.resolve(A.play()).catch(function(){}));
   }
   var Vt = {
     leave: () => ce(!0),
@@ -352,7 +352,7 @@ var OdynCode = (() => {
     soundEffects[e].play();
   }
   function et() {
-    _.enabled && (unlockAudioContext(), soundEffects.select.play());
+    _.enabled && (unlockAudioContext(), Promise.resolve(soundEffects.select.play()).catch(function(){}));
   }
   function initSoundToggle() {
     let e = document.querySelector(".navbar_left_sound_btn"),
@@ -590,8 +590,8 @@ var OdynCode = (() => {
           trigger: t,
           start: "0% 100%",
           end: "100% 0%",
-          onEnter: () => o.play(),
-          onEnterBack: () => o.play(),
+          onEnter: () => Promise.resolve(o.play()).catch(function(){}),
+          onEnterBack: () => Promise.resolve(o.play()).catch(function(){}),
           onLeave: () => o.pause(),
           onLeaveBack: () => o.pause(),
         });
