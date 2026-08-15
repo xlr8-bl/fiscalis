@@ -266,15 +266,7 @@
 .navbar_menu_btn { display: inline-flex; align-items: center; }
 .navbar_links_ul { align-items: center; }
 
-/* --- footer pattern ----------------------------------------------- */
-.footer_wrap_main, .footer_wrap { position: relative; }
-.footer_pattern {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: .5;
-  /* fine diagonal weave + a slow dot field, drawn not downloaded */
+/* fine diagonal weave + a slow dot field, drawn not downloaded */
   background-image:
     repeating-linear-gradient(
       -45deg,
@@ -292,86 +284,92 @@
 }
 .footer_wrap_main > *, .footer_wrap > * { position: relative; z-index: 1; }
 
-/* --- back to top --------------------------------------------------- */
-.footer_totop {
-  display: inline-grid;
-  gap: .5rem;
-  background: none;
-  border: 0;
-  padding: 0;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  min-width: 9.5rem;
-  text-align: left;
+
+/* ==================================================================
+   Micro labels: the old treatment was too small with too much
+   tracking, which is what made them hard to read. Size them up,
+   ease the tracking off, and lift the contrast.
+   ================================================================== */
+.u-text-mono,
+.g_eyebrow_text,
+.problems_home_label,
+.works_home_content_ss,
+.works_home_content_index,
+.process_home_cta,
+.footer_top_text,
+.footer_bottom_span {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
 }
-.footer_totop_row { display: inline-flex; align-items: center; gap: .5rem; }
-.footer_totop_label { color: var(--swatch--black-50, #938f8a); transition: color .28s ease; }
-.footer_totop_arrow {
-  display: inline-block;
-  transition: transform .42s cubic-bezier(.22,1,.36,1), color .28s ease;
-  color: var(--swatch--black-50, #938f8a);
-}
-.footer_totop:hover .footer_totop_label,
-.footer_totop:hover .footer_totop_arrow { color: var(--swatch--beige-100, #e8e8e3); }
-.footer_totop:hover .footer_totop_arrow { transform: translateY(-3px); }
-.footer_totop_track {
-  display: block;
-  height: 1px;
-  width: 100%;
-  background: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 16%, transparent);
+.u-text-style-micro, .u-text-style-xsmall { font-size: 0.76rem; letter-spacing: 0.05em; }
+
+/* the hero copy reads as a statement, not a centred caption */
+.hero_home_content_p.u-text-style-h4,
+.hero_home_content,
+.hero_home_main { text-align: left; }
+.hero_home_content_p.u-text-style-h4 { margin-inline: 0; }
+
+/* ==================================================================
+   Button hover: one clean, consistent motion for every control.
+   The label lifts slightly, the arrow travels, and the fill wipes
+   in from the left instead of snapping.
+   ================================================================== */
+.g_btn_main {
+  position: relative;
   overflow: hidden;
+  isolation: isolate;
+  transition: color 320ms cubic-bezier(.22,1,.36,1);
 }
-.footer_totop_bar {
-  display: block;
-  height: 100%;
-  width: 100%;
-  transform-origin: left center;
+.g_btn_main::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  /* the control is light by default, so the wipe has to darken it */
+  background: var(--swatch--black-400, #080807);
   transform: scaleX(0);
-  background: var(--swatch--beige-100, #e8e8e3);
+  transform-origin: left center;
+  transition: transform 480ms cubic-bezier(.22,1,.36,1);
+}
+.g_btn_main:hover::after, .g_btn_main:focus-visible::after { transform: scaleX(1); }
+.g_btn_main:hover, .g_btn_main:focus-visible { color: var(--swatch--beige-100, #e8e8e3); }
+/* the inner chip that holds the arrow flips the other way */
+.g_btn_main .g_btn_aside_bg { transition: background 420ms cubic-bezier(.22,1,.36,1); }
+.g_btn_main:hover .g_btn_aside_bg { background: var(--swatch--beige-100, #e8e8e3); }
+.g_btn_main:hover .g_btn_svg { color: var(--swatch--black-400, #080807); }
+.g_btn_main .g_btn_text { transition: transform 420ms cubic-bezier(.22,1,.36,1); }
+.g_btn_main:hover .g_btn_text { transform: translateY(-1px); }
+.g_btn_main .g_btn_svg { transition: transform 460ms cubic-bezier(.22,1,.36,1); }
+.g_btn_main:hover .g_btn_svg { transform: translate(2px, -2px); }
+.g_btn_main.is-back:hover .g_btn_svg.is-flip { transform: scaleX(-1) translate(2px, -2px); }
+
+/* nav + footer links: a hairline that grows from the left */
+.navbar_link, .footer_nav_text, .footer_socials_link, .works_home_cta_link {
+  position: relative;
+  transition: color 300ms ease, opacity 300ms ease;
+}
+.navbar_link::after, .footer_socials_link::after {
+  content: "";
+  position: absolute;
+  left: 0; bottom: -.18em;
+  height: 1px; width: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 420ms cubic-bezier(.22,1,.36,1);
+}
+.navbar_link:hover::after, .navbar_link:focus-visible::after,
+.footer_socials_link:hover::after, .footer_socials_link:focus-visible::after { transform: scaleX(1); }
+.navbar_link:hover, .footer_socials_link:hover { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .g_btn_main, .g_btn_main::after, .g_btn_main .g_btn_text, .g_btn_main .g_btn_svg,
+  .navbar_link::after, .footer_socials_link::after { transition: none; }
 }
 
-/* --- footer stamp row ---------------------------------------------- */
-.footer_stamp {
-  display: inline-flex;
-  align-items: center;
-  gap: .45rem;
-  font-size: .68rem;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--swatch--black-50, #938f8a);
-  white-space: nowrap;
-}
-.footer_stamp_dot {
-  width: .42rem; height: .42rem; border-radius: 50%;
-  background: #9ee37d;
-  box-shadow: 0 0 0 0 color-mix(in srgb, #9ee37d 60%, transparent);
-  animation: stampPulse 2.6s ease-out infinite;
-}
-@keyframes stampPulse {
-  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, #9ee37d 55%, transparent); }
-  70%  { box-shadow: 0 0 0 .38rem transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
-}
-@media (prefers-reduced-motion: reduce) { .footer_stamp_dot { animation: none; } }
-
-/* --- socials: handle beside the name ------------------------------- */
-.footer_socials_link { display: inline-flex; align-items: baseline; gap: .55rem; flex-wrap: wrap; }
-.footer_social_handle {
-  font-size: .68rem;
-  letter-spacing: .1em;
-  color: var(--swatch--black-50, #938f8a);
-  transition: color .28s ease;
-}
-.footer_socials_link:hover .footer_social_handle { color: var(--swatch--beige-200, #ddddd5); }
-
-/* socials: icon beside a name/handle stack */
-.footer_socials_link { display: inline-flex; align-items: center; gap: .7rem; flex-wrap: nowrap; }
-.footer_social_icon { display: inline-flex; flex: 0 0 auto; opacity: .8; transition: opacity .28s ease; }
-.footer_socials_link:hover .footer_social_icon { opacity: 1; }
-.footer_social_stack { display: inline-grid; gap: .1rem; }
-.footer_social_handle { display: block; font-size: .66rem; letter-spacing: .1em; line-height: 1.2; }
-
-/* footer stamp row: give the stamps room */
-.footer_bottom_date { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.4rem; }
-.footer_bottom_location { display: inline-flex; align-items: center; gap: 1.4rem; flex-wrap: wrap; }
+/* the label carries its own colour, so recolour it explicitly on hover */
+.g_btn_main:hover .g_btn_text,
+.g_btn_main:focus-visible .g_btn_text { color: var(--swatch--beige-100, #e8e8e3); }
+.g_btn_main:hover .g_btn_text_contain,
+.g_btn_main:focus-visible .g_btn_text_contain { color: var(--swatch--beige-100, #e8e8e3); }
