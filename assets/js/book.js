@@ -41,24 +41,40 @@
     return d;
   };
 
+  // No inline label per field: mark the field, collect the message.
+  var firstErr = '';
   var setErr = function (field, msg) {
-    var el = form.querySelector('[data-err-for="' + field + '"]');
-    if (el) {
-      el.textContent = msg || '';
-      if (msg) el.setAttribute('data-show', ''); else el.removeAttribute('data-show');
-    }
     var input = form.querySelector('[name="' + field + '"]');
     if (input && input.setAttribute) {
       if (msg) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
     }
+    if (msg && !firstErr) firstErr = msg;
   };
   var clearErrs = function () {
+    firstErr = '';
     ['date', 'slot', 'name', 'email', 'message'].forEach(function (f) { setErr(f, ''); });
   };
+  // One line, swapped vertically like the statement rotator on the home page.
+  var sayItem = status && status.querySelector('[data-say-item]');
+  var sayCurrent = '';
   var say = function (m, s) {
-    if (!status) return;
-    status.textContent = m || '';
+    if (!status || !sayItem) return;
+    m = m || '';
+    if (m === sayCurrent) return;
+    sayCurrent = m;
     if (s) status.setAttribute('data-state', s); else status.removeAttribute('data-state');
+
+    if (!m) { sayItem.removeAttribute('data-in'); sayItem.textContent = ''; return; }
+
+    // let the old line leave, then bring the new one up from below
+    sayItem.removeAttribute('data-in');
+    sayItem.setAttribute('data-out', '');
+    window.setTimeout(function () {
+      sayItem.textContent = m;
+      sayItem.removeAttribute('data-out');
+      void sayItem.offsetWidth;
+      sayItem.setAttribute('data-in', '');
+    }, sayItem.textContent ? 240 : 0);
   };
 
   /* --- clock ------------------------------------------------------ */
@@ -110,7 +126,10 @@
   form.addEventListener('change', function (e) {
     if (e.target && e.target.name === 'slot') syncSlotCap();
     if (e.target && e.target.name === 'duration' && summary) summary.textContent = e.target.value;
-    if (e.target && e.target.name === 'date') validateDate();
+    if (e.target && e.target.name === 'date') {
+      firstErr = ''; validateDate();
+      if (firstErr) say(firstErr, 'err'); else say('', '');
+    }
   });
 
   /* --- per-field validation --------------------------------------- */
@@ -154,9 +173,10 @@
     var el = form.querySelector('[name="' + f + '"]');
     if (!el) return;
     var fn = f === 'name' ? validateName : f === 'email' ? validateEmail : validateMessage;
-    el.addEventListener('blur', fn);
+    var run = function () { firstErr = ''; fn(); if (firstErr) say(firstErr, 'err'); else say('', ''); };
+    el.addEventListener('blur', run);
     el.addEventListener('input', function () {
-      if (el.getAttribute('aria-invalid')) fn();
+      if (el.getAttribute('aria-invalid')) run();
     });
   });
 
@@ -186,7 +206,7 @@
     clearErrs();
     var checks = [validateDate(), validateSlots(), validateName(), validateEmail(), validateMessage()];
     if (checks.indexOf(false) !== -1) {
-      say('Some details need a look.', 'err');
+      say(firstErr || 'Some details need a look.', 'err');
       var bad = form.querySelector('[aria-invalid="true"]') || form.querySelector('[data-err-for][data-show]');
       if (bad && bad.scrollIntoView) bad.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
@@ -228,6 +248,7 @@
       })
       .catch(function (j) {
         if (j && j.fields && j.fields.length) {
+          firstErr = '';
           j.fields.forEach(function (f) { setErr(f, 'Check this one.'); });
           say('Some details need a look.', 'err');
         } else {
