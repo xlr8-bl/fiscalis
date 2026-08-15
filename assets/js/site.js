@@ -1,104 +1,143 @@
 /* ==================================================================
-   site.js — small site behaviours
-   Live clock and contact form. No dependencies.
+   site.js — page-level behaviour that sits alongside the bundle
+   Video governor, nav scrim, live clock, back-to-top.
    ================================================================== */
 (function () {
   'use strict';
 
-  /* --- live clock, fixed to GMT+1 -------------------------------- */
-  var clock = document.querySelector('[data-clock]');
-  if (clock) {
-    var fmt;
-    try {
-      // Etc/GMT-1 is UTC+1 (POSIX sign convention is inverted).
-      fmt = new Intl.DateTimeFormat('en-GB', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        hour12: false, timeZone: 'Etc/GMT-1'
-      });
-    } catch (e) {
-      fmt = null;
-    }
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    var tick = function () {
-      var text;
-      if (fmt) {
-        text = fmt.format(new Date());
-      } else {
-        // Fallback: shift UTC by one hour by hand.
-        var d = new Date(Date.now() + 60 * 60 * 1000);
-        var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-        text = pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
+  /* ------------------------------------------------------------------
+     Video governor
+
+     The bundle starts clips on scroll but never reliably stops them, so
+     several decode at once and the scroll stutters. Only the clip
+     closest to the middle of the viewport is allowed to run; everything
+     else is paused, and off-screen clips are rewound so they do not
+     resume mid-frame.
+     ------------------------------------------------------------------ */
+  var videos = Array.prototype.slice.call(document.querySelectorAll('video'));
+  if (videos.length) {
+    var visible = new Map();
+    var active = null;
+    var queued = false;
+
+    var settle = function () {
+      queued = false;
+      var best = null, bestScore = 0;
+      visible.forEach(function (ratio, v) {
+        if (ratio > bestScore) { bestScore = ratio; best = v; }
+      });
+
+      if (best !== active && active) {
+        try { active.pause(); } catch (e) {}
       }
-      clock.textContent = text;
+      active = best;
+
+      videos.forEach(function (v) {
+        var onScreen = visible.has(v);
+        if (v === active && !reduced) {
+          if (v.paused) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); }
+        } else {
+          if (!v.paused) { try { v.pause(); } catch (e) {} }
+          if (!onScreen && v.currentTime > 0.05) { try { v.currentTime = 0; } catch (e) {} }
+        }
+      });
+    };
+    var schedule = function () {
+      if (queued) return;
+      queued = true;
+      window.requestAnimationFrame(settle);
     };
 
-    tick();
-    // Align to the next whole second, then tick once per second.
-    window.setTimeout(function () {
-      tick();
-      window.setInterval(tick, 1000);
-    }, 1000 - (Date.now() % 1000));
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting && en.intersectionRatio > 0.15) visible.set(en.target, en.intersectionRatio);
+          else visible.delete(en.target);
+        });
+        schedule();
+      }, { threshold: [0, 0.15, 0.4, 0.7, 1] });
+      videos.forEach(function (v) {
+        v.preload = 'none';
+        io.observe(v);
+      });
+    }
+
+    // A hidden tab should not be decoding anything.
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) videos.forEach(function (v) { try { v.pause(); } catch (e) {} });
+      else schedule();
+    });
   }
 
-  /* --- contact form ---------------------------------------------- */
-  var form = document.querySelector('[data-contact-form]');
-  if (!form) return;
+  /* ------------------------------------------------------------------
+     Nav scrim — a soft dark gradient that fades in under the navbar
+     once the page has moved, and fades back out at the top.
+     ------------------------------------------------------------------ */
+  var nav = document.querySelector('.navbar_wrap');
+  if (nav) {
+    var scrim = document.createElement('div');
+    scrim.className = 'nav_scrim';
+    scrim.setAttribute('aria-hidden', 'true');
+    document.body.insertBefore(scrim, document.body.firstChild);
 
-  var status = form.querySelector('[data-contact-status]');
-  var endpoint = form.getAttribute('data-endpoint') || '';
+    var lastOn = null;
+    var onScroll = function () {
+      var on = window.scrollY > 60;
+      if (on !== lastOn) {
+        lastOn = on;
+        scrim.classList.toggle('is-on', on);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
 
-  var say = function (msg, state) {
-    if (!status) return;
-    status.textContent = msg;
-    if (state) status.setAttribute('data-state', state);
-    else status.removeAttribute('data-state');
-  };
-
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-
-    var data = new FormData(form);
-    var name = (data.get('name') || '').toString().trim();
-    var email = (data.get('email') || '').toString().trim();
-    var message = (data.get('message') || '').toString().trim();
-
-    if (!name || !email || !message) {
-      say('Add your name, email and a line about what is broken.', 'err');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      say('That email address does not look right.', 'err');
-      return;
-    }
-
-    if (!endpoint) {
-      // No backend configured: hand off to the visitor's mail client.
-      var subject = 'Project enquiry — ' + (data.get('project_type') || 'Website');
-      var body =
-        'Name: ' + name + '\n' +
-        'Email: ' + email + '\n' +
-        'Type: ' + (data.get('project_type') || '') + '\n\n' +
-        message;
-      window.location.href =
-        'mailto:ashleymbaht@icloud.com?subject=' + encodeURIComponent(subject) +
-        '&body=' + encodeURIComponent(body);
-      say('Opening your mail app…', 'ok');
-      return;
-    }
-
-    say('Sending…');
-    fetch(endpoint, {
-      method: 'POST',
-      body: data,
-      headers: { Accept: 'application/json' }
-    })
-      .then(function (res) {
-        if (!res.ok) throw new Error('bad response');
-        form.reset();
-        say('Sent. I reply within one working day.', 'ok');
-      })
-      .catch(function () {
-        say('That did not send. Email ashleymbaht@icloud.com instead.', 'err');
+  /* --- live GMT+1 clock -------------------------------------------- */
+  var clock = document.querySelector('[data-clock]');
+  if (clock) {
+    var fmt = null;
+    try {
+      fmt = new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Etc/GMT-1'
       });
-  });
+    } catch (e) {}
+    var tickClock = function () {
+      if (fmt) { clock.textContent = fmt.format(new Date()); return; }
+      var d = new Date(Date.now() + 3600000), p = function (n) { return (n < 10 ? '0' : '') + n; };
+      clock.textContent = p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+    };
+    tickClock();
+    window.setInterval(tickClock, 15000);
+  }
+
+  /* --- footer date -------------------------------------------------- */
+  var dateEl = document.querySelector('[data-today]');
+  if (dateEl) {
+    try {
+      dateEl.textContent = new Intl.DateTimeFormat('en-GB', {
+        weekday: 'short', day: '2-digit', month: 'short', timeZone: 'Etc/GMT-1'
+      }).format(new Date()).toUpperCase();
+    } catch (e) {}
+  }
+  var yearEl = document.querySelector('[data-year]');
+  if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+
+  /* --- back to top -------------------------------------------------- */
+  var toTop = document.querySelector('[data-to-top]');
+  if (toTop) {
+    var bar = toTop.querySelector('[data-to-top-bar]');
+    // the bundle already binds #to-top through the smooth-scroller,
+    // so only the progress indicator is ours
+    if (bar) {
+      var progress = function () {
+        var h = document.documentElement.scrollHeight - window.innerHeight;
+        var pct = h > 0 ? Math.min(1, window.scrollY / h) : 0;
+        bar.style.transform = 'scaleX(' + pct.toFixed(3) + ')';
+      };
+      window.addEventListener('scroll', progress, { passive: true });
+      progress();
+    }
+  }
 })();
