@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book an intro call — web3ashley</title>
+<meta name="description" content="Book a short intro call. One hour on your business and your customers. No pitch.">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/css/book.css">
+</head>
+<body>
+
+<header class="bk-top">
+  <a class="bk-brand" href="index.html">web3ashley</a>
+  <a class="bk-back" href="index.html">← Back to site</a>
+</header>
+
+<main class="bk">
+  <div class="bk__panel">
+
+    <aside class="bk__aside">
+      <p class="bk__eyebrow">Intro call</p>
+      <h1 class="bk__title">One hour on your business and your customers.</h1>
+      <p class="bk__lede">No pitch. We work out where the business is losing customers online,
+        and whether I am the right person to fix it.</p>
+
+      <dl class="bk__meta">
+        <div><dt>Duration</dt><dd data-summary-duration>30 minutes</dd></div>
+        <div><dt>Timezone</dt><dd>GMT+1 · <span data-clock>--:--:--</span></dd></div>
+        <div><dt>Format</dt><dd>Video call, link sent on confirmation</dd></div>
+        <div><dt>Reply</dt><dd>Within one working day</dd></div>
+      </dl>
+
+      <p class="bk__note">This sends a request rather than booking instantly — I confirm the slot
+        by email so you are never double-booked.</p>
+    </aside>
+
+    <form class="bk__form" data-book novalidate>
+      <fieldset class="bk__field">
+        <legend>How long do you need?</legend>
+        <div class="bk__chips" role="radiogroup">
+          <label class="bk__chip"><input type="radio" name="duration" value="30 minutes" checked><span>30 min</span></label>
+          <label class="bk__chip"><input type="radio" name="duration" value="45 minutes"><span>45 min</span></label>
+          <label class="bk__chip"><input type="radio" name="duration" value="60 minutes"><span>60 min</span></label>
+        </div>
+      </fieldset>
+
+      <div class="bk__field">
+        <label for="bk-date">Preferred date</label>
+        <input id="bk-date" name="date" type="date" required>
+      </div>
+
+      <fieldset class="bk__field">
+        <legend>Preferred time <span class="bk__hint">(GMT+1 — pick any that suit)</span></legend>
+        <div class="bk__slots" data-slots></div>
+      </fieldset>
+
+      <div class="bk__row">
+        <div class="bk__field">
+          <label for="bk-name">Name</label>
+          <input id="bk-name" name="name" type="text" autocomplete="name" required>
+        </div>
+        <div class="bk__field">
+          <label for="bk-email">Email</label>
+          <input id="bk-email" name="email" type="email" autocomplete="email" required>
+        </div>
+      </div>
+
+      <div class="bk__field">
+        <label for="bk-msg">What is broken?</label>
+        <textarea id="bk-msg" name="message" rows="4" required placeholder="Two sentences is plenty."></textarea>
+      </div>
+
+      <button class="bk__submit" type="submit">Request this slot</button>
+      <p class="bk__status" data-book-status role="status" aria-live="polite"></p>
+      <p class="bk__alt">Rather just email? <a href="mailto:ashleymbaht@icloud.com">ashleymbaht@icloud.com</a></p>
+    </form>
+
+  </div>
+</main>
+
+<script src="assets/js/book.js" defer></script>
+</body>
+</html>

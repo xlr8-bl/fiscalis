@@ -223,63 +223,6 @@
   }
 }
 
-/* ------------------------------------------------------------------
-   Contact form
-   ------------------------------------------------------------------ */
-.c-form {
-  margin-top: clamp(2rem, 5vh, 3.25rem);
-  max-width: 40rem;
-  text-align: left;
-}
-.c-form__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-.c-field { display: block; margin-bottom: 1rem; }
-.c-field > span {
-  display: block;
-  font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: 0.68rem;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  opacity: 0.55;
-  margin-bottom: 0.45rem;
-}
-.c-field input, .c-field select, .c-field textarea {
-  width: 100%;
-  padding: 0.8rem 0.9rem;
-  font: inherit;
-  font-size: 0.98rem;
-  color: inherit;
-  background: color-mix(in srgb, currentColor 6%, transparent);
-  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
-  border-radius: 0.35rem;
-  transition: border-color 220ms ease, background 220ms ease;
-}
-.c-field textarea { resize: vertical; }
-.c-field input:focus, .c-field select:focus, .c-field textarea:focus {
-  outline: none;
-  border-color: currentColor;
-  background: color-mix(in srgb, currentColor 10%, transparent);
-}
-.c-form__submit {
-  margin-top: 0.4rem;
-  padding: 0.85rem 1.6rem;
-  font: inherit;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #0b0b0a;
-  background: currentColor;
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: transform 260ms cubic-bezier(0.22,1,0.36,1);
-}
-.c-form__submit:hover { transform: translateY(-2px); }
-.c-form__status { margin-top: 0.85rem; font-size: 0.9rem; min-height: 1.2em; opacity: 0.85; }
-.c-form__status[data-state="err"] { color: #ff8a7a; }
-
 /* social icons */
 .footer_social_icon { display: inline-flex; margin-right: 0.5rem; vertical-align: -0.28em; }
 .footer_socials_link { display: inline-flex; align-items: center; }
