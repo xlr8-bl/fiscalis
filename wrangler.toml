@@ -1,0 +1,10 @@
+# Cloudflare Pages — static site + Pages Functions in /functions
+name = "web3ashley"
+compatibility_date = "2026-08-14"
+pages_build_output_dir = "."
+
+# Optional: store requests when no email provider is configured.
+# Create with: npx wrangler kv namespace create BOOKINGS
+# [[kv_namespaces]]
+# binding = "BOOKINGS"
+# id = "<your-namespace-id>"

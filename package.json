@@ -1,0 +1,10 @@
+{
+  "name": "web3ashley",
+  "private": true,
+  "scripts": {
+    "dev": "npx wrangler pages dev .",
+    "deploy": "npx wrangler pages deploy . --project-name=web3ashley",
+    "secret": "npx wrangler pages secret put RESEND_API_KEY",
+    "serve": "python3 -m http.server 8080"
+  }
+}

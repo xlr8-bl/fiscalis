@@ -12,8 +12,8 @@
 <body>
 
 <header class="bk-top">
-  <a class="bk-brand" href="index.html">web3ashley</a>
-  <a class="bk-back" href="index.html">← Back to site</a>
+  <a class="bk-brand" href="/">web3ashley</a>
+  <a class="bk-back" href="/">← Back to site</a>
 </header>
 
 <main class="bk">
@@ -36,7 +36,10 @@
         by email so you are never double-booked.</p>
     </aside>
 
-    <form class="bk__form" data-book novalidate>
+    <form class="bk__form" data-book data-endpoint="/api/book" novalidate>
+      <div class="bk__hp" aria-hidden="true">
+        <label>Company<input name="company" type="text" tabindex="-1" autocomplete="off"></label>
+      </div>
       <fieldset class="bk__field">
         <legend>How long do you need?</legend>
         <div class="bk__chips" role="radiogroup">
