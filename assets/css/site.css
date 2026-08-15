@@ -567,8 +567,8 @@ label {
 
 @font-face {
   font-family:Display;
-  src:url(../fonts/archivo-600.woff2)format("woff2");
-  font-weight:400;
+  src:url(../fonts/bricolage.woff2)format("woff2");
+  font-weight:800;
   font-style:normal;
   font-display:swap;
 }
