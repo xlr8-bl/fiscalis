@@ -2363,27 +2363,10 @@ figure {
 
 /* --- components ------------------------------------------------ */
 
-.g_grain_overlay {
-  z-index:2147483647;
-  opacity:1;
-  mix-blend-mode:color-dodge;
-  background-image:url(../img/grain.png);
-  background-position:0 0;
-  background-attachment:scroll;
-  width:100vw;
-  height:100vh;
-  position:fixed;
-}
-.g_grain_overlay.u-grain-animate {
-  opacity:.5;
-  pointer-events:none;
-  mix-blend-mode:normal;
-  background-size:auto;
-  background-attachment:fixed;
-  width:200%;
-  height:200vh;
-  inset:-50% 0% 0% -50%;
-}
+/* The grain plate that used to sit here was a fixed, full-viewport layer
+   blending the whole page and animating forever. Its texture never
+   shipped, so it cost frames while showing nothing. Type texture is
+   handled by the hero filter instead. */
 
 /* --- footer ---------------------------------------------------- */
 

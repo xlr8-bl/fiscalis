@@ -22,6 +22,13 @@
     var active = null;
     var queued = false;
 
+    // Starting playback mid-scroll costs a decode spike, and that spike is
+    // what reads as a stutter through the work section. Nothing starts while
+    // the page is actually moving; the active clip starts once scrolling
+    // settles, which keeps the scroll itself free of decode work.
+    var scrolling = false;
+    var idleTimer = null;
+
     var settle = function () {
       queued = false;
       var best = null, bestScore = 0;
@@ -36,7 +43,7 @@
 
       videos.forEach(function (v) {
         var onScreen = visible.has(v);
-        if (v === active && !reduced) {
+        if (v === active && !reduced && !scrolling) {
           if (v.paused) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); }
         } else {
           if (!v.paused) { try { v.pause(); } catch (e) {} }
@@ -44,6 +51,19 @@
         }
       });
     };
+
+    window.addEventListener('scroll', function () {
+      if (!scrolling) {
+        scrolling = true;
+        // pause immediately so no decode competes with the scroll
+        videos.forEach(function (v) { if (!v.paused) { try { v.pause(); } catch (e) {} } });
+      }
+      if (idleTimer) window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(function () {
+        scrolling = false;
+        schedule();
+      }, 160);
+    }, { passive: true });
     var schedule = function () {
       if (queued) return;
       queued = true;

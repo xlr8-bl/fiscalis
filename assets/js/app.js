@@ -45,9 +45,16 @@ var OdynCode = (() => {
       o = document.body.getAttribute("data-page-type") === "horizontal" && !e;
     (b && b.destroy(),
       (b = new Lenis({
-        duration: 0.5,
+        // A 0.5s settle reads as the page trailing behind the wheel. Lerp
+        // tracks the input instead of easing to it, so the page arrives with
+        // the gesture rather than after it.
+        lerp: 0.14,
+        wheelMultiplier: 1.05,
         orientation: o ? "horizontal" : "vertical",
       })));
+    // Scrubs are driven off Lenis' own scroll event, so ScrollTrigger does not
+    // also need to poll on resize/refresh churn while the page is moving.
+    ScrollTrigger.config({ limitCallbacks: !0, ignoreMobileResize: !0 });
     let a = setInterval(() => {
       window.scrollY !== 0 &&
         (window.scrollTo(0, 0),

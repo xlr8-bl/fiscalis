@@ -263,8 +263,12 @@
 .navbar_wrap .g_btn_main { display: inline-flex; align-items: center; }
 .navbar_wrap .g_btn_text_contain { display: flex; align-items: center; }
 .navbar_wrap .g_btn_aside_wrap { display: flex; align-items: center; justify-content: center; }
-.navbar_menu_btn { display: inline-flex; align-items: center; }
 .navbar_links_ul { align-items: center; }
+/* the menu button is mobile-only; do not resurrect it on desktop, where its
+   two label states stack and read as "MenuClose" */
+@media screen and (max-width: 767px) {
+  .navbar_menu_btn { align-items: center; }
+}
 
 /* fine diagonal weave + a slow dot field, drawn not downloaded */
   background-image:
@@ -373,3 +377,25 @@
 .g_btn_main:focus-visible .g_btn_text { color: var(--swatch--beige-100, #e8e8e3); }
 .g_btn_main:hover .g_btn_text_contain,
 .g_btn_main:focus-visible .g_btn_text_contain { color: var(--swatch--beige-100, #e8e8e3); }
+
+/* ==================================================================
+   Nav links: the 12-column grid area they sit in is not centred on
+   the viewport, so centre them against the bar itself.
+   ================================================================== */
+/* ==================================================================
+   Hero type texture — a fine grain sitting inside the letterforms,
+   so the display type reads as printed rather than flat.
+   ================================================================== */
+/* the wordmark is SVG, so grain it with a filter instead */
+.hero_home_svg text { filter: url(#heroGrain); }
+
+/* Nav links sit in columns 5-7 of a 12-column bar, which is left of centre.
+   Widen them to the middle four and centre within — but the three cells are
+   auto-placed, so widening one pushes the CTA cluster past column 12 and it
+   wraps to a second row. Place all three explicitly so the bar is fixed. */
+@media (min-width: 992px) {
+  #layout-11 { grid-column: 1 / 5; }
+  #layout-13 { grid-column: 5 / 9; justify-self: center; }
+  #layout-14 { grid-column: 9 / 13; justify-self: end; }
+  .navbar_links_ul { justify-content: center; }
+}
