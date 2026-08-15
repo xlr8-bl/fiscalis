@@ -7,77 +7,108 @@
 <meta name="description" content="Book a short intro call. One hour on your business and your customers. No pitch.">
 <meta name="color-scheme" content="dark">
 <meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/css/site.css">
 <link rel="stylesheet" href="assets/css/book.css">
 </head>
-<body>
+<body data-theme-section="dark">
 
 <header class="bk-top">
-  <a class="bk-brand" href="/">web3ashley</a>
-  <a class="bk-back" href="/">← Back to site</a>
+  <a class="bk-brand" href="/" aria-label="web3ashley — home">
+    <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 609 100" fill="none" class="bk-brand__svg">
+      <text x="304.5" y="54" text-anchor="middle" dominant-baseline="central" fill="currentColor"
+            font-family="Display, sans-serif" font-weight="800" font-size="100" letter-spacing="-1.5">WEB3ASHLEY</text>
+    </svg>
+  </a>
+  <a class="bk-back u-text-style-small" href="/">← Back to site</a>
 </header>
 
 <main class="bk">
-  <div class="bk__panel">
+  <div class="bk__grid">
 
+    <!-- left: the offer, in the site's voice -->
     <aside class="bk__aside">
-      <p class="bk__eyebrow">Intro call</p>
-      <h1 class="bk__title">One hour on your business and your customers.</h1>
-      <p class="bk__lede">No pitch. We work out where the business is losing customers online,
-        and whether I am the right person to fix it.</p>
+      <div class="g_eyebrow bk__eyebrow">
+        <div class="g_eyebrow_circle"></div>
+        <div class="g_eyebrow_text u-text-mono">The call</div>
+      </div>
+
+      <h1 class="bk__title u-text-style-h2">One hour on your business and your customers.</h1>
+
+      <p class="bk__lede u-text-style-h5">No pitch. We work out where the business is losing
+        customers online, and whether I am the right person to fix it.</p>
 
       <dl class="bk__meta">
-        <div><dt>Duration</dt><dd data-summary-duration>30 minutes</dd></div>
-        <div><dt>Timezone</dt><dd>GMT+1 · <span data-clock>--:--:--</span></dd></div>
-        <div><dt>Format</dt><dd>Video call, link sent on confirmation</dd></div>
-        <div><dt>Reply</dt><dd>Within one working day</dd></div>
+        <div><dt class="u-text-mono">Duration</dt><dd class="u-text-style-main" data-summary-duration>30 minutes</dd></div>
+        <div><dt class="u-text-mono">Timezone</dt><dd class="u-text-style-main">GMT+1 · <span data-clock>--:--:--</span></dd></div>
+        <div><dt class="u-text-mono">Format</dt><dd class="u-text-style-main">Video call, link sent on confirmation</dd></div>
+        <div><dt class="u-text-mono">Reply</dt><dd class="u-text-style-main">Within one working day</dd></div>
       </dl>
 
-      <p class="bk__note">This sends a request rather than booking instantly — I confirm the slot
-        by email so you are never double-booked.</p>
+      <p class="bk__note u-text-style-small">One date per request, so the slot I hold is the slot
+        you wanted. Need a different day as well? Send a second request.</p>
     </aside>
 
+    <!-- right: the request -->
     <form class="bk__form" data-book data-endpoint="/api/book" novalidate>
+
       <div class="bk__hp" aria-hidden="true">
         <label>Company<input name="company" type="text" tabindex="-1" autocomplete="off"></label>
       </div>
+
       <fieldset class="bk__field">
-        <legend>How long do you need?</legend>
+        <legend class="u-text-mono">How long do you need?</legend>
         <div class="bk__chips" role="radiogroup">
-          <label class="bk__chip"><input type="radio" name="duration" value="30 minutes" checked><span>30 min</span></label>
-          <label class="bk__chip"><input type="radio" name="duration" value="45 minutes"><span>45 min</span></label>
-          <label class="bk__chip"><input type="radio" name="duration" value="60 minutes"><span>60 min</span></label>
+          <label class="bk__chip"><input type="radio" name="duration" value="30 minutes" checked><span class="u-text-style-small">30 min</span></label>
+          <label class="bk__chip"><input type="radio" name="duration" value="45 minutes"><span class="u-text-style-small">45 min</span></label>
+          <label class="bk__chip"><input type="radio" name="duration" value="60 minutes"><span class="u-text-style-small">60 min</span></label>
         </div>
       </fieldset>
 
       <div class="bk__field">
-        <label for="bk-date">Preferred date</label>
-        <input id="bk-date" name="date" type="date" required>
+        <label class="u-text-mono" for="bk-date">Preferred date</label>
+        <input id="bk-date" name="date" type="date" required aria-describedby="bk-date-err">
+        <p class="bk__err u-text-style-small" id="bk-date-err" data-err-for="date"></p>
       </div>
 
       <fieldset class="bk__field">
-        <legend>Preferred time <span class="bk__hint">(GMT+1 — pick any that suit)</span></legend>
+        <legend class="u-text-mono">Preferred time
+          <span class="bk__hint">GMT+1 — up to <b data-max-slots>3</b>, on that one date</span>
+        </legend>
         <div class="bk__slots" data-slots></div>
+        <p class="bk__err u-text-style-small" data-err-for="slot"></p>
       </fieldset>
 
       <div class="bk__row">
         <div class="bk__field">
-          <label for="bk-name">Name</label>
-          <input id="bk-name" name="name" type="text" autocomplete="name" required>
+          <label class="u-text-mono" for="bk-name">Name</label>
+          <input id="bk-name" name="name" type="text" autocomplete="name" required aria-describedby="bk-name-err">
+          <p class="bk__err u-text-style-small" id="bk-name-err" data-err-for="name"></p>
         </div>
         <div class="bk__field">
-          <label for="bk-email">Email</label>
-          <input id="bk-email" name="email" type="email" autocomplete="email" required>
+          <label class="u-text-mono" for="bk-email">Email</label>
+          <input id="bk-email" name="email" type="email" autocomplete="email" required aria-describedby="bk-email-err">
+          <p class="bk__err u-text-style-small" id="bk-email-err" data-err-for="email"></p>
         </div>
       </div>
 
       <div class="bk__field">
-        <label for="bk-msg">What is broken?</label>
-        <textarea id="bk-msg" name="message" rows="4" required placeholder="Two sentences is plenty."></textarea>
+        <label class="u-text-mono" for="bk-msg">What is broken?</label>
+        <textarea id="bk-msg" name="message" rows="4" required aria-describedby="bk-msg-err"
+                  placeholder="Two sentences is plenty."></textarea>
+        <div class="bk__meter"><span class="u-text-style-small" data-count>0</span></div>
+        <p class="bk__err u-text-style-small" id="bk-msg-err" data-err-for="message"></p>
       </div>
 
-      <button class="bk__submit" type="submit">Request this slot</button>
-      <p class="bk__status" data-book-status role="status" aria-live="polite"></p>
-      <p class="bk__alt">Rather just email? <a href="mailto:ashleymbaht@icloud.com">ashleymbaht@icloud.com</a></p>
+      <div class="bk__actions">
+        <button class="bk__submit" type="submit">
+          <span class="u-text-style-small u-text-trim-off">Request this slot</span>
+          <span class="bk__submit_icon" aria-hidden="true">↗</span>
+        </button>
+        <p class="bk__status u-text-style-small" data-book-status role="status" aria-live="polite"></p>
+      </div>
+
+      <p class="bk__alt u-text-style-small">Rather just email?
+        <a href="mailto:ashleymbaht@icloud.com">ashleymbaht@icloud.com</a></p>
     </form>
 
   </div>
