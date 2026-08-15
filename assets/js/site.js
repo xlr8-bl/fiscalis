@@ -115,8 +115,8 @@
   }
 
   /* --- live GMT+1 clock -------------------------------------------- */
-  var clock = document.querySelector('[data-clock]');
-  if (clock) {
+  var clocks = document.querySelectorAll('[data-clock]');
+  if (clocks.length) {
     var fmt = null;
     try {
       fmt = new Intl.DateTimeFormat('en-GB', {
@@ -124,9 +124,13 @@
       });
     } catch (e) {}
     var tickClock = function () {
-      if (fmt) { clock.textContent = fmt.format(new Date()); return; }
-      var d = new Date(Date.now() + 3600000), p = function (n) { return (n < 10 ? '0' : '') + n; };
-      clock.textContent = p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+      var text;
+      if (fmt) text = fmt.format(new Date());
+      else {
+        var d = new Date(Date.now() + 3600000), p = function (n) { return (n < 10 ? '0' : '') + n; };
+        text = p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+      }
+      Array.prototype.forEach.call(clocks, function (c) { c.textContent = text; });
     };
     tickClock();
     window.setInterval(tickClock, 15000);
@@ -136,9 +140,10 @@
   var dateEl = document.querySelector('[data-today]');
   if (dateEl) {
     try {
-      dateEl.textContent = new Intl.DateTimeFormat('en-GB', {
-        weekday: 'short', day: '2-digit', month: 'short', timeZone: 'Etc/GMT-1'
-      }).format(new Date()).toUpperCase();
+      var stamp = new Intl.DateTimeFormat('en-GB', {
+        weekday: 'short', day: '2-digit', month: 'short', year: '2-digit', timeZone: 'Etc/GMT-1'
+      }).format(new Date()).toUpperCase().replace(/,/g, '');
+      dateEl.textContent = stamp + ' (GMT +01)';
     } catch (e) {}
   }
   var yearEl = document.querySelector('[data-year]');
