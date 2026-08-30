@@ -77,10 +77,17 @@ def inline(text: str) -> str:
     return text
 
 
-def render_markdown(body: str) -> tuple[str, list[tuple[str, str]]]:
-    """Return (html, [(id, heading_text), ...]) for the article body."""
-    out: list[str] = []
-    toc: list[tuple[str, str]] = []
+def render_markdown(body: str) -> dict:
+    """Split the body into an intro and one entry per `##` heading.
+
+    The article template lays each section out as a row — heading in
+    the left column, prose in the right — the way the process section
+    on the home page does, so the parser has to hand back the
+    sections rather than one stream of HTML.
+    """
+    intro: list[str] = []
+    sections: list[dict] = []
+    out = intro                      # blocks land here until the first `##`
     lines = body.split("\n")
     i = 0
     seen_slugs: set[str] = set()
@@ -108,8 +115,11 @@ def render_markdown(body: str) -> tuple[str, list[tuple[str, str]]]:
             text = m.group(2).strip()
             slug = slugify(text)
             if level == 2:
-                toc.append((slug, text))
-            out.append(f'<h{level} id="{slug}">{inline(text)}</h{level}>')
+                sections.append({"id": slug, "title": text, "blocks": []})
+                out = sections[-1]["blocks"]
+            else:
+                # h3/h4 stay inside the prose column
+                out.append(f'<h{level} id="{slug}">{inline(text)}</h{level}>')
             i += 1
             continue
 
@@ -122,23 +132,39 @@ def render_markdown(body: str) -> tuple[str, list[tuple[str, str]]]:
             out.append(f"<blockquote><p>{inline(' '.join(chunk))}</p></blockquote>")
             continue
 
-        # unordered list
-        if re.match(r"^[-*]\s+", stripped):
-            items = []
-            while i < len(lines) and re.match(r"^[-*]\s+", lines[i].strip()):
-                items.append(inline(re.sub(r"^[-*]\s+", "", lines[i].strip())))
+        # lists. A wrapped item continues on the following lines, so those
+        # have to be folded into the item — parsing line by line splits an
+        # emphasis span across two items and leaves the asterisks visible.
+        for marker, tag in ((r"^[-*]\s+", "ul"), (r"^\d+\.\s+", "ol")):
+            if not re.match(marker, stripped):
+                continue
+            items: list[str] = []
+            while i < len(lines):
+                cur = lines[i].strip()
+                if re.match(marker, cur):
+                    items.append(re.sub(marker, "", cur))
+                    i += 1
+                elif cur and items and not re.match(
+                    r"^(#{2,4}\s|>\s|[-*]\s|\d+\.\s|---+$)", cur
+                ):
+                    items[-1] += " " + cur        # continuation of the item above
+                    i += 1
+                else:
+                    break
+            out.append(
+                f"<{tag}>" + "".join(f"<li>{inline(it)}</li>" for it in items) + f"</{tag}>"
+            )
+            break
+        else:
+            # paragraph: consume until a blank line
+            chunk = []
+            while i < len(lines) and lines[i].strip() and not re.match(
+                r"^(#{2,4}\s|>\s|[-*]\s|\d+\.\s|---+$)", lines[i].strip()
+            ):
+                chunk.append(lines[i].strip())
                 i += 1
-            out.append("<ul>" + "".join(f"<li>{it}</li>" for it in items) + "</ul>")
-            continue
-
-        # ordered list
-        if re.match(r"^\d+\.\s+", stripped):
-            items = []
-            while i < len(lines) and re.match(r"^\d+\.\s+", lines[i].strip()):
-                items.append(inline(re.sub(r"^\d+\.\s+", "", lines[i].strip())))
-                i += 1
-            out.append("<ol>" + "".join(f"<li>{it}</li>" for it in items) + "</ol>")
-            continue
+            out.append(f"<p>{inline(' '.join(chunk))}</p>")
+        continue
 
         # horizontal rule
         if re.match(r"^---+$", stripped):
@@ -146,16 +172,14 @@ def render_markdown(body: str) -> tuple[str, list[tuple[str, str]]]:
             i += 1
             continue
 
-        # paragraph: consume until a blank line
-        chunk = []
-        while i < len(lines) and lines[i].strip() and not re.match(
-            r"^(#{2,4}\s|>\s|[-*]\s|\d+\.\s|---+$)", lines[i].strip()
-        ):
-            chunk.append(lines[i].strip())
-            i += 1
-        out.append(f"<p>{inline(' '.join(chunk))}</p>")
 
-    return "\n".join(out), toc
+    return {
+        "intro": "\n".join(intro),
+        "sections": [
+            {"id": sec["id"], "title": sec["title"], "html": "\n".join(sec["blocks"])}
+            for sec in sections
+        ],
+    }
 
 
 # ---------------------------------------------------------------- helpers
@@ -167,14 +191,15 @@ def read_articles() -> list[dict]:
         if missing:
             raise SystemExit(f"{path.name}: front matter missing {', '.join(missing)}")
         slug = meta.get("slug") or path.stem
-        content, toc = render_markdown(body)
-        words = len(re.findall(r"\b[\w'-]+\b", re.sub(r"<[^>]+>", " ", content)))
+        parsed = render_markdown(body)
+        all_html = parsed["intro"] + "".join(s["html"] for s in parsed["sections"])
+        words = len(re.findall(r"\b[\w'-]+\b", re.sub(r"<[^>]+>", " ", all_html)))
         articles.append(
             {
                 **meta,
                 "slug": slug,
-                "html": content,
-                "toc": toc,
+                "intro": parsed["intro"],
+                "sections": parsed["sections"],
                 "words": words,
                 "minutes": max(1, round(words / 220)),
                 "source": path.name,
@@ -242,7 +267,14 @@ FONT_PRELOADS = "".join(
     f'<link rel="preload" href="/assets/fonts/{f}" as="font" type="font/woff2" crossorigin/>'
     for f in ("bricolage.woff2", "inter-500.woff2", "pixel.woff2")
 )
+# The scroll-highlight on the standfirst is the one bundle effect these pages
+# borrow. GSAP plus two plugins is a fraction of app.js, which would drag in
+# Barba and the hero shader for a page that exists to be read.
 SCRIPTS = (
+    '<script src="/assets/js/gsap.min.js" defer></script>'
+    '<script src="/assets/js/ScrollTrigger.min.js" defer></script>'
+    '<script src="/assets/js/SplitText.min.js" defer></script>'
+    '<script src="/assets/js/journal.js" defer></script>'
     '<script src="/assets/js/site.js" defer></script>'
     '<script src="/assets/js/transition.js" defer></script>'
 )
@@ -281,6 +313,26 @@ def rfc822(iso: str) -> str:
 
 
 # ---------------------------------------------------------------- renderers
+ARROW = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12"'
+    ' fill="none" class="g_btn_svg{extra}"><path d="M8.90954 9.09046L9 3L2.90954'
+    ' 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609'
+    ' 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>'
+)
+
+
+def button(href: str, label: str) -> str:
+    """The site's one button component, unchanged."""
+    return (
+        f'<a data-btn-default="" href="{href}" class="g_btn_main w-inline-block">'
+        '<div class="g_btn_text_contain"><div class="g_btn_text u-text-style-small'
+        f' u-text-trim-off">{html.escape(label)}</div></div>'
+        '<div class="g_btn_aside_wrap"><div class="g_btn_aside_bg"></div>'
+        + ARROW.format(extra="") + ARROW.format(extra=" is-absolute") +
+        '</div></a>'
+    )
+
+
 def render_article(a: dict, articles: list[dict]) -> str:
     url = f"{SITE}/journal/{a['slug']}"
     ld = json.dumps(
@@ -299,8 +351,6 @@ def render_article(a: dict, articles: list[dict]) -> str:
         },
         separators=(",", ":"),
     )
-    ld_tag = f'<script type="application/ld+json">{ld}</script>'
-
     breadcrumb = json.dumps(
         {
             "@context": "https://schema.org",
@@ -314,71 +364,73 @@ def render_article(a: dict, articles: list[dict]) -> str:
         },
         separators=(",", ":"),
     )
-    ld_tag += f'<script type="application/ld+json">{breadcrumb}</script>'
+    ld_tag = (
+        f'<script type="application/ld+json">{ld}</script>'
+        f'<script type="application/ld+json">{breadcrumb}</script>'
+    )
 
-    toc = ""
-    if len(a["toc"]) >= 3:
-        items = "".join(
-            f'<li><a href="#{sid}">{html.escape(t)}</a></li>' for sid, t in a["toc"]
+    # The intro sits in the prose column of its own headless row, so the
+    # measure never changes between the opening and the first section.
+    intro_row = ""
+    if a["intro"]:
+        intro_row = (
+            '<div class="jr_content-item">'
+            '<div class="jr_content-left"></div>'
+            f'<div class="jr_prose">{a["intro"]}</div>'
+            "</div>"
         )
-        toc = f'<nav class="jr-toc" aria-label="On this page"><p class="jr-toc__title">On this page</p><ol>{items}</ol></nav>'
 
-    # related: same tag first, then most recent
+    rows = "".join(
+        '<section class="jr_content-item">'
+        '<div class="jr_content-left">'
+        f'<h2 id="{sec["id"]}" class="jr_content_heading u-text-style-h5">'
+        f'{html.escape(sec["title"])}</h2></div>'
+        f'<div class="jr_prose">{sec["html"]}</div>'
+        "</section>"
+        for sec in a["sections"]
+    )
+
+    # related: shared tags first, then most recent
     tags = set(a.get("tags", []) or [])
-    others = [o for o in articles if o["slug"] != a["slug"]]
-    others.sort(key=lambda o: (-len(tags & set(o.get("tags", []) or [])), o["date"]),
-                reverse=False)
+    # newest first, then stable-sort so shared tags win — a tuple key cannot
+    # express "descending date" alongside "descending overlap" on a string
+    others = sorted((o for o in articles if o["slug"] != a["slug"]),
+                    key=lambda o: o["date"], reverse=True)
     others.sort(key=lambda o: len(tags & set(o.get("tags", []) or [])), reverse=True)
     related = others[:3]
-    rel_html = ""
+    next_block = ""
     if related:
-        cards = "".join(
+        items = "".join(
             f'<li><a href="/journal/{r["slug"]}">'
-            f'<span class="jr-card__date">{fmt_date(r["date"])}</span>'
-            f'<span class="jr-card__title">{html.escape(r["title"])}</span></a></li>'
+            f'<span class="jr_next_date u-text-style-main">{fmt_date(r["date"])}</span>'
+            f'<span class="u-text-style-h6">{html.escape(r["title"])}</span>'
+            "</a></li>"
             for r in related
         )
-        rel_html = (
-            '<aside class="jr-related"><h2>Read next</h2>'
-            f'<ul class="jr-related__list">{cards}</ul></aside>'
+        next_block = (
+            '<div class="jr_next">'
+            '<h2 class="jr_next_heading u-text-style-h5">Read next</h2>'
+            f'<ul class="jr_next_list">{items}</ul></div>'
         )
 
-    tag_html = ""
-    if a.get("tags"):
-        tag_html = '<ul class="jr-tags">' + "".join(
-            f"<li>{html.escape(t)}</li>" for t in a["tags"]
-        ) + "</ul>"
-
-    body = f"""<main class="jr">
-<article class="jr-article">
-  <header class="jr-head">
-    <p class="jr-crumb"><a href="/journal/">Journal</a></p>
-    <h1 class="jr-title">{html.escape(a['title'])}</h1>
-    <p class="jr-standfirst">{html.escape(a['description'])}</p>
-    <div class="jr-meta">
-      <time datetime="{a['date']}">{fmt_date(a['date'])}</time>
-      <span>{a['minutes']} min read</span>
-      {tag_html}
-    </div>
+    body = f"""<main class="jr_wrap">
+<article>
+  <header class="jr_header">
+    <p class="jr_kicker u-text-style-main">{fmt_date(a['date'])} &nbsp;·&nbsp; {a['minutes']} min read</p>
+    <h1 class="jr_title u-text-style-h2">{html.escape(a['title'])}</h1>
+    <p class="jr_lede u-text-style-h4" data-highlight-text>{html.escape(a['description'])}</p>
   </header>
-  {toc}
-  <div class="jr-body-copy">
-{a['html']}
+  <div class="jr_content-list">{intro_row}{rows}</div>
+  <div class="jr_end">
+    <h2 class="u-text-style-h5 jr_end_text">Think this is happening on your site?</h2>
+    <div class="jr_end_aside">
+      <p class="u-text-style-main">One hour on your business and your customers. No pitch.
+        We work out where the business is losing customers online, and whether I am
+        the right person to fix it.</p>
+      {button('/book', 'Book an intro call')}
+    </div>
   </div>
-  <footer class="jr-cta">
-    <h2>Think this is happening on your site?</h2>
-    <p>One hour on your business and your customers. No pitch — we work out where
-       the business is losing customers online, and whether I am the right person
-       to fix it.</p>
-    <a data-btn-default="" href="/book" class="g_btn_main w-inline-block">
-      <div class="g_btn_text_contain"><div class="g_btn_text u-text-style-small u-text-trim-off">Book an intro call</div></div>
-      <div class="g_btn_aside_wrap"><div class="g_btn_aside_bg"></div>
-        <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
-        <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg is-absolute"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
-      </div>
-    </a>
-  </footer>
-  {rel_html}
+  {next_block}
 </article>
 </main>"""
     return page_shell(
@@ -387,18 +439,16 @@ def render_article(a: dict, articles: list[dict]) -> str:
 
 
 def render_index(articles: list[dict]) -> str:
-    by_tag: dict[str, int] = {}
-    for a in articles:
-        for t in a.get("tags", []) or []:
-            by_tag[t] = by_tag.get(t, 0) + 1
-
     rows = "".join(
-        f'<li class="jr-row"><a href="/journal/{a["slug"]}" class="jr-row__link">'
-        f'<time class="jr-row__date" datetime="{a["date"]}">{fmt_date(a["date"])}</time>'
-        f'<span class="jr-row__title">{html.escape(a["title"])}</span>'
-        f'<span class="jr-row__desc">{html.escape(a["description"])}</span>'
-        f'<span class="jr-row__read">{a["minutes"]} min</span>'
-        f"</a></li>"
+        f'<li><a href="/journal/{a["slug"]}" class="jr_item_link">'
+        '<div class="jr_item_text">'
+        f'<h2 class="u-text-style-h5">{html.escape(a["title"])}</h2>'
+        f'<p class="u-text-style-main">{html.escape(a["description"])}</p>'
+        "</div>"
+        '<div class="jr_item_meta">'
+        f'<span class="u-text-style-main">{fmt_date(a["date"])}</span>'
+        f'<span class="u-text-style-main">{a["minutes"]} min</span>'
+        "</div></a></li>"
         for a in articles
     )
 
@@ -422,17 +472,11 @@ def render_index(articles: list[dict]) -> str:
         separators=(",", ":"),
     )
 
-    body = f"""<main class="jr">
-<div class="jr-index">
-  <header class="jr-index__head">
-    <p class="jr-crumb">Journal</p>
-    <h1 class="jr-index__title">What actually loses businesses customers online.</h1>
-    <p class="jr-index__lede">Notes from the work — the leaks I find most often,
-      what they cost, and how they get closed. Written for the person who owns
-      the business, not for other developers.</p>
-  </header>
-  <ul class="jr-list">{rows}</ul>
-</div>
+    body = f"""<main class="jr_wrap">
+  <h1 class="jr_display">Notes</h1>
+  <p class="jr_index_lede u-text-style-h4" data-highlight-text>What actually loses
+    businesses customers online, and what each leak costs.</p>
+  <ul class="jr_list">{rows}</ul>
 </main>"""
     return page_shell(
         f"Journal — {SITE_NAME}",

@@ -446,3 +446,22 @@ html.rt-arriving .rt_wipe__label { opacity: .55; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .rt_wipe, .rt_wipe__label { transition: none; }
 }
+
+/* ==================================================================
+   Grid tokens. These were declared in an inline <style> inside
+   index.html, so any page that is not the home page inherited the
+   broken 6px fallbacks left in site.css by the export. Same values,
+   somewhere every page can reach them.
+   ================================================================== */
+:root {
+  --column-width--1: calc((100% - ((var(--site--column-count) - 1) * var(--site--gutter))) / var(--site--column-count));
+  --column-width--2: calc(var(--column-width--1) * 2 + (var(--site--gutter) * 1));
+  --column-width--3: calc(var(--column-width--1) * 3 + (var(--site--gutter) * 2));
+  --column-width--4: calc(var(--column-width--1) * 4 + (var(--site--gutter) * 3));
+  --column-width--5: calc(var(--column-width--1) * 5 + (var(--site--gutter) * 4));
+  --column-width--6: calc(var(--column-width--1) * 6 + (var(--site--gutter) * 5));
+  --column-width--7: calc(var(--column-width--1) * 7 + (var(--site--gutter) * 6));
+  --column-width--8: calc(var(--column-width--1) * 8 + (var(--site--gutter) * 7));
+  --column-margin--1: calc(var(--column-width--1) + var(--site--gutter));
+  --column-margin--2: calc(var(--column-width--2) + var(--site--gutter));
+}

@@ -2,10 +2,9 @@
    book.css — intro call request page
 
    This page borrows the home page's structural language rather than
-   inventing its own: hairline rules as the only separator, corners at
-   the site's --radius--small (which reads as square), the display face
-   for the heading at section scale, and the same vertical hairlines
-   that run behind the statement section.
+   inventing its own: separation by space rather than rules, corners at
+   the site's --radius--small (which reads as square), and the display
+   face for the heading at section scale.
 
    Labels use the primary face. Only values the reader compares —
    times, counts — stay monospaced.
@@ -38,21 +37,6 @@ dl, dd, h1, p { margin: 0; }
   overflow: hidden;
 }
 
-/* the statement section's vertical hairlines, carried through here */
-.bk::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(
-    to right,
-    var(--bk-rule-soft) 0 1px,
-    transparent 1px calc(100% / 4)
-  );
-  background-position: left top;
-  opacity: .6;
-}
-
 /* --- layout ------------------------------------------------------ */
 .bk__grid {
   position: relative;
@@ -66,20 +50,9 @@ dl, dd, h1, p { margin: 0; }
 /* --- aside ------------------------------------------------------- */
 .bk__aside { padding-right: clamp(0rem, 2vw, 2rem); }
 
-/* the kicker sits on a rule that runs out to the column edge, the way
-   the statement section's label does */
 .bk__kicker {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
   color: var(--bk-dim);
   margin-bottom: clamp(1.1rem, 3vh, 1.8rem);
-}
-.bk__kicker::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--bk-rule);
 }
 
 /* section-scale display type, matching the home page's headings */
@@ -97,18 +70,17 @@ dl, dd, h1, p { margin: 0; }
   color: var(--swatch--beige-400, #bfbfb1);
 }
 
-/* the meta list reads as an index: hairline per row, no boxes */
+/* the meta list is spaced, not ruled — the home page separates with air */
 .bk__meta {
   margin-top: clamp(2rem, 5vh, 3rem);
-  border-top: 1px solid var(--bk-rule);
+  display: grid;
+  gap: 1.15rem;
 }
 .bk__meta > div {
   display: grid;
   grid-template-columns: 8.5rem 1fr;
   align-items: baseline;
   gap: 1rem;
-  padding: .85rem 0;
-  border-bottom: 1px solid var(--bk-rule-soft);
 }
 .bk__meta dt { color: var(--bk-dim); }
 .bk__meta dd { margin: 0; }
@@ -123,22 +95,14 @@ dl, dd, h1, p { margin: 0; }
 /* --- form -------------------------------------------------------- */
 .bk__form { padding: 0; }
 
-/* every field group is a ruled row, like the index on the home page */
-.bk__field {
-  padding-bottom: 1.4rem;
-  margin-bottom: 1.4rem;
-  border-bottom: 1px solid var(--bk-rule-soft);
-}
-.bk__field:last-of-type { border-bottom: 0; }
+.bk__field { margin-bottom: 2.1rem; }
 .bk__row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: clamp(1rem, 2vw, 1.6rem);
-  padding-bottom: 1.4rem;
-  margin-bottom: 1.4rem;
-  border-bottom: 1px solid var(--bk-rule-soft);
+  margin-bottom: 2.1rem;
 }
-.bk__row .bk__field { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+.bk__row .bk__field { margin-bottom: 0; }
 
 .bk__label {
   display: block;
@@ -214,9 +178,7 @@ textarea { resize: vertical; min-height: 7rem; line-height: 1.55; }
   align-items: center;
   gap: 1.2rem;
   flex-wrap: wrap;
-  margin-top: 1.8rem;
-  padding-top: 1.6rem;
-  border-top: 1px solid var(--bk-rule);
+  margin-top: 1.2rem;
 }
 .bk__submit { border: 0; cursor: pointer; font: inherit; }
 .bk__submit[disabled] { opacity: .55; cursor: not-allowed; }
@@ -249,8 +211,7 @@ textarea { resize: vertical; min-height: 7rem; line-height: 1.55; }
   .bk__grid { grid-template-columns: 1fr; }
   .bk__aside { padding-right: 0; }
   .bk__row { grid-template-columns: 1fr; gap: 1.4rem; }
-  .bk__row .bk__field:first-child { padding-bottom: 1.4rem; border-bottom: 1px solid var(--bk-rule-soft); }
-  .bk::before { background-image: repeating-linear-gradient(to right, var(--bk-rule-soft) 0 1px, transparent 1px 50%); }
+  .bk__row .bk__field:first-child { margin-bottom: 2.1rem; }
   .bk__meta > div { grid-template-columns: 7rem 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {

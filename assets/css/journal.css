@@ -1,321 +1,284 @@
 /* ==================================================================
-   journal.css — article pages and the journal index.
+   journal.css — the journal, built out of the home page's own sections.
 
-   Reading is the whole job here, so the measure is tight, the body is
-   set larger than the rest of the site, and the structure is carried by
-   the same hairline rules the home page uses rather than by boxes.
+   The point is visual familiarity. A reader who arrives here from a
+   search has already learned the home page's language once; making them
+   learn a second one is what loses them. So there is nothing new here:
+
+     the index    borrows the works section — a display heading over a
+                  list of title-and-description rows
+     an article   borrows the process section — a display heading, then
+                  rows split heading-left / prose-right
+
+   No rules, no boxed panels, no micro-labels. Separation is space and
+   type scale, which is how the rest of the site does it.
    ================================================================== */
-
-:root {
-  --jr-ink: var(--swatch--beige-100, #e8e8e3);
-  --jr-ink-soft: var(--swatch--beige-400, #bfbfb1);
-  --jr-dim: var(--swatch--black-50, #938f8a);
-  --jr-rule: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 14%, transparent);
-  --jr-rule-soft: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 8%, transparent);
-  --jr-surface: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 4%, transparent);
-  --jr-measure: 38rem;
-}
 
 body.jr-body {
   margin: 0;
   background: var(--swatch--black-400, #080807);
-  color: var(--jr-ink);
+  color: var(--swatch--beige-100, #e8e8e3);
   min-height: 100svh;
 }
 
-.jr {
-  padding: clamp(7rem, 16vh, 11rem) clamp(1rem, 4vw, 2.5rem) clamp(4rem, 10vh, 7rem);
+.jr_wrap {
+  padding: var(--_spacing---section-space--page-top, 9rem)
+           var(--site--margin, 1.5rem)
+           var(--_spacing---section-space--large, 7rem);
+  overflow: clip;
 }
 
-/* --- shared bits -------------------------------------------------- */
-.jr-crumb {
-  margin: 0 0 1.1rem;
-  font-family: var(--_typography---font--primary-family, sans-serif);
-  font-size: .82rem;
-  letter-spacing: .02em;
-  color: var(--jr-dim);
-}
-.jr-crumb a { color: inherit; text-decoration: none; box-shadow: 0 1px 0 0 currentColor; }
-.jr-crumb a:hover { color: var(--jr-ink); }
-
-/* ==================================================================
-   Index
-   ================================================================== */
-.jr-index { width: min(74rem, 100%); margin-inline: auto; }
-.jr-index__head { margin-bottom: clamp(2.5rem, 6vh, 4rem); }
-.jr-index__title {
-  margin: 0;
+/* the display heading that opens every section on the home page ---- */
+.jr_display {
+  margin: 0 0 var(--_spacing---space--8, 3rem);
+  color: var(--swatch--beige-100, #e8e8e3);
   font-family: var(--_typography---font--secondary-family, sans-serif);
   font-weight: 800;
-  font-size: clamp(2rem, 5vw, 4.2rem);
-  line-height: 1.0;
-  letter-spacing: -.025em;
-  max-width: 20ch;
-  text-wrap: balance;
-}
-.jr-index__lede {
-  margin: 1.4rem 0 0;
-  max-width: 46ch;
-  font-size: 1.05rem;
-  line-height: 1.6;
-  color: var(--jr-ink-soft);
-}
-
-.jr-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--jr-rule); }
-.jr-row { border-bottom: 1px solid var(--jr-rule-soft); }
-.jr-row__link {
-  display: grid;
-  grid-template-columns: 8.5rem minmax(0, 22rem) 1fr 4rem;
-  align-items: baseline;
-  gap: 1.5rem;
-  padding: 1.5rem 0;
-  color: inherit;
-  text-decoration: none;
-  transition: padding-left 520ms cubic-bezier(.22,1,.36,1), opacity 300ms ease;
-}
-.jr-list:hover .jr-row__link { opacity: .45; }
-.jr-list:hover .jr-row__link:hover { opacity: 1; padding-left: .7rem; }
-.jr-row__link:focus-visible { outline: 2px solid var(--jr-ink); outline-offset: 4px; }
-
-.jr-row__date {
-  font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: .72rem;
-  letter-spacing: .1em;
-  color: var(--jr-dim);
-  font-variant-numeric: tabular-nums;
-}
-.jr-row__title {
-  font-size: clamp(1.05rem, 1.5vw, 1.3rem);
-  line-height: 1.28;
-  font-weight: 500;
-  text-wrap: balance;
-}
-.jr-row__desc { color: var(--jr-dim); font-size: .92rem; line-height: 1.5; }
-.jr-row__read {
-  font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: .72rem;
-  color: var(--jr-dim);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+  font-size: 13.85vw;
+  line-height: .82;
+  letter-spacing: -.03em;
+  text-transform: uppercase;
 }
 
 /* ==================================================================
-   Article
+   Index — the works section's list rhythm
    ================================================================== */
-.jr-article { width: min(74rem, 100%); margin-inline: auto; }
+.jr_index_lede {
+  max-width: 34ch;
+  margin: 0 0 var(--_spacing---section-space--small, 5rem);
+  color: var(--swatch--black-50, #938f8a);
+}
 
-.jr-head { max-width: 44rem; margin-bottom: clamp(2rem, 5vh, 3.25rem); }
-.jr-title {
-  margin: 0;
-  font-family: var(--_typography---font--secondary-family, sans-serif);
-  font-weight: 800;
-  font-size: clamp(2rem, 4.4vw, 3.7rem);
-  line-height: 1.02;
-  letter-spacing: -.025em;
-  text-wrap: balance;
-}
-.jr-standfirst {
-  margin: 1.3rem 0 0;
-  font-size: clamp(1.05rem, 1.6vw, 1.28rem);
-  line-height: 1.5;
-  color: var(--jr-ink-soft);
-  max-width: 40ch;
-}
-.jr-meta {
+.jr_list {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1.1rem;
-  margin-top: 1.8rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--jr-rule);
-  font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: .72rem;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--jr-dim);
-}
-.jr-tags { display: flex; gap: .5rem; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
-.jr-tags li {
-  padding: .2rem .5rem;
-  background: var(--jr-surface);
-  border-radius: var(--radius--small, .15rem);
-}
-
-/* table of contents */
-.jr-toc {
-  max-width: var(--jr-measure);
-  margin: 0 0 clamp(2rem, 5vh, 3rem);
-  padding: 1.2rem 1.3rem 1.3rem;
-  background: var(--jr-surface);
-  border-radius: var(--radius--small, .15rem);
-}
-.jr-toc__title {
-  margin: 0 0 .7rem;
-  font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: .68rem;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--jr-dim);
-}
-.jr-toc ol { margin: 0; padding-left: 1.2rem; display: grid; gap: .45rem; }
-.jr-toc li { color: var(--jr-ink-soft); }
-.jr-toc a { color: inherit; text-decoration: none; }
-.jr-toc a:hover { color: var(--jr-ink); box-shadow: 0 1px 0 0 currentColor; }
-
-/* the copy itself */
-.jr-body-copy {
-  max-width: var(--jr-measure);
-  font-size: 1.08rem;
-  line-height: 1.72;
-  color: var(--jr-ink-soft);
-}
-/* `.jr-body-copy p { margin: 0 }` would out-specify the sibling rule below
-   and collapse every gap between paragraphs, so zero the margin on the
-   children generically and let the sibling rule reinstate the top. */
-.jr-body-copy > * { margin: 0; }
-.jr-body-copy > * + * { margin-top: 1.35rem; }
-
-.jr-body-copy h2 {
-  margin-top: clamp(2.5rem, 6vh, 3.5rem);
-  font-family: var(--_typography---font--secondary-family, sans-serif);
-  font-weight: 800;
-  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
-  line-height: 1.16;
-  letter-spacing: -.015em;
-  color: var(--jr-ink);
-  padding-top: 1.4rem;
-  border-top: 1px solid var(--jr-rule-soft);
-  text-wrap: balance;
-}
-.jr-body-copy h3 {
-  margin-top: 2.2rem;
-  font-family: var(--_typography---font--primary-family, sans-serif);
-  font-weight: 600;
-  font-size: 1.14rem;
-  line-height: 1.35;
-  color: var(--jr-ink);
-}
-.jr-body-copy h4 {
-  margin-top: 1.8rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--jr-ink);
-}
-
-.jr-body-copy strong { color: var(--jr-ink); font-weight: 600; }
-.jr-body-copy a { color: var(--jr-ink); box-shadow: 0 1px 0 0 var(--jr-rule); text-decoration: none; }
-.jr-body-copy a:hover { box-shadow: 0 1px 0 0 currentColor; }
-
-.jr-body-copy ul, .jr-body-copy ol { margin: 1.35rem 0 0; padding-left: 1.3rem; display: grid; gap: .6rem; }
-.jr-body-copy li { padding-left: .2rem; }
-.jr-body-copy li::marker { color: var(--jr-dim); }
-
-.jr-body-copy blockquote {
-  margin: clamp(2rem, 5vh, 2.75rem) 0 0;
-  padding-left: 1.4rem;
-  border-left: 1px solid var(--jr-rule);
-}
-.jr-body-copy blockquote p {
-  font-family: var(--_typography---font--secondary-family, sans-serif);
-  font-weight: 800;
-  font-size: clamp(1.2rem, 2vw, 1.55rem);
-  line-height: 1.3;
-  letter-spacing: -.015em;
-  color: var(--jr-ink);
-  text-wrap: balance;
-}
-
-.jr-body-copy code {
-  font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: .88em;
-  padding: .12em .38em;
-  background: var(--jr-surface);
-  border-radius: var(--radius--small, .15rem);
-  color: var(--jr-ink);
-}
-.jr-body-copy hr { border: 0; border-top: 1px solid var(--jr-rule-soft); margin: 2.5rem 0 0; }
-
-/* closing call to action */
-.jr-cta {
-  max-width: var(--jr-measure);
-  margin-top: clamp(3rem, 8vh, 5rem);
-  padding-top: clamp(1.75rem, 4vh, 2.5rem);
-  border-top: 1px solid var(--jr-rule);
-}
-.jr-cta h2 {
-  margin: 0 0 .8rem;
-  font-family: var(--_typography---font--secondary-family, sans-serif);
-  font-weight: 800;
-  font-size: clamp(1.3rem, 2.2vw, 1.75rem);
-  line-height: 1.15;
-  letter-spacing: -.02em;
-  color: var(--jr-ink);
-  text-wrap: balance;
-}
-.jr-cta p { margin: 0 0 1.5rem; color: var(--jr-dim); max-width: 40ch; }
-.jr-cta .g_btn_main { display: inline-flex; align-items: center; }
-
-/* read next */
-.jr-related {
-  margin-top: clamp(3rem, 8vh, 5rem);
-  padding-top: clamp(1.5rem, 4vh, 2.25rem);
-  border-top: 1px solid var(--jr-rule);
-}
-.jr-related h2 {
-  margin: 0 0 1.2rem;
-  font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: .72rem;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  font-weight: 400;
-  color: var(--jr-dim);
-}
-.jr-related__list {
-  list-style: none;
+  flex-flow: column;
+  gap: var(--_spacing---section-space--small, 4.5rem);
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 1px;
-  background: var(--jr-rule-soft);
-  border: 1px solid var(--jr-rule-soft);
+  list-style: none;
 }
-.jr-related__list a {
-  display: grid;
-  gap: .5rem;
-  padding: 1.2rem 1.15rem 1.35rem;
-  height: 100%;
-  background: var(--swatch--black-400, #080807);
+
+.jr_item_link {
+  display: flex;
+  flex-flow: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--site--gutter, 1.5rem);
+  width: 100%;
   color: inherit;
   text-decoration: none;
-  transition: background 300ms ease;
+  transition: opacity 300ms ease;
 }
-.jr-related__list a:hover { background: var(--jr-surface); }
-.jr-card__date {
+/* the row the pointer is on stays lit and the rest recede — the same
+   move the nav and the works list make */
+.jr_list:hover .jr_item_link { opacity: .4; }
+.jr_list:hover .jr_item_link:hover { opacity: 1; }
+.jr_item_link:focus-visible { outline: 2px solid currentColor; outline-offset: .6rem; }
+
+.jr_item_text {
+  display: flex;
+  flex-flow: column;
+  gap: var(--_spacing---space--4, 1rem);
+  max-width: 39ch;
+}
+.jr_item_meta {
+  display: flex;
+  flex-flow: column;
+  gap: var(--_spacing---space--2, .4rem);
+  align-items: flex-end;
+  text-align: right;
+  flex: none;
+  color: var(--swatch--black-50, #938f8a);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==================================================================
+   Article — the process section's rhythm
+   ================================================================== */
+.jr_header {
+  max-width: var(--column-width--8, 60ch);
+  margin-bottom: var(--_spacing---section-space--small, 5rem);
+  display: flex;
+  flex-flow: column;
+  gap: var(--_spacing---space--5, 1.4rem);
+}
+.jr_kicker {
+  color: var(--swatch--black-50, #938f8a);
+  font-variant-numeric: tabular-nums;
+}
+.jr_title {
+  margin: 0;
+  max-width: 20ch;
+}
+/* the standfirst runs the home page's scroll-highlight, which is the
+   single most recognisable thing on the site */
+.jr_lede {
+  margin: 0;
+  max-width: 30ch;
+  color: var(--swatch--beige-100, #e8e8e3);
+}
+
+.jr_content-list {
+  display: flex;
+  flex-flow: column;
+  gap: var(--_spacing---section-space--small, 5rem);
+}
+
+/* heading left, prose right — the process section's split exactly */
+.jr_content-item {
+  display: flex;
+  flex-flow: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--site--gutter, 1.5rem);
+}
+.jr_content-left { flex: 1; }
+.jr_content_heading { margin: 0; max-width: 20ch; }
+
+.jr_prose {
+  width: var(--column-width--6, 50%);
+  flex: none;
+  color: var(--swatch--black-50, #938f8a);
+  font-family: var(--_typography---font--primary-family, sans-serif);
+  font-size: clamp(1rem, .95rem + .25vw, 1.125rem);
+  line-height: 1.55;
+}
+/* zero the children generically so the sibling rule below is what sets
+   the rhythm; `.jr_prose p { margin: 0 }` would out-specify it */
+.jr_prose > * { margin: 0; }
+.jr_prose > * + * { margin-top: var(--_spacing---space--5, 1.4rem); }
+
+.jr_prose strong { color: var(--swatch--beige-100, #e8e8e3); font-weight: 600; }
+.jr_prose a { color: var(--swatch--beige-100, #e8e8e3); }
+.jr_prose ul, .jr_prose ol {
+  padding-left: 1.2rem;
+  display: flex;
+  flex-flow: column;
+  gap: var(--_spacing---space--3, .7rem);
+}
+.jr_prose li::marker { color: var(--swatch--black-100, #6b645c); }
+
+/* sub-headings inside a section stay in the body column */
+.jr_prose h3, .jr_prose h4 {
+  margin-top: var(--_spacing---space--6, 2rem);
+  color: var(--swatch--beige-100, #e8e8e3);
+  font-family: var(--_typography---font--primary-family, sans-serif);
+  font-weight: 500;
+  font-size: 1.06rem;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+}
+
+/* the one pulled line per article, set in the display face the way the
+   home page sets its statements */
+.jr_prose blockquote { margin-top: var(--_spacing---space--7, 2.5rem); }
+.jr_prose blockquote p {
+  color: var(--swatch--beige-100, #e8e8e3);
+  font-family: var(--_typography---font--secondary-family, sans-serif);
+  font-weight: 800;
+  font-size: clamp(1.25rem, 1rem + 1.1vw, 1.9rem);
+  line-height: 1.08;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+
+.jr_prose code {
   font-family: var(--_typography---font--tertiary-family, monospace);
-  font-size: .68rem;
-  letter-spacing: .1em;
-  color: var(--jr-dim);
+  font-size: .88em;
+  color: var(--swatch--beige-100, #e8e8e3);
 }
-.jr-card__title { font-size: 1rem; line-height: 1.32; text-wrap: balance; }
+.jr_prose hr { display: none; }
 
-/* ------------------------------------------------------------------ */
-@media (max-width: 900px) {
-  .jr-row__link {
-    grid-template-columns: 1fr;
-    gap: .45rem;
-    padding: 1.3rem 0;
+/* --- closing call, then what to read next ------------------------- */
+.jr_end {
+  margin-top: var(--_spacing---section-space--large, 8rem);
+  display: flex;
+  flex-flow: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--site--gutter, 1.5rem);
+}
+.jr_end_text {
+  flex: 1;
+  display: flex;
+  flex-flow: column;
+  gap: var(--_spacing---space--5, 1.4rem);
+  max-width: 20ch;
+}
+.jr_end_aside {
+  width: var(--column-width--6, 50%);
+  flex: none;
+  display: flex;
+  flex-flow: column;
+  gap: var(--_spacing---space--5, 1.4rem);
+  align-items: flex-start;
+}
+.jr_end_aside p { margin: 0; max-width: 34ch; color: var(--swatch--black-50, #938f8a); }
+.jr_end .g_btn_main { display: inline-flex; align-items: center; }
+
+.jr_next {
+  margin-top: var(--_spacing---section-space--large, 8rem);
+  display: flex;
+  flex-flow: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--site--gutter, 1.5rem);
+}
+.jr_next_heading { flex: 1; margin: 0; max-width: 20ch; }
+.jr_next_list {
+  width: var(--column-width--6, 50%);
+  flex: none;
+  display: flex;
+  flex-flow: column;
+  gap: var(--_spacing---space--5, 1.6rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jr_next_list a {
+  display: flex;
+  flex-flow: column;
+  gap: var(--_spacing---space--2, .35rem);
+  color: inherit;
+  text-decoration: none;
+  transition: opacity 300ms ease;
+}
+.jr_next_list:hover a { opacity: .4; }
+.jr_next_list:hover a:hover { opacity: 1; }
+.jr_next_date { color: var(--swatch--black-50, #938f8a); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------
+   Below the site's own tablet breakpoint the process section stacks,
+   so these do too.
+   ------------------------------------------------------------------ */
+@media (max-width: 991px) {
+  .jr_display { font-size: 17vw; }
+  .jr_content-item, .jr_end, .jr_next, .jr_item_link {
+    flex-flow: column;
+    gap: var(--_spacing---space--5, 1.4rem);
   }
-  .jr-row__read { text-align: left; }
-  .jr-list:hover .jr-row__link { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .jr-row__link, .jr-related__list a { transition: none; }
+  .jr_prose, .jr_end_aside, .jr_next_list { width: 100%; }
+  .jr_item_meta { flex-flow: row; gap: 1rem; align-items: baseline; text-align: left; }
+  .jr_list:hover .jr_item_link { opacity: 1; }
+  .jr_header { max-width: none; }
 }
 
-/* Body copy scrolls under the fixed nav here, which the home page's soft
-   scrim was never sized for — dense text stayed legible through it. */
+@media (prefers-reduced-motion: reduce) {
+  .jr_item_link, .jr_next_list a { transition: none; }
+}
+
+/* The process section's rows are short, so its heading never leaves the
+   viewport. Article sections run long, so the heading is pinned while its
+   own prose scrolls past — same layout, it just holds your place. */
+@media (min-width: 992px) {
+  .jr_content_heading {
+    position: sticky;
+    top: calc(var(--_spacing---section-space--page-top, 6rem) * .55);
+  }
+}
+
+/* Body copy passes under the fixed nav, which the home page's scrim was
+   never sized for — dense text stayed legible through it. */
 .jr-body .nav_scrim {
   height: clamp(5rem, 10vh, 7rem);
   background: linear-gradient(
