@@ -47,55 +47,147 @@ body.st-body {
 }
 .st-submit { margin-top: 1.6rem; }
 
-/* ------------------------------------------------------------------ bar */
+/* ==================================================================
+   Shell: a fixed bar, a sidebar of sections, and the view.
+
+   On a phone the sidebar slides in over the page — the studio has to
+   work from a phone, not merely survive being opened on one.
+   ================================================================== */
+.st-shell { min-height: 100svh; }
+
 .st-bar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 30;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  padding: 1.1rem clamp(1rem, 4vw, 2.5rem);
+  gap: 1rem;
+  height: var(--st-bar-h, 3.6rem);
+  padding: 0 clamp(.9rem, 3vw, 1.6rem);
+  padding-top: env(safe-area-inset-top);
   background: var(--swatch--black-400, #080807);
 }
-.st-brand { width: 8rem; color: var(--swatch--beige-100, #e8e8e3); display: block; }
-.st-bar__nav { display: flex; align-items: center; gap: 1.4rem; }
-.st-who { color: var(--swatch--black-50, #938f8a); }
+.st-brand { width: 7.5rem; color: var(--swatch--beige-100, #e8e8e3); display: block; flex: none; }
+.st-bar .st-say { margin-left: auto; text-align: right; }
+.st-who { color: var(--swatch--black-100, #6b645c); flex: none; }
 
-/* one text control everywhere: the row dims its siblings, as the nav does */
+/* two bars that become a cross — no icon font, no library */
+.st-menu-btn {
+  display: none;
+  flex: none;
+  width: 2.2rem; height: 2.2rem;
+  margin-left: -.5rem;
+  background: none; border: 0; padding: 0;
+  color: inherit; cursor: pointer;
+}
+.st-menu-btn__bars { display: block; position: relative; width: 1.15rem; height: .7rem; margin: 0 auto; }
+.st-menu-btn__bars i {
+  position: absolute; left: 0; right: 0; height: 1.5px;
+  background: currentColor;
+  transition: transform 320ms cubic-bezier(.22,1,.36,1), opacity 200ms ease;
+}
+.st-menu-btn__bars i:first-child { top: 0; }
+.st-menu-btn__bars i:last-child { bottom: 0; }
+.st-menu-btn[aria-expanded="true"] .st-menu-btn__bars i:first-child { transform: translateY(.34rem) rotate(45deg); }
+.st-menu-btn[aria-expanded="true"] .st-menu-btn__bars i:last-child { transform: translateY(-.34rem) rotate(-45deg); }
+
+/* One text control everywhere. site.css carries the Webflow reset, which
+   paints a background on any <button>, so this has to be explicit rather
+   than relying on `background: none`. */
 .st-link {
-  background: none;
+  display: inline-block;
+  background: transparent none;
   border: 0;
   padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
   color: inherit;
   font: inherit;
   text-decoration: none;
   cursor: pointer;
-  transition: opacity 300ms ease;
+  transition: opacity 300ms ease, color 260ms ease;
 }
-.st-bar__nav:hover .st-link, .st-actions:hover .st-link { opacity: .45; }
-.st-bar__nav:hover .st-link:hover, .st-actions:hover .st-link:hover { opacity: 1; }
+.st-link:hover { color: var(--swatch--beige-100, #e8e8e3); }
 .st-link.is-danger { color: var(--swatch--beige-400, #bfbfb1); }
 .st-link:focus-visible { outline: 2px solid currentColor; outline-offset: .35rem; }
+.st-actions:hover .st-link { opacity: .45; }
+.st-actions:hover .st-link:hover { opacity: 1; }
 
-/* ----------------------------------------------------------------- index */
-.st-index, .st-editor {
-  padding: clamp(1.5rem, 4vh, 3rem) clamp(1rem, 4vw, 2.5rem) clamp(4rem, 10vh, 7rem);
-  width: min(74rem, 100%);
-  margin-inline: auto;
+.st-scrim {
+  position: fixed; inset: 0; z-index: 19;
+  background: color-mix(in srgb, var(--swatch--black-400, #080807) 70%, transparent);
 }
-.st-index__head {
+
+/* --- sidebar ------------------------------------------------------ */
+.st-nav {
+  position: fixed;
+  top: var(--st-bar-h, 3.6rem);
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  width: var(--st-nav-w, 15rem);
+  display: flex;
+  flex-flow: column;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 1.6rem clamp(.9rem, 3vw, 1.6rem) calc(1.6rem + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.st-nav__group { margin-bottom: 1.8rem; }
+.st-nav__title {
+  margin: 0 0 .7rem;
+  color: var(--swatch--black-100, #6b645c);
+  font-size: .82rem;
+}
+.st-nav__link {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .38rem 0;
+  color: var(--swatch--black-50, #938f8a);
+  text-decoration: none;
+  font-size: .95rem;
+  transition: color 260ms ease, transform 420ms cubic-bezier(.22,1,.36,1);
+}
+.st-nav__link:hover { color: var(--swatch--beige-100, #e8e8e3); transform: translateX(.25rem); }
+.st-nav__link.is-on { color: var(--swatch--beige-100, #e8e8e3); }
+.st-nav__link:focus-visible { outline: 2px solid currentColor; outline-offset: .3rem; }
+/* a count, not a chip: the number is the information */
+.st-nav__badge { color: var(--swatch--beige-400, #bfbfb1); font-variant-numeric: tabular-nums; }
+.st-nav__foot { display: flex; flex-flow: column; align-items: flex-start; gap: .5rem; }
+
+/* --- the view ------------------------------------------------------ */
+.st-main {
+  padding: calc(var(--st-bar-h, 3.6rem) + clamp(1.5rem, 4vh, 3rem))
+           clamp(1rem, 4vw, 3rem)
+           calc(5rem + env(safe-area-inset-bottom));
+  margin-left: var(--st-nav-w, 15rem);
+  max-width: 62rem;
+}
+.st-head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 1.5rem;
   flex-wrap: wrap;
 }
-.st-index__lede {
-  margin: 1.3rem 0 clamp(2.5rem, 6vh, 4rem);
-  max-width: 34ch;
+.st-crumb { margin: 0 0 .7rem; color: var(--swatch--black-100, #6b645c); }
+.st-crumb .st-link { color: var(--swatch--black-50, #938f8a); }
+.st-crumb .st-link:hover { color: var(--swatch--beige-100, #e8e8e3); }
+.st-lede {
+  margin: 1.2rem 0 clamp(2.5rem, 6vh, 4rem);
+  max-width: 40ch;
   color: var(--swatch--black-50, #938f8a);
+}
+/* a list's own note is guidance, not a standfirst, so it sits at reading
+   size instead of competing with the display heading above it */
+[data-view="list"] .st-lede {
+  font-family: var(--_typography---font--primary-family, sans-serif);
+  font-size: 1rem;
+  line-height: 1.55;
+  letter-spacing: 0;
+  font-weight: 400;
 }
 
 /* status is a heading over a group, not a badge on a row */
@@ -108,11 +200,9 @@ body.st-body {
   letter-spacing: -.015em;
 }
 .st-group__count { color: var(--swatch--black-100, #6b645c); font-weight: 400; }
-/* the group's note explains the group, so it needs to sit clear of the
-   first row rather than reading as that row's own standfirst */
 .st-group > .st-note { margin: -.8rem 0 1.8rem; max-width: 44ch; }
 
-.st-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-flow: column; gap: 1.6rem; }
+.st-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-flow: column; gap: 1.5rem; }
 .st-row {
   display: flex;
   flex-flow: row;
@@ -121,34 +211,27 @@ body.st-body {
   gap: var(--site--gutter, 1.5rem);
   width: 100%;
   text-align: left;
-  background: none;
-  border: 0;
-  padding: 0;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
+  background: none; border: 0; padding: 0;
+  color: inherit; font: inherit; cursor: pointer;
   transition: opacity 300ms ease, transform 520ms cubic-bezier(.22,1,.36,1);
 }
 .st-rows:hover .st-row { opacity: .4; }
 .st-rows:hover .st-row:hover { opacity: 1; transform: translateX(.45rem); }
 .st-row:focus-visible { outline: 2px solid currentColor; outline-offset: .6rem; }
 
-.st-row__text { max-width: 42ch; display: flex; flex-flow: column; gap: .5rem; }
+.st-row__text { max-width: 42ch; display: flex; flex-flow: column; gap: .45rem; }
 .st-row__title {
   margin: 0;
-  font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+  font-size: clamp(1.02rem, 1.4vw, 1.22rem);
   line-height: 1.25;
   font-weight: 500;
   letter-spacing: -.01em;
 }
 .st-row__desc { margin: 0; color: var(--swatch--black-50, #938f8a); line-height: 1.5; }
 .st-row__meta {
-  flex: none;
-  text-align: right;
+  flex: none; text-align: right;
   color: var(--swatch--black-50, #938f8a);
-  display: flex;
-  flex-flow: column;
-  gap: .3rem;
+  display: flex; flex-flow: column; gap: .3rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -349,4 +432,53 @@ body.st-body {
   line-height: 1.03;
   letter-spacing: -.025em;
 }
-.st-bar__nav .st-link.is-on { text-decoration: underline; text-underline-offset: .4em; }
+
+/* --- media library ------------------------------------------------ */
+.st-media {
+  list-style: none; margin: 2rem 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 1.5rem;
+}
+.st-media__item { display: flex; flex-flow: column; gap: .6rem; }
+.st-media__item img {
+  width: 100%; aspect-ratio: 4/3; object-fit: cover;
+  border-radius: var(--radius--small, .15rem);
+  background: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 4%, transparent);
+}
+.st-media__item code {
+  font-family: var(--_typography---font--tertiary-family, monospace);
+  font-size: .72rem; color: var(--swatch--black-50, #938f8a);
+  word-break: break-all;
+}
+
+/* ==================================================================
+   Phones. The sidebar slides in over the view rather than shrinking
+   it, and the bar gets the button that opens it.
+   ================================================================== */
+@media (max-width: 900px) {
+  .st-menu-btn { display: block; }
+  .st-nav {
+    transform: translateX(-100%);
+    background: var(--swatch--black-400, #080807);
+    width: min(17rem, 82vw);
+    transition: transform 380ms cubic-bezier(.22,1,.36,1);
+    box-shadow: 1px 0 0 0 color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 8%, transparent);
+  }
+  .st-nav.is-open { transform: none; }
+  .st-main { margin-left: 0; }
+  .st-who { display: none; }
+  .st-pair { grid-template-columns: 1fr; }
+  .st-row, .st-preview__row { flex-flow: column; gap: .45rem; }
+  .st-row__meta { text-align: left; flex-flow: row; gap: 1rem; }
+  .st-preview__prose { width: 100%; }
+  .st-rows:hover .st-row { opacity: 1; }
+  .st-rows:hover .st-row:hover { transform: none; }
+  .st-actions { gap: 1.1rem; }
+  /* a comfortable target on a touch screen */
+  .st-nav__link { padding: .6rem 0; font-size: 1rem; }
+  .st-writing { min-height: 22rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-nav, .st-menu-btn__bars i, .st-nav__link { transition: none; }
+}
