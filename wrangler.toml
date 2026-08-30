@@ -9,14 +9,12 @@ pages_build_output_dir = "."
 keep_vars = true
 
 # --- Journal content ---------------------------------------------------
-# The articles table. Create and migrate with:
-#   npx wrangler d1 create web3ashley
-#   npx wrangler d1 execute web3ashley --remote --file=./schema.sql
-# then paste the id it prints below.
+# The content database. The tables and the seed are applied from the studio
+# on first sign-in (Set up), so there is nothing to run here.
 [[d1_databases]]
 binding = "DB"
 database_name = "web3ashley"
-database_id = "<run: npx wrangler d1 create web3ashley>"
+database_id = "e7e23024-ebc9-4378-8b70-302e0cdc0ce0"
 
 # Images uploaded through the studio. Create with:
 #   npx wrangler r2 bucket create web3ashley-media
@@ -24,11 +22,15 @@ database_id = "<run: npx wrangler d1 create web3ashley>"
 binding = "MEDIA"
 bucket_name = "web3ashley-media"
 
-# --- Secrets (set these, never commit them) ----------------------------
-#   npx wrangler pages secret put STUDIO_PASSWORD   # signs you into /studio
-#   npx wrangler pages secret put AGENT_TOKEN       # Gemini Spark's token
-#   npx wrangler pages secret put SESSION_SECRET    # signs the studio cookie
-#   npx wrangler pages secret put RESEND_API_KEY    # booking emails
+# --- Secrets (never commit these) --------------------------------------
+# Dashboard: your Pages project -> Settings -> Variables and Secrets -> Add,
+# with Encrypt ticked. Or `npx wrangler pages secret put <NAME>`.
+#
+#   STUDIO_PASSWORD   signs you into /studio.html
+#   SESSION_SECRET    signs the studio cookie — any long random string
+#   AGENT_TOKEN       Gemini Spark's token, once you wire it up
+#   STUDIO_USERS      optional: {"ashley":"…","sam":"…"} for more than one person
+#   RESEND_API_KEY    optional: sends the booking emails
 
 # Optional: store booking requests when no email provider is configured.
 #   npx wrangler kv namespace create BOOKINGS
