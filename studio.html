@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio — Web3Ashley</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="dark">
+<link rel="preload" href="/assets/fonts/inter-500.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
+<link href="/assets/css/site.css" rel="stylesheet" type="text/css">
+<link href="/assets/css/statement.css" rel="stylesheet" type="text/css">
+<link href="/assets/css/studio.css" rel="stylesheet" type="text/css">
+</head>
+<body class="body st-body">
+
+<!-- sign in ------------------------------------------------------------- -->
+<section class="st-gate" data-gate hidden>
+  <form class="st-gate__form" data-login>
+    <h1 class="st-gate__title u-text-style-h2">Studio</h1>
+    <label class="st-label u-text-style-main" for="st-pw">Password</label>
+    <input id="st-pw" name="password" type="password" autocomplete="current-password" required>
+    <button class="st-btn is-primary" type="submit">Sign in</button>
+    <p class="st-say u-text-style-main" data-login-status role="status"></p>
+  </form>
+</section>
+
+<!-- the studio ---------------------------------------------------------- -->
+<div class="st-app" data-app hidden>
+
+  <header class="st-bar">
+    <a class="st-brand" href="/" aria-label="Web3Ashley home">
+      <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 609 100" fill="none">
+        <text x="304.5" y="54" text-anchor="middle" dominant-baseline="central" fill="currentColor"
+              font-family="PixelDisplay, monospace" font-size="72" textLength="595"
+              lengthAdjust="spacingAndGlyphs">WEB3ASHLEY</text>
+      </svg>
+    </a>
+    <div class="st-bar__actions">
+      <span class="st-say u-text-style-main" data-status role="status"></span>
+      <button class="st-btn" data-new type="button">New article</button>
+      <button class="st-btn" data-logout type="button">Sign out</button>
+    </div>
+  </header>
+
+  <div class="st-cols">
+
+    <!-- list -->
+    <aside class="st-list">
+      <div class="st-list__head">
+        <h2 class="u-text-style-h6">Articles</h2>
+        <span class="st-count u-text-style-main" data-count></span>
+      </div>
+      <ul class="st-items" data-items></ul>
+    </aside>
+
+    <!-- editor -->
+    <main class="st-editor" data-editor hidden>
+      <div class="st-editor__head">
+        <input class="st-title" data-f="title" placeholder="Title" aria-label="Title">
+        <div class="st-editor__meta">
+          <span class="st-pill" data-pill></span>
+          <span class="st-slug u-text-style-main" data-slug-display></span>
+          <span class="st-words u-text-style-main" data-words></span>
+        </div>
+      </div>
+
+      <label class="st-label u-text-style-main" for="st-desc">
+        Description <span class="st-hint">the sentence Google shows under the title</span>
+      </label>
+      <textarea id="st-desc" class="st-desc" data-f="description" rows="2" maxlength="200"></textarea>
+      <div class="st-meter"><span data-desc-count>0</span>/160</div>
+
+      <div class="st-row">
+        <div>
+          <label class="st-label u-text-style-main" for="st-slug">URL</label>
+          <input id="st-slug" class="st-input" data-f="slug" placeholder="url-slug">
+        </div>
+        <div>
+          <label class="st-label u-text-style-main" for="st-tags">Tags</label>
+          <input id="st-tags" class="st-input" data-f="tags" placeholder="speed, mobile">
+        </div>
+      </div>
+
+      <div class="st-body__head">
+        <label class="st-label u-text-style-main" for="st-body">Article</label>
+        <div class="st-tabs" role="tablist">
+          <button class="st-tab is-on" data-tab="write" role="tab" type="button">Write</button>
+          <button class="st-tab" data-tab="preview" role="tab" type="button">Preview</button>
+        </div>
+      </div>
+      <textarea id="st-body" class="st-body" data-f="body" spellcheck="true"
+        placeholder="Open with the reader's situation, in one specific sentence.
+
+## A real section heading
+
+Body text. **Bold**, *italic*, [links](https://example.com), lists, and one
+> pulled line per article."></textarea>
+      <div class="st-preview" data-preview hidden></div>
+
+      <div class="st-actions">
+        <button class="st-btn is-primary" data-save type="button">Save</button>
+        <button class="st-btn" data-publish type="button">Publish</button>
+        <button class="st-btn" data-unpublish type="button" hidden>Unpublish</button>
+        <a class="st-btn" data-view target="_blank" rel="noopener">View</a>
+        <button class="st-btn is-danger" data-delete type="button">Delete</button>
+      </div>
+
+      <details class="st-media">
+        <summary class="u-text-style-main">Images</summary>
+        <input type="file" data-upload accept="image/png,image/jpeg,image/webp,image/avif">
+        <p class="st-hint">Uploads go to R2. Paste the markdown it gives you into the article.</p>
+        <ul class="st-media__list" data-media></ul>
+      </details>
+    </main>
+
+    <div class="st-empty" data-empty>
+      <p class="u-text-style-h5">Pick an article, or start a new one.</p>
+    </div>
+
+  </div>
+</div>
+
+<script type="module" src="/assets/js/studio.js"></script>
+</body>
+</html>

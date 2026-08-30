@@ -1,32 +1,28 @@
-# Drafts the next queued journal topic with Gemini and opens a pull request.
+# Drafts the next queued journal topic with Gemini and posts it into the
+# studio, where it waits with status `review` until a person publishes it.
 #
-# The PR is the review gate. Nothing reaches the site until a person reads the
-# draft and merges — see the note in tools/draft_article.py for why that gate
-# is here rather than publishing straight to the branch.
+# The agent token cannot publish, delete, or edit anything already live — the
+# API refuses those, so the gate holds even if this workflow misbehaves.
 #
-# Setup: repository Settings -> Secrets and variables -> Actions -> New secret
-#   Name:  GEMINI_API_KEY
-#   Value: your key from https://aistudio.google.com/apikey
-#
-# Also enable: Settings -> Actions -> General -> Workflow permissions ->
-#   "Read and write permissions" and "Allow GitHub Actions to create pull requests"
+# Repository Settings -> Secrets and variables -> Actions:
+#   GEMINI_API_KEY   from https://aistudio.google.com/apikey
+#   AGENT_TOKEN      the same value as the AGENT_TOKEN Pages secret
+#   STUDIO_URL       https://web3ashley.com
 
 name: Draft journal article
 
 on:
   schedule:
-    # 08:00 UTC every Monday
-    - cron: "0 8 * * 1"
+    - cron: "0 8 * * 1"          # 08:00 UTC every Monday
   workflow_dispatch:
     inputs:
       topic:
-        description: "Topic to draft (leave blank to take the next queued one)"
+        description: "Topic to draft (blank takes the next queued one)"
         required: false
         type: string
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: write                # only to tick the topic off the queue
 
 concurrency:
   group: draft-article
@@ -37,49 +33,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Draft the article
-        id: draft
+      - name: Draft and post to the studio
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AGENT_TOKEN: ${{ secrets.AGENT_TOKEN }}
+          STUDIO_URL: ${{ secrets.STUDIO_URL }}
         run: |
-          if [ -z "$GEMINI_API_KEY" ]; then
-            echo "::error::GEMINI_API_KEY secret is not set. See the header of this workflow file."
-            exit 1
-          fi
-          python3 tools/draft_article.py ${{ inputs.topic && format('"{0}"', inputs.topic) || '' }} | tee draft-output.txt
-          echo "summary<<EOF" >> "$GITHUB_OUTPUT"
-          cat draft-output.txt >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-          rm draft-output.txt
+          for name in GEMINI_API_KEY AGENT_TOKEN STUDIO_URL; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set. See the header of this workflow file."
+              exit 1
+            fi
+          done
+          python3 tools/draft_article.py ${{ inputs.topic && format('"{0}"', inputs.topic) || '' }}
 
-      - name: Open a pull request
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: journal/draft-${{ github.run_number }}
-          delete-branch: true
-          commit-message: "Draft a journal article"
-          title: "Journal draft — review before publishing"
-          body: |
-            A new draft is in `content/drafts/`. It is **not** on the site yet.
-
-            ```
-            ${{ steps.draft.outputs.summary }}
-            ```
-
-            To publish it:
-
-            1. Read the whole thing. Check every claim and every number — the
-               model will state things confidently that are not true.
-            2. Make it sound like you. Cut anything that reads as filler.
-            3. `git mv` the file from `content/drafts/` to `content/articles/`
-            4. `python3 tools/build_journal.py`
-            5. Mark the topic `[done]` in `content/topics.md`
-            6. Commit and merge.
-
-            To reject it: close this PR and change the topic's `[drafting]`
-            marker back, or delete the line.
+      - name: Tick the topic off the queue
+        run: |
+          if git diff --quiet -- content/topics.md; then exit 0; fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "Mark a journal topic as drafting" -- content/topics.md
+          git push

@@ -6,7 +6,9 @@
     "deploy": "npx wrangler pages deploy . --project-name=web3ashley",
     "secret": "npx wrangler pages secret put RESEND_API_KEY",
     "serve": "python3 -m http.server 8080",
-    "journal": "python3 tools/build_journal.py",
-    "draft": "python3 tools/draft_article.py"
-  }
+    "draft": "python3 tools/draft_article.py",
+    "seed": "python3 tools/seed_d1.py",
+    "backup": "npx wrangler d1 export web3ashley --remote --output=journal-backup.sql"
+  },
+  "type": "module"
 }

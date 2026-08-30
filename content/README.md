@@ -1,82 +1,114 @@
 # The journal
 
-Articles are Markdown in `content/articles/`. One file per article, front
-matter at the top, and a build step that turns them into pages.
+Articles live in a **D1 database** and are rendered on request by a Worker.
+There is no build step and nothing to commit — you write in the studio and
+press Publish.
 
 ```
-content/articles/*.md    the articles
-content/drafts/*.md      Gemini output, not published
-content/topics.md        the queue
-tools/build_journal.py   articles  ->  /journal/, sitemap.xml, feed.xml
-tools/draft_article.py   topic     ->  content/drafts/
+/studio.html                 write, edit, publish
+functions/journal/*          renders /journal/ and /journal/:slug from D1
+functions/api/studio/*       the API behind the studio and the agent
+lib/                         queries, templates, auth
+assets/js/markdown.js        the parser, shared by the Worker and the studio
+schema.sql                   the D1 schema
+content/articles/*.md        the original articles, kept as the import record
+tools/seed_d1.py             imports those into D1 (once)
+tools/draft_article.py       drafts a topic with Gemini into the review queue
 ```
 
-## Writing one by hand
-
-Create `content/articles/some-slug.md`:
-
-```markdown
----
-title: The headline, under 70 characters
-description: One sentence under 160 characters. Shows in search results.
-date: 2026-08-30
-tags: [speed, mobile]
----
-
-Open with the reader's situation, in one specific sentence.
-
-## A real section heading
-
-Body text. **Bold**, *italic*, `code`, [links](https://example.com), lists,
-and one `>` blockquote per article for the line worth repeating.
-```
-
-Then:
+## Setup, once
 
 ```bash
-python3 tools/build_journal.py
+# 1. the database
+npx wrangler d1 create web3ashley
+#    paste the id it prints into wrangler.toml
+npx wrangler d1 execute web3ashley --remote --file=./schema.sql
+
+# 2. images
+npx wrangler r2 bucket create web3ashley-media
+
+# 3. secrets
+npx wrangler pages secret put STUDIO_PASSWORD   # signs you into /studio
+npx wrangler pages secret put SESSION_SECRET    # any long random string
+npx wrangler pages secret put AGENT_TOKEN       # for Gemini Spark
+
+# 4. bring the existing articles across
+python3 tools/seed_d1.py > seed.sql
+npx wrangler d1 execute web3ashley --remote --file=./seed.sql
+rm seed.sql
 ```
 
-That writes `/journal/<slug>.html`, rebuilds the index, and regenerates
-`sitemap.xml` and `feed.xml`. Deleting a `.md` file and rebuilding removes the
-page. Commit the generated files — Pages serves them directly, there is no
-build step on deploy.
+`seed_d1.py` skips any slug already present, so running it twice is safe and
+never overwrites something you edited.
 
-The filename becomes the URL, and the URL is permanent once Google has indexed
-it. Renaming a published article costs you its ranking, so pick the slug once.
+## Writing
 
-## Drafting one with Gemini
+Go to `/studio.html`, sign in with `STUDIO_PASSWORD`.
+
+- **New article** → title, description, body. The description is the sentence
+  Google prints under the title in a search result, so write it for a stranger.
+- **Preview** renders through the same parser the live page uses.
+- **Save** keeps it as a draft. **Publish** puts it live, adds it to
+  `sitemap.xml` and `feed.xml`, and clears the edge cache so it appears at once.
+- **View** opens the real page. A draft is viewable at
+  `/journal/<slug>?preview=<STUDIO_PASSWORD>` and is marked `noindex`.
+
+The body takes Markdown: `##` headings (each becomes a section row),
+`**bold**`, `*italic*`, `` `code` ``, `[links](https://example.com)`, lists,
+and one `>` quote per article for the line worth repeating.
+
+**A published URL is permanent.** The studio locks the slug once an article is
+live, because renaming it throws away whatever ranking it earned.
+
+## Drafting with Gemini
 
 ```bash
-export GEMINI_API_KEY=...      # https://aistudio.google.com/apikey
-python3 tools/draft_article.py                 # next queued topic
-python3 tools/draft_article.py "some topic"    # a specific one
+export GEMINI_API_KEY=...        # https://aistudio.google.com/apikey
+export AGENT_TOKEN=...           # the same value as the Pages secret
+export STUDIO_URL=https://web3ashley.com
+python3 tools/draft_article.py               # next queued topic
+python3 tools/draft_article.py "some topic"  # a specific one
 ```
 
-Output goes to `content/drafts/`, **not** to the site. To publish:
+The draft lands in the studio with status **review** — visible to you, not on
+the site. `.github/workflows/draft-article.yml` runs the same thing every
+Monday.
 
-1. Read the whole thing. Check every claim and every number.
-2. Rewrite anything that does not sound like you.
-3. `git mv content/drafts/x.md content/articles/`
-4. `python3 tools/build_journal.py`
-5. Mark the topic `[done]` in `content/topics.md`.
+### Wiring it to Gemini Spark
 
-`.github/workflows/draft-article.yml` runs this every Monday and opens a pull
-request with the draft. Add `GEMINI_API_KEY` under repository Settings →
-Secrets and variables → Actions, and enable "Allow GitHub Actions to create
-pull requests" under Settings → Actions → General.
+Spark connects to a custom app by MCP server URL, so an MCP server in front of
+these endpoints is all it needs:
+
+| Endpoint | Method | What it does |
+| --- | --- | --- |
+| `/api/studio/articles` | GET | list everything, with status |
+| `/api/studio/articles` | POST | create a draft (`{title, description, body, tags}`) |
+| `/api/studio/articles/:slug` | GET | read one |
+| `/api/studio/articles/:slug` | PUT | edit one it created |
+
+Authenticate with `Authorization: Bearer $AGENT_TOKEN`.
+
+**The token cannot publish, delete, or touch anything already live.** The API
+refuses those with a 403 regardless of what it is asked. That ceiling is the
+point: an agent that researches the open web can be instructed by anything it
+reads, so the limit has to be what its credential is allowed to do, not what it
+can be talked into wanting.
 
 ## Why there is a review step
 
-Google's spam policy on **scaled content abuse** (March 2024) targets publishing
-generated pages at volume without human oversight. Enforcement is site-wide, not
-per-page: one bad automated run can sink the rankings of the pages you wrote
-yourself.
+Google's spam policy on **scaled content abuse** (March 2024) targets
+publishing generated pages at volume without human oversight, and enforcement
+is site-wide rather than per-page. One bad automated run can sink the rankings
+of the pages you wrote yourself.
 
-Ten articles that answer a real question outrank a hundred that restate the same
-advice. The pipeline is a drafting tool with a person at the end of it, and that
-is the configuration that works.
+Ten articles that answer a real question outrank a hundred restating the same
+advice.
 
-`PUBLISH_WITHOUT_REVIEW=1` skips the gate. It still refuses to publish a draft
-that fails the structural checks, but nothing checks whether the article is
-true. Setting it is a decision to accept that risk.
+## Backups
+
+```bash
+npx wrangler d1 export web3ashley --remote --output=journal-backup.sql
+```
+
+Worth doing before anything unusual. D1 is the only copy once you start editing
+in the studio — `content/articles/` is the import record, not a live mirror.

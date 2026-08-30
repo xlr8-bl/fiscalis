@@ -96,13 +96,9 @@ Cloudflare issues the certificate and handles the apex/www redirect.
 
 ## The journal
 
-Articles live in `content/articles/` as Markdown and are compiled to static
-pages by `tools/build_journal.py`. Run it after any content change and commit
-the output — there is still no build step on deploy.
+Articles live in D1 and are rendered by a Worker — there is no build step and
+nothing to commit. `/studio.html` is where you write and publish.
 
-```bash
-python3 tools/build_journal.py
-```
-
-It regenerates `journal/`, `sitemap.xml` and `feed.xml`. See `content/README.md`
-for writing and for the Gemini drafting pipeline.
+Setup (database, R2 bucket, secrets, importing the existing articles) is in
+`content/README.md`. Until D1 is bound, `/journal/` returns a page telling you
+which commands to run rather than a 500.

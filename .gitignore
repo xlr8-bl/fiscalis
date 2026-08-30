@@ -7,3 +7,8 @@ node_modules/
 # python
 __pycache__/
 *.pyc
+
+# wrangler local state
+.wrangler/
+seed.sql
+journal-backup.sql
