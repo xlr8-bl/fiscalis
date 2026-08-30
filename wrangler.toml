@@ -3,10 +3,16 @@ name = "web3ashley"
 compatibility_date = "2026-08-14"
 pages_build_output_dir = "."
 
-# This file is the source of truth for a Pages project, and by default a
-# deploy overwrites variables set in the dashboard. Secrets are added in the
-# dashboard here, so keep them.
-keep_vars = true
+# Pages supports a narrow set of keys here; anything else fails the build
+# rather than being ignored. Inheritable: name, pages_build_output_dir,
+# compatibility_date, compatibility_flags, send_metrics, limits, placement,
+# upload_source_maps. Bindings: vars, d1_databases, r2_buckets,
+# kv_namespaces, queues.producers, durable_objects, hyperdrive, services,
+# vectorize, analytics_engine_datasets, ai.
+#
+# Secrets are not declared here at all — they live in the dashboard under
+# Variables and Secrets, in a separate store, so a deploy cannot disturb
+# them. (No `vars` are declared either, so there is nothing to overwrite.)
 
 # --- Journal content ---------------------------------------------------
 # The content database. The tables and the seed are applied from the studio
