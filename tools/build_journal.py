@@ -28,7 +28,7 @@ ARTICLES = ROOT / "content" / "articles"
 OUT = ROOT / "journal"
 SITE = "https://web3ashley.com"
 AUTHOR = "Ashley"
-SITE_NAME = "web3ashley"
+SITE_NAME = "Web3Ashley"
 
 
 # ---------------------------------------------------------------- front matter
@@ -166,13 +166,6 @@ def render_markdown(body: str) -> dict:
             out.append(f"<p>{inline(' '.join(chunk))}</p>")
         continue
 
-        # horizontal rule
-        if re.match(r"^---+$", stripped):
-            out.append("<hr>")
-            i += 1
-            continue
-
-
     return {
         "intro": "\n".join(intro),
         "sections": [
@@ -295,7 +288,7 @@ def page_shell(title: str, description: str, canonical: str, body: str,
         '<link href="/assets/css/statement.css" rel="stylesheet" type="text/css"/>'
         '<link href="/assets/css/journal.css" rel="stylesheet" type="text/css"/>'
         '<link rel="icon" href="/assets/icons/favicon.svg" type="image/svg+xml"/>'
-        '<link rel="alternate" type="application/rss+xml" title="web3ashley journal"'
+        '<link rel="alternate" type="application/rss+xml" title="Web3Ashley journal"'
         ' href="/feed.xml"/>'
         f"{extra_head}{ld}{HEAD_WIPE}</head>"
         f'<body data-theme-section="dark" class="body jr-body">{PANEL}'
