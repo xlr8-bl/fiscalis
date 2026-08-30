@@ -6,10 +6,11 @@
  */
 import { listPublished } from '../../lib/articles.js';
 import { renderIndexPage, prepare } from '../../lib/templates.js';
-import { htmlResponse, missingDatabase } from '../../lib/respond.js';
+import { htmlResponse, missingDatabase, orNotReady } from '../../lib/respond.js';
 
 export async function onRequestGet({ env }) {
   if (!env.DB) return missingDatabase();
-  const rows = await listPublished(env.DB);
-  return htmlResponse(renderIndexPage(rows.map(prepare)));
+  const got = await orNotReady(() => listPublished(env.DB));
+  if (!got.ok) return missingDatabase();
+  return htmlResponse(renderIndexPage(got.value.map(prepare)));
 }

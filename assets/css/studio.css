@@ -482,3 +482,22 @@ body.st-body {
 @media (prefers-reduced-motion: reduce) {
   .st-nav, .st-menu-btn__bars i, .st-nav__link { transition: none; }
 }
+
+/* --- first run ---------------------------------------------------- */
+.st-steps {
+  margin: 0 0 2.5rem;
+  padding-left: 1.3rem;
+  display: flex;
+  flex-flow: column;
+  gap: 1rem;
+  max-width: 46ch;
+  color: var(--swatch--black-50, #938f8a);
+  line-height: 1.55;
+}
+.st-steps li::marker { color: var(--swatch--black-100, #6b645c); }
+.st-steps b { color: var(--swatch--beige-100, #e8e8e3); font-weight: 500; }
+.st-steps code {
+  font-family: var(--_typography---font--tertiary-family, monospace);
+  font-size: .85em;
+  color: var(--swatch--beige-100, #e8e8e3);
+}

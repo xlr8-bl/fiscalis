@@ -3,6 +3,11 @@ name = "web3ashley"
 compatibility_date = "2026-08-14"
 pages_build_output_dir = "."
 
+# This file is the source of truth for a Pages project, and by default a
+# deploy overwrites variables set in the dashboard. Secrets are added in the
+# dashboard here, so keep them.
+keep_vars = true
+
 # --- Journal content ---------------------------------------------------
 # The articles table. Create and migrate with:
 #   npx wrangler d1 create web3ashley

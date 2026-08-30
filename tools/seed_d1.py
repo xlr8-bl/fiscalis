@@ -82,7 +82,7 @@ def main() -> int:
         )
 
     out.append("COMMIT;")
-    print("\n".join(out))
+    print("\n-- ==SPLIT==\n".join(out))
     print(f"-- {len(files)} articles", file=sys.stderr)
     return 0
 

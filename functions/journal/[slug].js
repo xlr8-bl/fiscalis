@@ -6,7 +6,7 @@
  */
 import { getBySlug, related } from '../../lib/articles.js';
 import { renderArticlePage, prepare } from '../../lib/templates.js';
-import { htmlResponse, notFound, missingDatabase } from '../../lib/respond.js';
+import { htmlResponse, notFound, missingDatabase, orNotReady } from '../../lib/respond.js';
 import { timingSafeEqual } from '../../lib/auth.js';
 
 export async function onRequestGet({ env, params, request }) {
@@ -16,7 +16,9 @@ export async function onRequestGet({ env, params, request }) {
   const token = new URL(request.url).searchParams.get('preview');
   const preview = Boolean(token && env.STUDIO_PASSWORD && timingSafeEqual(token, env.STUDIO_PASSWORD));
 
-  const row = await getBySlug(env.DB, slug, { publishedOnly: !preview });
+  const got = await orNotReady(() => getBySlug(env.DB, slug, { publishedOnly: !preview }));
+  if (!got.ok) return missingDatabase();
+  const row = got.value;
   if (!row) return notFound();
 
   const article = prepare(row);

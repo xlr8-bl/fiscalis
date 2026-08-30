@@ -171,7 +171,7 @@ def main() -> int:
     add_entries("services", services, "name")
 
     out.append("COMMIT;")
-    print("\n".join(out))
+    print("\n-- ==SPLIT==\n".join(out))
     print(
         f"-- settings {sum(1 for v in settings.values() if v)}, projects {len(projects)}, "
         f"steps {len(steps)}, faqs {len(faqs)}, services {len(services)}",

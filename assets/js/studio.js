@@ -515,6 +515,39 @@ $('[data-entry-delete]').addEventListener('click', async () => {
   } catch (e) { say(e.message, 'err'); }
 });
 
+/* --------------------------------------------------------------- first run */
+
+/**
+ * Shown when the database is bound but empty, so a deployment can be
+ * finished from the studio rather than from a terminal.
+ */
+async function viewSetup(info) {
+  const missing = !info.bound;
+  $('[data-setup-lede]').textContent = missing
+    ? 'The site is live, but there is no database behind it yet.'
+    : 'The database is connected. It just needs its tables and your content.';
+
+  $('[data-setup-steps]').innerHTML = missing
+    ? `<li>In the Cloudflare dashboard, open <b>Storage &amp; Databases</b> &rarr; <b>D1 SQL Database</b> and create one called <code>web3ashley</code>.</li>
+       <li>Open <b>R2</b> and create a bucket called <code>web3ashley-media</code>.</li>
+       <li>Send me the database ID and I will wire it up, then reload this page.</li>`
+    : `<li>Press the button. It creates the tables and loads everything the site currently says.</li>
+       <li>Nothing on the site changes — the page already says all of it. It just becomes editable.</li>`;
+
+  $('[data-setup-run]').hidden = missing;
+  showView('setup');
+}
+
+$('[data-setup-run]').addEventListener('click', async () => {
+  say('Setting up…');
+  try {
+    const r = await api('/setup', { method: 'POST' });
+    say(`Done — ${r.counts.articles} articles, ${r.counts.entries} items, ${r.counts.settings} settings.`, 'ok');
+    schema = null;
+    await boot();
+  } catch (e) { say(e.message, 'err'); }
+});
+
 /* ------------------------------------------------------------------ media */
 
 async function viewMedia() {
@@ -598,9 +631,22 @@ document.addEventListener('keydown', (e) => {
 /* ------------------------------------------------------------------- boot */
 
 async function boot() {
-  const who = await api('/me').catch(() => null);
+  // this must throw when signed out, so the caller shows the gate — catching
+  // it here would let an unauthenticated visitor straight through to setup
+  const who = await api('/me');
   if (who?.name) me = who.name;
   $('[data-who]').textContent = me || '';
+
+  // a database with no tables is a deployment that is not finished, not an
+  // error — offer to finish it rather than failing at the reader
+  const setup = await api('/setup').catch(() => ({ bound: false, ready: false }));
+  if (!setup.ready) {
+    gate.hidden = true;
+    app.hidden = false;
+    renderNav();
+    return viewSetup(setup);
+  }
+
   await ensureSchema();
   ({ articles } = await api('/articles'));
   renderNav();
