@@ -339,3 +339,14 @@ body.st-body {
   .st-row, .st-link, .st-input, .st-toggle__btn, .st-back { transition: none; }
   .st-rows:hover .st-row:hover { transform: none; }
 }
+
+/* the entry editor's heading matches the article title's treatment */
+.st-entry-title {
+  margin: 0 0 .8rem;
+  font-family: var(--_typography---font--secondary-family, sans-serif);
+  font-weight: 800;
+  font-size: clamp(1.6rem, 3.4vw, 2.6rem);
+  line-height: 1.03;
+  letter-spacing: -.025em;
+}
+.st-bar__nav .st-link.is-on { text-decoration: underline; text-underline-offset: .4em; }

@@ -45,3 +45,40 @@ CREATE TABLE IF NOT EXISTS media (
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+
+-- ==================================================================
+-- Everything else on the site.
+--
+-- Two tables rather than one per content type. A new type — case
+-- studies, testimonials, whatever comes next — is a definition in
+-- lib/collections.js, not a migration.
+-- ==================================================================
+
+-- Single values: hero copy, the contact email, the socials, SEO defaults.
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_by TEXT NOT NULL DEFAULT ''
+);
+
+-- Repeating things: projects, services, process steps, FAQs.
+-- `data` is JSON shaped by the collection's field definitions.
+CREATE TABLE IF NOT EXISTS entries (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  collection  TEXT NOT NULL,
+  slug        TEXT NOT NULL,
+  position    INTEGER NOT NULL DEFAULT 0,
+  status      TEXT NOT NULL DEFAULT 'published'
+              CHECK (status IN ('draft', 'review', 'published')),
+  data        TEXT NOT NULL DEFAULT '{}',
+  author      TEXT NOT NULL DEFAULT '',
+  last_editor TEXT NOT NULL DEFAULT '',
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (collection, slug)
+);
+
+-- the render query: one collection, in order
+CREATE INDEX IF NOT EXISTS idx_entries_render
+  ON entries (collection, status, position);

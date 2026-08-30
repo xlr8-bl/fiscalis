@@ -7,7 +7,7 @@
     "secret": "npx wrangler pages secret put RESEND_API_KEY",
     "serve": "python3 -m http.server 8080",
     "draft": "python3 tools/draft_article.py",
-    "seed": "python3 tools/seed_d1.py",
+    "seed": "python3 tools/seed_d1.py && python3 tools/seed_content.py",
     "backup": "npx wrangler d1 export web3ashley --remote --output=journal-backup.sql"
   },
   "type": "module"

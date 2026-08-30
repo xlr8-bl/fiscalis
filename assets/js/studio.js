@@ -383,3 +383,216 @@ document.addEventListener('keydown', (e) => {
 load()
   .then(() => { gate.hidden = true; app.hidden = false; })
   .catch(() => showGate());
+
+/* ==================================================================
+   The rest of the site.
+
+   Every form below is built from the content model the API serves, so
+   adding a collection to lib/collections.js puts it in the studio with
+   no change here.
+   ================================================================== */
+
+const siteView = $('[data-site]');
+const entryView = $('[data-entry]');
+let schema = null;
+let entryCtx = null;   // { collection, slug, def, entry }
+
+const sayEntry = (msg, tone = '') => {
+  const el = $('[data-entry-status]');
+  el.textContent = msg;
+  el.dataset.tone = tone;
+  if (msg) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 5000);
+};
+
+function showArea(area) {
+  $$('[data-area]').forEach((b) => b.classList.toggle('is-on', b.dataset.area === area));
+  indexView.hidden = area !== 'journal';
+  siteView.hidden = area !== 'site';
+  editor.hidden = true;
+  entryView.hidden = true;
+  window.scrollTo(0, 0);
+  if (area === 'site') renderSite();
+}
+$$('[data-area]').forEach((b) => b.addEventListener('click', () => showArea(b.dataset.area)));
+
+async function ensureSchema() {
+  if (!schema) schema = await api('/content/schema');
+  return schema;
+}
+
+/** The site index: one group per collection, plus the settings groups. */
+async function renderSite() {
+  const host = $('[data-sections]');
+  host.innerHTML = '<p class="st-note u-text-style-main">Loading…</p>';
+  try {
+    await ensureSchema();
+    const names = Object.keys(schema.collections);
+    const lists = await Promise.all(names.map((n) => api(`/content/${n}`)));
+
+    host.innerHTML = '';
+    names.forEach((name, i) => {
+      const def = schema.collections[name];
+      const rows = lists[i].entries || [];
+      const section = document.createElement('section');
+      section.className = 'st-group';
+      section.innerHTML =
+        `<h2 class="st-group__head">${def.label} <span class="st-group__count">${rows.length}</span></h2>` +
+        (def.note ? `<p class="st-note u-text-style-main">${escapeHtml(def.note)}</p>` : '') +
+        '<ul class="st-rows"></ul>' +
+        `<p style="margin-top:1.2rem"><button class="st-link" data-add="${name}" type="button">Add ${def.singular.toLowerCase()}</button></p>`;
+
+      const list = section.querySelector('.st-rows');
+      rows.forEach((row, index) => {
+        const title = row.data[def.titleField] || '(untitled)';
+        const li = document.createElement('li');
+        li.innerHTML =
+          `<button type="button" class="st-row">
+             <span class="st-row__text">
+               <span class="st-row__title">${escapeHtml(title)}</span>
+               ${row.status !== 'published' ? '<span class="st-row__desc u-text-style-main">Hidden from the site</span>' : ''}
+             </span>
+             <span class="st-row__meta u-text-style-main"><span>${index + 1}</span></span>
+           </button>`;
+        li.querySelector('button').addEventListener('click', () => openEntry(name, row.slug));
+        list.appendChild(li);
+      });
+
+      section.querySelector('[data-add]').addEventListener('click', () => openEntry(name, null));
+      host.appendChild(section);
+    });
+
+    // settings, one group each
+    const { settings } = await api('/content/settings');
+    for (const group of schema.settings) {
+      const section = document.createElement('section');
+      section.className = 'st-group';
+      section.innerHTML =
+        `<h2 class="st-group__head">${group.group}</h2><ul class="st-rows"></ul>`;
+      const li = document.createElement('li');
+      const filled = group.fields.filter((f) => settings[f.name]).length;
+      li.innerHTML =
+        `<button type="button" class="st-row">
+           <span class="st-row__text">
+             <span class="st-row__title">${group.fields.length} field${group.fields.length === 1 ? '' : 's'}</span>
+             <span class="st-row__desc u-text-style-main">${escapeHtml(
+               group.fields.map((f) => f.label).join(' · ')
+             )}</span>
+           </span>
+           <span class="st-row__meta u-text-style-main"><span>${filled} set</span></span>
+         </button>`;
+      li.querySelector('button').addEventListener('click', () => openSettings(group));
+      section.querySelector('.st-rows').appendChild(li);
+      host.appendChild(section);
+    }
+  } catch (e) {
+    host.innerHTML = `<p class="st-note u-text-style-main">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+/** One input, built from a field definition. */
+function fieldHtml(field, value) {
+  const id = `f-${field.name.replace(/\W/g, '-')}`;
+  const help = field.help ? `<p class="st-note u-text-style-main">${escapeHtml(field.help)}</p>` : '';
+  const val = escapeHtml(value ?? '');
+  const control =
+    field.type === 'textarea' || field.type === 'markdown'
+      ? `<textarea id="${id}" class="st-input st-input--area" data-field="${field.name}" rows="${field.type === 'markdown' ? 8 : 3}">${val}</textarea>`
+      : `<input id="${id}" class="st-input" data-field="${field.name}" type="text" value="${val}"
+           ${field.type === 'media' ? 'placeholder="/media/… or /assets/stock/…"' : ''}
+           ${field.type === 'url' ? 'placeholder="https://…"' : ''}>`;
+  return `<div class="st-field">
+    <label class="st-label u-text-style-main" for="${id}">${escapeHtml(field.label)}${field.required ? '' : ''}</label>
+    ${help}${control}
+  </div>`;
+}
+
+async function openEntry(name, slug) {
+  await ensureSchema();
+  const def = schema.collections[name];
+  let entry = null;
+  if (slug) ({ entry } = await api(`/content/${name}/${encodeURIComponent(slug)}`));
+
+  entryCtx = { collection: name, slug, def, entry };
+  $('[data-entry-heading]').textContent = slug
+    ? (entry.data[def.titleField] || def.singular)
+    : `New ${def.singular.toLowerCase()}`;
+  $('[data-entry-note]').textContent = def.note || '';
+  $('[data-entry-form]').innerHTML = def.fields
+    .map((f) => fieldHtml(f, entry?.data?.[f.name]))
+    .join('');
+
+  const live = entry?.status === 'published';
+  $('[data-entry-hide]').hidden = !slug || !live;
+  $('[data-entry-show]').hidden = !slug || live;
+  $('[data-entry-delete]').hidden = !slug;
+
+  indexView.hidden = true;
+  siteView.hidden = true;
+  editor.hidden = true;
+  entryView.hidden = false;
+  window.scrollTo(0, 0);
+}
+
+function openSettings(group) {
+  api('/content/settings').then(({ settings }) => {
+    entryCtx = { settings: true, group };
+    $('[data-entry-heading]').textContent = group.group;
+    $('[data-entry-note]').textContent = '';
+    $('[data-entry-form]').innerHTML = group.fields
+      .map((f) => fieldHtml(f, settings[f.name]))
+      .join('');
+    $('[data-entry-hide]').hidden = true;
+    $('[data-entry-show]').hidden = true;
+    $('[data-entry-delete]').hidden = true;
+    indexView.hidden = true;
+    siteView.hidden = true;
+    editor.hidden = true;
+    entryView.hidden = false;
+    window.scrollTo(0, 0);
+  }).catch((e) => sayEntry(e.message, 'err'));
+}
+
+const entryValues = () =>
+  Object.fromEntries($$('[data-field]', $('[data-entry-form]')).map((el) => [el.dataset.field, el.value]));
+
+$('[data-entry-back]').addEventListener('click', () => showArea('site'));
+
+$('[data-entry-save]').addEventListener('click', async () => {
+  if (!entryCtx) return;
+  sayEntry('Saving…');
+  try {
+    if (entryCtx.settings) {
+      await api('/content/settings', { method: 'PUT', body: JSON.stringify(entryValues()) });
+    } else if (entryCtx.slug) {
+      await api(`/content/${entryCtx.collection}/${encodeURIComponent(entryCtx.slug)}`, {
+        method: 'PUT', body: JSON.stringify(entryValues()),
+      });
+    } else {
+      const created = await api(`/content/${entryCtx.collection}`, {
+        method: 'POST', body: JSON.stringify(entryValues()),
+      });
+      entryCtx.slug = created.slug;
+    }
+    sayEntry('Saved. The page is already showing it.', 'ok');
+  } catch (e) { sayEntry(e.message, 'err'); }
+});
+
+const setEntryStatus = async (status) => {
+  try {
+    await api(`/content/${entryCtx.collection}/${encodeURIComponent(entryCtx.slug)}/status`, {
+      method: 'POST', body: JSON.stringify({ status }),
+    });
+    await openEntry(entryCtx.collection, entryCtx.slug);
+    sayEntry(status === 'published' ? 'Showing on the site.' : 'Hidden from the site.', 'ok');
+  } catch (e) { sayEntry(e.message, 'err'); }
+};
+$('[data-entry-hide]').addEventListener('click', () => setEntryStatus('draft'));
+$('[data-entry-show]').addEventListener('click', () => setEntryStatus('published'));
+
+$('[data-entry-delete]').addEventListener('click', async () => {
+  if (!confirm('Delete this permanently?')) return;
+  try {
+    await api(`/content/${entryCtx.collection}/${encodeURIComponent(entryCtx.slug)}`, { method: 'DELETE' });
+    showArea('site');
+  } catch (e) { sayEntry(e.message, 'err'); }
+});

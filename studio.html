@@ -53,6 +53,8 @@
       </svg>
     </a>
     <nav class="st-bar__nav u-text-style-main">
+      <button class="st-link is-on" data-area="journal" type="button">Journal</button>
+      <button class="st-link" data-area="site" type="button">The site</button>
       <span class="st-who" data-who></span>
       <a href="/journal/" target="_blank" rel="noopener" class="st-link">The journal</a>
       <button class="st-link" data-logout type="button">Sign out</button>
@@ -73,6 +75,36 @@
     </div>
     <p class="st-index__lede u-text-style-h4" data-summary></p>
     <div data-groups></div>
+  </main>
+
+  <!-- everything else on the site --------------------------------------- -->
+  <main class="st-index" data-site hidden>
+    <div class="st-index__head">
+      <h1 class="st-display">The site</h1>
+    </div>
+    <p class="st-index__lede u-text-style-h4">Everything on the home page, without touching the code.</p>
+    <div data-sections></div>
+  </main>
+
+  <!-- one entry, form built from the content model ------------------------ -->
+  <main class="st-editor" data-entry hidden>
+    <button class="st-back u-text-style-main" data-entry-back type="button">Back</button>
+    <h1 class="st-entry-title" data-entry-heading></h1>
+    <p class="st-note u-text-style-main" data-entry-note></p>
+    <div data-entry-form></div>
+    <div class="st-actions">
+      <button class="g_btn_main" data-entry-save type="button">
+        <div class="g_btn_text_contain"><div class="g_btn_text u-text-style-small u-text-trim-off">Save</div></div>
+        <div class="g_btn_aside_wrap"><div class="g_btn_aside_bg"></div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg is-absolute"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
+        </div>
+      </button>
+      <button class="st-link" data-entry-hide type="button" hidden>Hide from the site</button>
+      <button class="st-link" data-entry-show type="button" hidden>Show on the site</button>
+      <button class="st-link is-danger" data-entry-delete type="button" hidden>Delete</button>
+      <span class="st-say u-text-style-main" data-entry-status role="status"></span>
+    </div>
   </main>
 
   <!-- editor ------------------------------------------------------------ -->
