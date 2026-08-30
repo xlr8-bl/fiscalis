@@ -19,3 +19,9 @@
 
 /
   Cache-Control: public, max-age=0, must-revalidate
+
+/journal/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/feed.xml
+  Cache-Control: public, max-age=3600

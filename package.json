@@ -5,6 +5,8 @@
     "dev": "npx wrangler pages dev .",
     "deploy": "npx wrangler pages deploy . --project-name=web3ashley",
     "secret": "npx wrangler pages secret put RESEND_API_KEY",
-    "serve": "python3 -m http.server 8080"
+    "serve": "python3 -m http.server 8080",
+    "journal": "python3 tools/build_journal.py",
+    "draft": "python3 tools/draft_article.py"
   }
 }

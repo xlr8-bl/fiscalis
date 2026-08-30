@@ -3,3 +3,7 @@ node_modules/
 
 # wrangler build output
 .wrangler/
+
+# python
+__pycache__/
+*.pyc

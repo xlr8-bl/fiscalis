@@ -93,3 +93,16 @@ Responses: `200 {ok:true}`, `422` with a `fields` array when validation fails,
 
 Pages project → Custom domains → add `web3ashley.com` and `www.web3ashley.com`.
 Cloudflare issues the certificate and handles the apex/www redirect.
+
+## The journal
+
+Articles live in `content/articles/` as Markdown and are compiled to static
+pages by `tools/build_journal.py`. Run it after any content change and commit
+the output — there is still no build step on deploy.
+
+```bash
+python3 tools/build_journal.py
+```
+
+It regenerates `journal/`, `sitemap.xml` and `feed.xml`. See `content/README.md`
+for writing and for the Gemini drafting pipeline.
