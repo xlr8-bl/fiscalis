@@ -43,7 +43,7 @@ never overwrites something you edited.
 
 ## Writing
 
-Go to `/studio.html`, sign in with `STUDIO_PASSWORD`.
+Go to `/studio.html` and sign in.
 
 - **New article** → title, description, body. The description is the sentence
   Google prints under the title in a search result, so write it for a stranger.
@@ -59,6 +59,28 @@ and one `>` quote per article for the line worth repeating.
 
 **A published URL is permanent.** The studio locks the slug once an article is
 live, because renaming it throws away whatever ranking it earned.
+
+## Accounts
+
+One person needs nothing beyond `STUDIO_PASSWORD` — the account is called
+`studio` and the name field can be left blank.
+
+For a team, set `STUDIO_USERS` instead: a JSON object of name to password.
+
+```bash
+npx wrangler pages secret put STUDIO_USERS
+# {"ashley":"…","sam":"…"}
+```
+
+Adding a colleague is one secret, not a migration. Every article records who
+wrote it and who saved it last, and both show in the studio, so you can see at
+a glance whose draft is whose.
+
+If you created the database before this existed, add the two columns:
+
+```bash
+npx wrangler d1 execute web3ashley --remote --file=./migrations/001_authors.sql
+```
 
 ## Drafting with Gemini
 

@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS articles (
   source        TEXT NOT NULL DEFAULT 'studio'   -- 'studio' | 'spark' | 'import'
                 CHECK (source IN ('studio', 'spark', 'import')),
   published_at  TEXT,                            -- YYYY-MM-DD, set on publish
+  author        TEXT NOT NULL DEFAULT '',       -- who created it
+  last_editor   TEXT NOT NULL DEFAULT '',       -- who saved it last
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -42,3 +44,4 @@ CREATE TABLE IF NOT EXISTS media (
   bytes        INTEGER NOT NULL DEFAULT 0,
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
+

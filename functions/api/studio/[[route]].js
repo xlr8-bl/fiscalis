@@ -5,8 +5,9 @@
  * token). The two are not equal: the agent may create and edit articles in
  * `review` and nothing else. See lib/auth.js.
  *
- *   POST   /api/studio/login          { password }        -> sets the cookie
+ *   POST   /api/studio/login          { name, password }  -> sets the cookie
  *   POST   /api/studio/logout
+ *   GET    /api/studio/me                                  -> who is signed in
  *   GET    /api/studio/articles                            -> list
  *   GET    /api/studio/articles/:slug                      -> one, with body
  *   POST   /api/studio/articles       { title, ... }       -> create
@@ -21,7 +22,7 @@
 import { listAll, getBySlug, uniqueSlug, slugify } from '../../../lib/articles.js';
 import { json } from '../../../lib/respond.js';
 import {
-  identify, createSession, sessionCookie, timingSafeEqual,
+  identify, createSession, sessionCookie, authenticate, accounts,
   AGENT_ALLOWED, agentMayTouch,
 } from '../../../lib/auth.js';
 import { SITE } from '../../../lib/templates.js';
@@ -52,16 +53,22 @@ export async function onRequest(context) {
 
   /* ---------------------------------------------------------- login/logout */
   if (head === 'login' && method === 'POST') {
-    if (!env.STUDIO_PASSWORD) {
-      return json({ error: 'STUDIO_PASSWORD is not set on this deployment.' }, 503);
+    if (!Object.keys(accounts(env)).length) {
+      return json(
+        { error: 'No accounts are configured. Set STUDIO_PASSWORD or STUDIO_USERS.' },
+        503
+      );
     }
-    const { password } = await request.json().catch(() => ({}));
-    if (!timingSafeEqual(password, env.STUDIO_PASSWORD)) {
-      // one shared password, so slow every wrong guess down a little
+    const { name, password } = await request.json().catch(() => ({}));
+    const user = authenticate(env, name, password);
+    if (!user) {
+      // slow every wrong guess down a little
       await new Promise((r) => setTimeout(r, 600));
-      return json({ error: 'Wrong password.' }, 401);
+      return json({ error: 'That name and password do not match.' }, 401);
     }
-    return json({ ok: true }, 200, { 'set-cookie': sessionCookie(await createSession(env)) });
+    return json({ ok: true, name: user }, 200, {
+      'set-cookie': sessionCookie(await createSession(env, user)),
+    });
   }
 
   if (head === 'logout' && method === 'POST') {
@@ -72,8 +79,13 @@ export async function onRequest(context) {
   const who = await identify(request, env);
   if (!who) return json({ error: 'Not signed in.' }, 401);
 
+  // who am I — the studio asks on load so it can greet you and skip the gate
+  if (head === 'me' && method === 'GET') {
+    return json({ name: who.name, kind: who.kind });
+  }
+
   const guard = (action) => {
-    if (who === 'studio') return null;
+    if (who.kind === 'studio') return null;
     if (!AGENT_ALLOWED.has(action)) {
       return json({ error: `The agent token cannot ${action}. A person has to do that.` }, 403);
     }
@@ -143,17 +155,18 @@ export async function onRequest(context) {
     if (!title) return json({ error: 'A title is required.' }, 400);
 
     // an agent's work always lands in the review queue
-    const status = who === 'agent' ? 'review' : 'draft';
-    const source = who === 'agent' ? 'spark' : 'studio';
+    const status = who.kind === 'agent' ? 'review' : 'draft';
+    const source = who.kind === 'agent' ? 'spark' : 'studio';
     const newSlug = await uniqueSlug(env.DB, input.slug || title);
 
     await env.DB
       .prepare(
-        `INSERT INTO articles (slug, title, description, body, tags, status, source)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+        `INSERT INTO articles (slug, title, description, body, tags, status, source,
+                               author, last_editor)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)`
       )
       .bind(newSlug, title, clean(input.description), clean(input.body, MAX_BODY),
-            clean(input.tags), status, source)
+            clean(input.tags), status, source, who.name)
       .run();
 
     return json({ slug: newSlug, status, source }, 201);
@@ -175,7 +188,7 @@ export async function onRequest(context) {
   if (!action && method === 'PUT') {
     const denied = guard('update');
     if (denied) return denied;
-    if (who === 'agent' && !agentMayTouch(existing)) {
+    if (who.kind === 'agent' && !agentMayTouch(existing)) {
       return json({ error: 'The agent token cannot edit this article.' }, 403);
     }
 
@@ -191,14 +204,14 @@ export async function onRequest(context) {
     await env.DB
       .prepare(
         `UPDATE articles SET slug = ?1, title = ?2, description = ?3, body = ?4,
-                             tags = ?5, updated_at = datetime('now')
+                             tags = ?5, last_editor = ?7, updated_at = datetime('now')
          WHERE id = ?6`
       )
       .bind(nextSlug, title,
             input.description === undefined ? existing.description : clean(input.description),
             input.body === undefined ? existing.body : clean(input.body, MAX_BODY),
             input.tags === undefined ? existing.tags : clean(input.tags),
-            existing.id)
+            existing.id, who.name)
       .run();
 
     if (existing.status === 'published') await purge({ slug: nextSlug });
@@ -216,10 +229,11 @@ export async function onRequest(context) {
       .prepare(
         `UPDATE articles SET status = 'published',
                              published_at = COALESCE(published_at, ?1),
+                             last_editor = ?3,
                              updated_at = datetime('now')
          WHERE id = ?2`
       )
-      .bind(today(), existing.id)
+      .bind(today(), existing.id, who.name)
       .run();
     await purge(existing);
     return json({ slug: existing.slug, status: 'published' });
@@ -229,8 +243,11 @@ export async function onRequest(context) {
     const denied = guard('unpublish');
     if (denied) return denied;
     await env.DB
-      .prepare(`UPDATE articles SET status = 'draft', updated_at = datetime('now') WHERE id = ?1`)
-      .bind(existing.id)
+      .prepare(
+        `UPDATE articles SET status = 'draft', last_editor = ?2,
+                             updated_at = datetime('now') WHERE id = ?1`
+      )
+      .bind(existing.id, who.name)
       .run();
     await purge(existing);
     return json({ slug: existing.slug, status: 'draft' });

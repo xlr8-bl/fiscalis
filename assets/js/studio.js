@@ -1,8 +1,9 @@
 /**
- * studio.js — the CMS front end.
+ * studio.js — where the journal gets written.
  *
- * Talks to /api/studio/*. The live preview renders through the same parser
- * the Worker uses, so what you see is what publishes.
+ * Two views: an index of everything grouped by status, and an editor. The
+ * preview renders through the same parser the live page uses, laid out the
+ * same way, so what you see is what publishes.
  */
 import { renderMarkdown, countWords, readingMinutes } from '/assets/js/markdown.js';
 
@@ -11,14 +12,22 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 const gate = $('[data-gate]');
 const app = $('[data-app]');
-const itemsEl = $('[data-items]');
+const indexView = $('[data-index]');
 const editor = $('[data-editor]');
-const emptyEl = $('[data-empty]');
 const statusEl = $('[data-status]');
 
 let articles = [];
-let current = null;      // the row being edited
+let current = null;
 let dirty = false;
+let me = null;
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtDate = (iso) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? ''));
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : '';
+};
+const escapeHtml = (s) =>
+  String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /* --------------------------------------------------------------- plumbing */
 
@@ -30,9 +39,9 @@ async function api(path, options = {}) {
       : undefined,
     ...options,
   });
-  if (res.status === 401) { showGate(); throw new Error('Not signed in.'); }
+  if (res.status === 401) { showGate(); throw new Error('Signed out.'); }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) throw new Error(data.error || `That did not work (${res.status}).`);
   return data;
 }
 
@@ -41,12 +50,17 @@ function say(message, tone = '') {
   statusEl.textContent = message;
   statusEl.dataset.tone = tone;
   clearTimeout(sayTimer);
-  if (message) sayTimer = setTimeout(() => { statusEl.textContent = ''; }, 4000);
+  if (message) sayTimer = setTimeout(() => { statusEl.textContent = ''; }, 5000);
 }
 
-function showGate() {
-  gate.hidden = false;
-  app.hidden = true;
+function showGate() { gate.hidden = false; app.hidden = true; }
+
+function showIndex() {
+  current = null;
+  dirty = false;
+  editor.hidden = true;
+  indexView.hidden = false;
+  window.scrollTo(0, 0);
 }
 
 /* ------------------------------------------------------------------- auth */
@@ -56,7 +70,11 @@ $('[data-login]').addEventListener('submit', async (e) => {
   const out = $('[data-login-status]');
   out.textContent = 'Checking…';
   try {
-    await api('/login', { method: 'POST', body: JSON.stringify({ password: $('#st-pw').value }) });
+    const { name } = await api('/login', {
+      method: 'POST',
+      body: JSON.stringify({ name: $('#st-name').value, password: $('#st-pw').value }),
+    });
+    me = name;
     out.textContent = '';
     gate.hidden = true;
     app.hidden = false;
@@ -71,40 +89,77 @@ $('[data-logout]').addEventListener('click', async () => {
   location.reload();
 });
 
-/* ------------------------------------------------------------------- list */
+/* ------------------------------------------------------------------ index */
 
-const STATUS_LABEL = { draft: 'Draft', review: 'From Spark', published: 'Live' };
+// Status is a group heading rather than a badge on every row: quieter, and
+// it answers "what needs me" before you read a single title.
+const GROUPS = [
+  { key: 'review', title: 'Waiting for you', note: 'Drafted by Spark. Nothing is live until you publish it.' },
+  { key: 'draft', title: 'Drafts', note: '' },
+  { key: 'published', title: 'Live', note: '' },
+];
 
-function renderList() {
-  $('[data-count]').textContent =
-    `${articles.filter((a) => a.status === 'published').length} live · ${articles.length} total`;
+function renderIndex() {
+  const live = articles.filter((a) => a.status === 'published').length;
+  const waiting = articles.filter((a) => a.status === 'review').length;
+  $('[data-summary]').textContent = waiting
+    ? `${waiting} waiting for you, ${live} live.`
+    : `${live} article${live === 1 ? '' : 's'} live.`;
 
-  itemsEl.innerHTML = '';
-  for (const a of articles) {
-    const li = document.createElement('li');
-    li.className = 'st-item';
-    if (current && a.slug === current.slug) li.classList.add('is-on');
-    li.innerHTML =
-      `<button type="button" class="st-item__btn">
-         <span class="st-item__title">${escapeHtml(a.title)}</span>
-         <span class="st-item__meta">
-           <span class="st-pill is-${a.status}">${STATUS_LABEL[a.status] || a.status}</span>
-           <span>${a.published_at || String(a.updated_at || '').slice(0, 10)}</span>
-         </span>
-       </button>`;
-    li.querySelector('button').addEventListener('click', () => open(a.slug));
-    itemsEl.appendChild(li);
+  const host = $('[data-groups]');
+  host.innerHTML = '';
+
+  for (const group of GROUPS) {
+    const rows = articles.filter((a) => a.status === group.key);
+    if (!rows.length) continue;
+
+    const section = document.createElement('section');
+    section.className = 'st-group';
+    section.innerHTML =
+      `<h2 class="st-group__head">${group.title} <span class="st-group__count">${rows.length}</span></h2>` +
+      (group.note ? `<p class="st-note u-text-style-main">${group.note}</p>` : '') +
+      '<ul class="st-rows"></ul>';
+
+    const list = section.querySelector('.st-rows');
+    for (const a of rows) {
+      const by = a.status === 'published'
+        ? (a.last_editor || a.author || '')
+        : (a.author || '');
+      const when = a.published_at || String(a.updated_at || '').slice(0, 10);
+
+      const li = document.createElement('li');
+      li.innerHTML =
+        `<button type="button" class="st-row">
+           <span class="st-row__text">
+             <span class="st-row__title">${escapeHtml(a.title)}</span>
+             <span class="st-row__desc u-text-style-main">${escapeHtml(a.description || 'No description yet.')}</span>
+           </span>
+           <span class="st-row__meta u-text-style-main">
+             <span>${fmtDate(when)}</span>
+             ${by ? `<span>${escapeHtml(by)}</span>` : ''}
+           </span>
+         </button>`;
+      li.querySelector('button').addEventListener('click', () => open(a.slug));
+      list.appendChild(li);
+    }
+    host.appendChild(section);
+  }
+
+  if (!host.children.length) {
+    host.innerHTML =
+      '<p class="u-text-style-h5" style="color:var(--swatch--black-50)">Nothing here yet. Write the first one.</p>';
   }
 }
 
-function escapeHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 async function load() {
-  const data = await api('/articles');
-  articles = data.articles || [];
-  renderList();
+  const [{ articles: rows }, who] = await Promise.all([
+    api('/articles'),
+    api('/me').catch(() => null),
+  ]);
+  articles = rows || [];
+  if (who?.name) me = who.name;
+  $('[data-who]').textContent = me ? `Signed in as ${me}` : '';
+  renderIndex();
 }
 
 /* ----------------------------------------------------------------- editor */
@@ -117,70 +172,94 @@ function fill(row) {
   for (const name of ['title', 'description', 'slug', 'tags', 'body']) {
     field(name).value = row[name] ?? '';
   }
-  $('[data-pill]').textContent = STATUS_LABEL[row.status] || row.status;
-  $('[data-pill]').className = `st-pill is-${row.status}`;
-  $('[data-slug-display]').textContent = row.slug ? `/journal/${row.slug}` : '';
 
   const live = row.status === 'published';
+  const parts = [];
+  if (live) parts.push(`Live since ${fmtDate(row.published_at)}`);
+  else if (row.status === 'review') parts.push('Drafted by Spark, waiting for you');
+  else if (row.slug) parts.push('Draft');
+  else parts.push('New article');
+  if (row.author) parts.push(`written by ${row.author}`);
+  if (row.last_editor && row.last_editor !== row.author) parts.push(`last edited by ${row.last_editor}`);
+  $('[data-meta]').textContent = parts.join(' · ');
+
   $('[data-publish]').hidden = live;
   $('[data-unpublish]').hidden = !live;
-  // a live URL is permanent; renaming it discards the ranking it earned
   field('slug').disabled = live;
+  $('[data-slug-note]').textContent = live
+    ? 'Locked. Renaming a live article throws away the ranking it earned.'
+    : 'Becomes /journal/… — it is permanent once published.';
   $('[data-view]').href = live ? `/journal/${row.slug}` : `/journal/${row.slug}?preview=1`;
   $('[data-view]').hidden = !row.slug;
   $('[data-delete]').hidden = !row.slug;
 
+  indexView.hidden = true;
   editor.hidden = false;
-  emptyEl.hidden = true;
-  updateCounts();
-  renderPreview();
-  renderList();
+  window.scrollTo(0, 0);
+  refresh();
 }
 
 async function open(slug) {
-  if (dirty && !confirm('You have unsaved changes. Discard them?')) return;
-  const { article } = await api(`/articles/${encodeURIComponent(slug)}`);
-  fill(article);
+  if (!confirmDiscard()) return;
+  try {
+    const { article } = await api(`/articles/${encodeURIComponent(slug)}`);
+    fill(article);
+  } catch (e) { say(e.message, 'err'); }
 }
 
+const confirmDiscard = () =>
+  !dirty || confirm('You have unsaved changes. Leave without saving?');
+
+$('[data-back]').addEventListener('click', () => { if (confirmDiscard()) showIndex(); });
+
 $('[data-new]').addEventListener('click', () => {
-  if (dirty && !confirm('You have unsaved changes. Discard them?')) return;
-  fill({ title: '', description: '', slug: '', tags: '', body: '', status: 'draft' });
+  fill({ title: '', description: '', slug: '', tags: '', body: '', status: 'draft', author: me });
   field('title').focus();
 });
 
-function updateCounts() {
+/** Word count, description length, and the preview if it is showing. */
+function refresh() {
   const parsed = renderMarkdown(field('body').value);
   const words = countWords(parsed);
-  $('[data-words]').textContent = words ? `${words} words · ${readingMinutes(words)} min` : '';
-  const desc = field('description').value.length;
-  $('[data-desc-count]').textContent = desc;
-  $('.st-meter').dataset.over = desc > 160 ? 'true' : 'false';
-}
 
-function renderPreview() {
+  const desc = field('description').value.length;
+  const note = $('[data-desc-note]');
+  if (!desc) {
+    note.textContent = 'Required before publishing.';
+    note.dataset.tone = '';
+  } else if (desc > 160) {
+    note.textContent = `${desc} characters — Google will cut it off around 160.`;
+    note.dataset.tone = 'warn';
+  } else {
+    note.textContent = `${desc} of about 160 characters.`;
+    note.dataset.tone = '';
+  }
+
+  if (current && words) {
+    const base = $('[data-meta]').textContent.split(' — ')[0];
+    $('[data-meta]').textContent = `${base} — ${words} words, ${readingMinutes(words)} min read`;
+  }
+
   const box = $('[data-preview]');
   if (box.hidden) return;
-  const parsed = renderMarkdown(field('body').value);
   box.innerHTML =
-    `<h1 class="st-preview__title">${escapeHtml(field('title').value || 'Untitled')}</h1>` +
+    `<h1 class="st-preview__title">${escapeHtml(field('title').value || 'The headline')}</h1>` +
     `<p class="st-preview__lede">${escapeHtml(field('description').value)}</p>` +
-    (parsed.intro ? `<div class="st-preview__prose">${parsed.intro}</div>` : '') +
+    (parsed.intro
+      ? `<div class="st-preview__row"><div style="flex:1"></div><div class="st-preview__prose">${parsed.intro}</div></div>`
+      : '') +
     parsed.sections
       .map(
         (s) =>
+          '<div class="st-preview__row">' +
           `<h2 class="st-preview__h2">${escapeHtml(s.title)}</h2>` +
-          `<div class="st-preview__prose">${s.html}</div>`
+          `<div class="st-preview__prose">${s.html}</div></div>`
       )
       .join('');
 }
 
 $$('[data-f]').forEach((el) =>
-  el.addEventListener('input', () => {
-    dirty = true;
-    updateCounts();
-    renderPreview();
-  })
+  el.addEventListener('input', () => { dirty = true; refresh(); })
 );
 
 $$('[data-tab]').forEach((tab) =>
@@ -189,36 +268,35 @@ $$('[data-tab]').forEach((tab) =>
     $$('[data-tab]').forEach((t) => t.classList.toggle('is-on', t === tab));
     field('body').hidden = !write;
     $('[data-preview]').hidden = write;
-    renderPreview();
+    refresh();
   })
 );
 
 /* ---------------------------------------------------------------- actions */
 
-function values() {
-  return {
-    title: field('title').value.trim(),
-    description: field('description').value.trim(),
-    slug: field('slug').value.trim(),
-    tags: field('tags').value.trim(),
-    body: field('body').value,
-  };
-}
+const values = () => ({
+  title: field('title').value.trim(),
+  description: field('description').value.trim(),
+  slug: field('slug').value.trim(),
+  tags: field('tags').value.trim(),
+  body: field('body').value,
+});
 
-async function save() {
+async function save({ quiet = false } = {}) {
   const v = values();
-  if (!v.title) { say('A title is required.', 'err'); return null; }
-  say('Saving…');
+  if (!v.title) { say('It needs a title first.', 'err'); return null; }
+  if (!quiet) say('Saving…');
+
   const saved = current?.slug
-    ? await api(`/articles/${encodeURIComponent(current.slug)}`, {
-        method: 'PUT', body: JSON.stringify(v),
-      })
+    ? await api(`/articles/${encodeURIComponent(current.slug)}`, { method: 'PUT', body: JSON.stringify(v) })
     : await api('/articles', { method: 'POST', body: JSON.stringify(v) });
+
   dirty = false;
-  await load();
   const { article } = await api(`/articles/${encodeURIComponent(saved.slug)}`);
+  const { articles: rows } = await api('/articles');
+  articles = rows || [];
   fill(article);
-  say('Saved.', 'ok');
+  if (!quiet) say('Saved.', 'ok');
   return article;
 }
 
@@ -226,37 +304,36 @@ $('[data-save]').addEventListener('click', () => save().catch((e) => say(e.messa
 
 $('[data-publish]').addEventListener('click', async () => {
   try {
-    const article = (dirty || !current?.slug) ? await save() : current;
+    const article = (dirty || !current?.slug) ? await save({ quiet: true }) : current;
     if (!article) return;
     if (!confirm(`Publish "${article.title}"?\n\nIt goes live at /journal/${article.slug} and into the sitemap.`)) return;
     await api(`/articles/${encodeURIComponent(article.slug)}/publish`, { method: 'POST' });
-    await load();
     const { article: fresh } = await api(`/articles/${encodeURIComponent(article.slug)}`);
+    const { articles: rows } = await api('/articles');
+    articles = rows || [];
     fill(fresh);
-    say('Published.', 'ok');
+    say('Published. It is live and in the sitemap.', 'ok');
   } catch (e) { say(e.message, 'err'); }
 });
 
 $('[data-unpublish]').addEventListener('click', async () => {
-  if (!confirm('Take this off the site? The URL will 404.')) return;
+  if (!confirm('Take this off the site? The URL will stop working.')) return;
   try {
     await api(`/articles/${encodeURIComponent(current.slug)}/unpublish`, { method: 'POST' });
-    await load();
     const { article } = await api(`/articles/${encodeURIComponent(current.slug)}`);
+    const { articles: rows } = await api('/articles');
+    articles = rows || [];
     fill(article);
-    say('Unpublished.', 'ok');
+    say('Taken offline.', 'ok');
   } catch (e) { say(e.message, 'err'); }
 });
 
 $('[data-delete]').addEventListener('click', async () => {
-  if (!confirm(`Delete "${current.title}" permanently?`)) return;
+  if (!confirm(`Delete "${current.title}" permanently? This cannot be undone.`)) return;
   try {
     await api(`/articles/${encodeURIComponent(current.slug)}`, { method: 'DELETE' });
-    current = null;
-    editor.hidden = true;
-    emptyEl.hidden = false;
     await load();
-    say('Deleted.', 'ok');
+    showIndex();
   } catch (e) { say(e.message, 'err'); }
 });
 
@@ -270,8 +347,9 @@ $('[data-upload]').addEventListener('change', async (e) => {
   say('Uploading…');
   try {
     const { url } = await api('/media', { method: 'POST', body: form });
-    await navigator.clipboard?.writeText(`![](${url})`).catch(() => {});
-    say('Uploaded — markdown copied to the clipboard.', 'ok');
+    const snippet = `![](${url})`;
+    await navigator.clipboard?.writeText(snippet).catch(() => {});
+    say('Uploaded. The markdown is on your clipboard.', 'ok');
     loadMedia();
   } catch (err) { say(err.message, 'err'); }
   e.target.value = '';
@@ -280,12 +358,12 @@ $('[data-upload]').addEventListener('change', async (e) => {
 async function loadMedia() {
   try {
     const { media } = await api('/media');
-    $('[data-media]').innerHTML = media
-      .map((m) => `<li><code>![](/media/${escapeHtml(m.key)})</code></li>`)
-      .join('');
+    $('[data-media]').innerHTML = media.length
+      ? media.map((m) => `<li><code>![](/media/${escapeHtml(m.key)})</code></li>`).join('')
+      : '<li class="st-note">Nothing uploaded yet.</li>';
   } catch { /* the panel is optional */ }
 }
-$('.st-media').addEventListener('toggle', (e) => { if (e.target.open) loadMedia(); });
+$('.st-images').addEventListener('toggle', (e) => { if (e.target.open) loadMedia(); });
 
 /* ------------------------------------------------------------------- boot */
 
@@ -298,6 +376,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (!editor.hidden) save().catch((err) => say(err.message, 'err'));
   }
+  if (e.key === 'Escape' && !editor.hidden && confirmDiscard()) showIndex();
 });
 
 // a valid cookie means straight in; otherwise the gate

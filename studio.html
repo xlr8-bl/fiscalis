@@ -8,19 +8,35 @@
 <meta name="color-scheme" content="dark">
 <link rel="preload" href="/assets/fonts/inter-500.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/pixel.woff2" as="font" type="font/woff2" crossorigin>
 <link href="/assets/css/site.css" rel="stylesheet" type="text/css">
 <link href="/assets/css/statement.css" rel="stylesheet" type="text/css">
 <link href="/assets/css/studio.css" rel="stylesheet" type="text/css">
 </head>
-<body class="body st-body">
+<body class="body st-body" data-theme-section="dark">
 
 <!-- sign in ------------------------------------------------------------- -->
 <section class="st-gate" data-gate hidden>
   <form class="st-gate__form" data-login>
-    <h1 class="st-gate__title u-text-style-h2">Studio</h1>
-    <label class="st-label u-text-style-main" for="st-pw">Password</label>
-    <input id="st-pw" name="password" type="password" autocomplete="current-password" required>
-    <button class="st-btn is-primary" type="submit">Sign in</button>
+    <h1 class="st-display">Studio</h1>
+    <p class="st-gate__lede u-text-style-h5">Sign in to write, edit and publish.</p>
+
+    <div class="st-field">
+      <label class="st-label u-text-style-main" for="st-name">Name</label>
+      <input id="st-name" class="st-input" name="name" autocomplete="username" autocapitalize="none">
+    </div>
+    <div class="st-field">
+      <label class="st-label u-text-style-main" for="st-pw">Password</label>
+      <input id="st-pw" class="st-input" name="password" type="password" autocomplete="current-password" required>
+    </div>
+
+    <button class="g_btn_main st-submit" type="submit">
+      <div class="g_btn_text_contain"><div class="g_btn_text u-text-style-small u-text-trim-off">Sign in</div></div>
+      <div class="g_btn_aside_wrap"><div class="g_btn_aside_bg"></div>
+        <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg is-absolute"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
+      </div>
+    </button>
     <p class="st-say u-text-style-main" data-login-status role="status"></p>
   </form>
 </section>
@@ -36,89 +52,101 @@
               lengthAdjust="spacingAndGlyphs">WEB3ASHLEY</text>
       </svg>
     </a>
-    <div class="st-bar__actions">
-      <span class="st-say u-text-style-main" data-status role="status"></span>
-      <button class="st-btn" data-new type="button">New article</button>
-      <button class="st-btn" data-logout type="button">Sign out</button>
-    </div>
+    <nav class="st-bar__nav u-text-style-main">
+      <span class="st-who" data-who></span>
+      <a href="/journal/" target="_blank" rel="noopener" class="st-link">The journal</a>
+      <button class="st-link" data-logout type="button">Sign out</button>
+    </nav>
   </header>
 
-  <div class="st-cols">
+  <!-- index of everything ---------------------------------------------- -->
+  <main class="st-index" data-index>
+    <div class="st-index__head">
+      <h1 class="st-display">Studio</h1>
+      <button class="g_btn_main" data-new type="button">
+        <div class="g_btn_text_contain"><div class="g_btn_text u-text-style-small u-text-trim-off">Write something</div></div>
+        <div class="g_btn_aside_wrap"><div class="g_btn_aside_bg"></div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg is-absolute"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
+        </div>
+      </button>
+    </div>
+    <p class="st-index__lede u-text-style-h4" data-summary></p>
+    <div data-groups></div>
+  </main>
 
-    <!-- list -->
-    <aside class="st-list">
-      <div class="st-list__head">
-        <h2 class="u-text-style-h6">Articles</h2>
-        <span class="st-count u-text-style-main" data-count></span>
+  <!-- editor ------------------------------------------------------------ -->
+  <main class="st-editor" data-editor hidden>
+    <button class="st-back u-text-style-main" data-back type="button">All articles</button>
+
+    <input class="st-title" data-f="title" placeholder="The headline" aria-label="Title">
+    <p class="st-meta u-text-style-main" data-meta></p>
+
+    <div class="st-field">
+      <label class="st-label u-text-style-main" for="st-desc">Description</label>
+      <p class="st-note u-text-style-main">The sentence Google prints under the title. Write it for a stranger.</p>
+      <textarea id="st-desc" class="st-input st-input--area" data-f="description" rows="2" maxlength="200"></textarea>
+      <p class="st-note u-text-style-main" data-desc-note></p>
+    </div>
+
+    <div class="st-pair">
+      <div class="st-field">
+        <label class="st-label u-text-style-main" for="st-slug">Address</label>
+        <input id="st-slug" class="st-input" data-f="slug" placeholder="the-url">
+        <p class="st-note u-text-style-main" data-slug-note></p>
       </div>
-      <ul class="st-items" data-items></ul>
-    </aside>
+      <div class="st-field">
+        <label class="st-label u-text-style-main" for="st-tags">Tags</label>
+        <input id="st-tags" class="st-input" data-f="tags" placeholder="speed, mobile">
+        <p class="st-note u-text-style-main">Separated by commas. They pick what appears under Read next.</p>
+      </div>
+    </div>
 
-    <!-- editor -->
-    <main class="st-editor" data-editor hidden>
-      <div class="st-editor__head">
-        <input class="st-title" data-f="title" placeholder="Title" aria-label="Title">
-        <div class="st-editor__meta">
-          <span class="st-pill" data-pill></span>
-          <span class="st-slug u-text-style-main" data-slug-display></span>
-          <span class="st-words u-text-style-main" data-words></span>
+    <div class="st-field">
+      <div class="st-field__head">
+        <label class="st-label u-text-style-main" for="st-body">The article</label>
+        <div class="st-toggle">
+          <button class="st-toggle__btn is-on" data-tab="write" type="button">Write</button>
+          <button class="st-toggle__btn" data-tab="preview" type="button">Preview</button>
         </div>
       </div>
-
-      <label class="st-label u-text-style-main" for="st-desc">
-        Description <span class="st-hint">the sentence Google shows under the title</span>
-      </label>
-      <textarea id="st-desc" class="st-desc" data-f="description" rows="2" maxlength="200"></textarea>
-      <div class="st-meter"><span data-desc-count>0</span>/160</div>
-
-      <div class="st-row">
-        <div>
-          <label class="st-label u-text-style-main" for="st-slug">URL</label>
-          <input id="st-slug" class="st-input" data-f="slug" placeholder="url-slug">
-        </div>
-        <div>
-          <label class="st-label u-text-style-main" for="st-tags">Tags</label>
-          <input id="st-tags" class="st-input" data-f="tags" placeholder="speed, mobile">
-        </div>
-      </div>
-
-      <div class="st-body__head">
-        <label class="st-label u-text-style-main" for="st-body">Article</label>
-        <div class="st-tabs" role="tablist">
-          <button class="st-tab is-on" data-tab="write" role="tab" type="button">Write</button>
-          <button class="st-tab" data-tab="preview" role="tab" type="button">Preview</button>
-        </div>
-      </div>
-      <textarea id="st-body" class="st-body" data-f="body" spellcheck="true"
+      <textarea id="st-body" class="st-input st-writing" data-f="body" spellcheck="true"
         placeholder="Open with the reader's situation, in one specific sentence.
 
 ## A real section heading
 
 Body text. **Bold**, *italic*, [links](https://example.com), lists, and one
+
 > pulled line per article."></textarea>
       <div class="st-preview" data-preview hidden></div>
-
-      <div class="st-actions">
-        <button class="st-btn is-primary" data-save type="button">Save</button>
-        <button class="st-btn" data-publish type="button">Publish</button>
-        <button class="st-btn" data-unpublish type="button" hidden>Unpublish</button>
-        <a class="st-btn" data-view target="_blank" rel="noopener">View</a>
-        <button class="st-btn is-danger" data-delete type="button">Delete</button>
-      </div>
-
-      <details class="st-media">
-        <summary class="u-text-style-main">Images</summary>
-        <input type="file" data-upload accept="image/png,image/jpeg,image/webp,image/avif">
-        <p class="st-hint">Uploads go to R2. Paste the markdown it gives you into the article.</p>
-        <ul class="st-media__list" data-media></ul>
-      </details>
-    </main>
-
-    <div class="st-empty" data-empty>
-      <p class="u-text-style-h5">Pick an article, or start a new one.</p>
+      <p class="st-note u-text-style-main">
+        <b>##</b> starts a section &nbsp; <b>**bold**</b> &nbsp; <b>*italic*</b> &nbsp;
+        <b>&gt;</b> a pulled line &nbsp; <b>- </b>a list
+      </p>
     </div>
 
-  </div>
+    <div class="st-actions">
+      <button class="g_btn_main" data-save type="button">
+        <div class="g_btn_text_contain"><div class="g_btn_text u-text-style-small u-text-trim-off">Save</div></div>
+        <div class="g_btn_aside_wrap"><div class="g_btn_aside_bg"></div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg is-absolute"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
+        </div>
+      </button>
+      <button class="st-link" data-publish type="button">Publish</button>
+      <button class="st-link" data-unpublish type="button" hidden>Take offline</button>
+      <a class="st-link" data-view target="_blank" rel="noopener">Open the page</a>
+      <button class="st-link is-danger" data-delete type="button">Delete</button>
+      <span class="st-say u-text-style-main" data-status role="status"></span>
+    </div>
+
+    <details class="st-images">
+      <summary class="u-text-style-main">Images</summary>
+      <p class="st-note u-text-style-main">Upload one and the markdown is copied to your clipboard.</p>
+      <input type="file" data-upload accept="image/png,image/jpeg,image/webp,image/avif">
+      <ul class="st-images__list" data-media></ul>
+    </details>
+  </main>
 </div>
 
 <script type="module" src="/assets/js/studio.js"></script>
