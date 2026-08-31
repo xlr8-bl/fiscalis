@@ -35,6 +35,32 @@ const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avi
 const clean = (v, max = MAX_FIELD) => String(v ?? '').trim().slice(0, max);
 const today = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * "No accounts" almost never means the secret was never set. It means the
+ * secret did not reach *this* deployment, and there are only two ways that
+ * happens — so say which one is likelier rather than naming the secret again.
+ *
+ * A deployment carries the variables it was built with, so a secret added
+ * afterwards needs a new deployment. And Pages keeps Production and Preview
+ * variables in separate lists, so a branch that is not the production branch
+ * reads the Preview one. The hostname says which of the two you are on:
+ * a preview is served from <deployment>.<project>.pages.dev.
+ */
+function noAccountsHint(request) {
+  const host = new URL(request.url).hostname;
+  const preview = host.endsWith('.pages.dev') && host.split('.').length > 3;
+  return (
+    `No accounts on this deployment (${host}). ` +
+    (preview
+      ? 'This is a preview deployment, so it reads the Preview variables, not Production. ' +
+        'Add STUDIO_PASSWORD under Preview as well. '
+      : '') +
+    'A deployment keeps the variables it was built with, so after adding the ' +
+    'secret under Settings → Variables and Secrets, retry the deployment ' +
+    'to pick it up.'
+  );
+}
+
 /** Drop the edge cache for the pages an article change affects. */
 async function purge(article) {
   const cache = caches.default;
@@ -54,10 +80,7 @@ export async function onRequest(context) {
   /* ---------------------------------------------------------- login/logout */
   if (head === 'login' && method === 'POST') {
     if (!Object.keys(accounts(env)).length) {
-      return json(
-        { error: 'No accounts are configured. Set STUDIO_PASSWORD or STUDIO_USERS.' },
-        503
-      );
+      return json({ error: noAccountsHint(request) }, 503);
     }
     const { name, password } = await request.json().catch(() => ({}));
     const user = authenticate(env, name, password);
