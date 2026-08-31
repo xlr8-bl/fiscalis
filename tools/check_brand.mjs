@@ -77,6 +77,28 @@ const RULES = [
     test: (l) => /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u.exec(l),
   },
   {
+    // The branding doc is explicit that trust is earned by demonstrated
+    // diagnosis and consistency, never claimed. A stated-trust phrase is
+    // the exact move it says works in reverse.
+    name: 'asserted trust or credentials',
+    why: 'trust is inferred from the diagnosis, never stated',
+    test: (l) =>
+      /\b(trusted by|our values|our mission|our promise|why choose|we believe|award[- ]winning|industry[- ]leading|proven track record|years of experience)\b/i.exec(l),
+  },
+  {
+    // A heading over a list of things that are not that thing is worse
+    // than a boast: the export shipped "Awards" over a list of principles
+    // and "Clients" over a list of services.
+    name: 'unbacked credential heading',
+    why: 'a heading claiming awards or clients needs awards or clients under it',
+    test: (l) => /^(awards?|clients|testimonials|press|as seen in)$/i.exec(l),
+  },
+  {
+    name: 'leftover placeholder',
+    why: 'export scaffolding that was never replaced',
+    test: (l) => /\b(placehold(er)?|lorem ipsum|your text here|tbd)\b/i.exec(l),
+  },
+  {
     name: 'ALL CAPS heading',
     why: 'sentence case throughout, outside mono system labels',
     test: (l) =>
