@@ -12,3 +12,6 @@ __pycache__/
 .wrangler/
 seed.sql
 journal-backup.sql
+
+# browser-check screenshots
+.check-shots/

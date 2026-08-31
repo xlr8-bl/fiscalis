@@ -9,7 +9,8 @@
     "draft": "python3 tools/draft_article.py",
     "seed": "python3 tools/seed_d1.py && python3 tools/seed_content.py",
     "backup": "npx wrangler d1 export web3ashley --remote --output=journal-backup.sql",
-    "seed:build": "python3 tools/build_seed.py"
+    "seed:build": "python3 tools/build_seed.py",
+    "check": "node tools/check_studio.mjs"
   },
   "type": "module"
 }

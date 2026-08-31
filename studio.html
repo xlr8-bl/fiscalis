@@ -51,7 +51,7 @@
       <span class="st-menu-btn__bars" aria-hidden="true"><i></i><i></i></span>
     </button>
 
-    <a class="st-brand" href="/" aria-label="Web3Ashley home">
+    <a class="st-brand" href="#/" aria-label="Studio overview">
       <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 609 100" fill="none">
         <text x="304.5" y="54" text-anchor="middle" dominant-baseline="central" fill="currentColor"
               font-family="PixelDisplay, monospace" font-size="72" textLength="595"
@@ -75,6 +75,14 @@
 
   <main class="st-main" data-main>
 
+    <!-- overview ---------------------------------------------------------- -->
+    <section data-view="home" hidden>
+      <p class="st-crumb u-text-style-main">Studio</p>
+      <h1 class="st-display">Overview</h1>
+      <p class="st-lede u-text-style-h4" data-home-lede></p>
+      <div data-home-body></div>
+    </section>
+
     <!-- a list of things: articles, or a collection ---------------------- -->
     <section data-view="list" hidden>
       <div class="st-head">
@@ -91,14 +99,25 @@
         </button>
       </div>
       <p class="st-lede u-text-style-h4" data-list-lede></p>
+
+      <div class="st-filters" data-list-filters hidden>
+        <input class="st-input st-search" type="search" data-list-search
+               placeholder="Search" aria-label="Search this list">
+        <div class="st-toggle" data-list-tabs role="tablist"></div>
+      </div>
+
       <div data-list-body></div>
     </section>
 
     <!-- an article -------------------------------------------------------- -->
     <section data-view="article" hidden>
       <p class="st-crumb u-text-style-main"><button class="st-link" data-back type="button">Journal</button> / <span data-article-crumb>Article</span></p>
+      <div data-recover-host></div>
 
-      <input class="st-title" data-f="title" placeholder="The headline" aria-label="Title">
+      <!-- a textarea, not an input: a headline written for search is often
+           longer than one line, and an input hides everything past its edge -->
+      <textarea class="st-title" data-f="title" rows="1" spellcheck="true"
+                placeholder="The headline" aria-label="Title"></textarea>
       <p class="st-meta u-text-style-main" data-meta></p>
 
       <div class="st-field">
@@ -129,19 +148,11 @@
             <button class="st-toggle__btn" data-tab="preview" type="button">Preview</button>
           </div>
         </div>
-        <textarea id="st-body" class="st-input st-writing" data-f="body" spellcheck="true"
-          placeholder="Open with the reader's situation, in one specific sentence.
-
-## A real section heading
-
-Body text. **Bold**, *italic*, [links](https://example.com), lists, and one
-
-> pulled line per article."></textarea>
+        <div class="st-editor" data-editor-host>
+          <textarea id="st-body" class="st-input st-writing" data-f="body" spellcheck="true"
+            placeholder="Open with the reader's situation, in one specific sentence."></textarea>
+        </div>
         <div class="st-preview" data-preview hidden></div>
-        <p class="st-note u-text-style-main">
-          <b>##</b> starts a section &nbsp; <b>**bold**</b> &nbsp; <b>*italic*</b> &nbsp;
-          <b>&gt;</b> a pulled line &nbsp; <b>-</b> a list
-        </p>
       </div>
 
       <div class="st-actions">
@@ -155,8 +166,15 @@ Body text. **Bold**, *italic*, [links](https://example.com), lists, and one
         <button class="st-link" data-publish type="button">Publish</button>
         <button class="st-link" data-unpublish type="button" hidden>Take offline</button>
         <a class="st-link" data-view target="_blank" rel="noopener">Open the page</a>
+        <button class="st-link" data-history-toggle type="button" hidden>History</button>
         <button class="st-link is-danger" data-delete type="button">Delete</button>
       </div>
+
+      <section class="st-history" data-history hidden>
+        <h2 class="st-group__head">Earlier versions</h2>
+        <p class="st-note u-text-style-main">Each one is what the article looked like before that save. Restoring is itself undoable.</p>
+        <ul class="st-rows" data-history-list></ul>
+      </section>
     </section>
 
     <!-- one entry or one settings group ----------------------------------- -->
@@ -175,8 +193,15 @@ Body text. **Bold**, *italic*, [links](https://example.com), lists, and one
         </button>
         <button class="st-link" data-entry-hide type="button" hidden>Hide from the site</button>
         <button class="st-link" data-entry-show type="button" hidden>Show on the site</button>
+        <button class="st-link" data-entry-history-toggle type="button" hidden>History</button>
         <button class="st-link is-danger" data-entry-delete type="button" hidden>Delete</button>
       </div>
+
+      <section class="st-history" data-entry-history hidden>
+        <h2 class="st-group__head">Earlier versions</h2>
+        <p class="st-note u-text-style-main">Each one is what this looked like before that save.</p>
+        <ul class="st-rows" data-entry-history-list></ul>
+      </section>
     </section>
 
     <!-- first run ----------------------------------------------------------- -->
@@ -199,14 +224,29 @@ Body text. **Bold**, *italic*, [links](https://example.com), lists, and one
 
     <!-- media ------------------------------------------------------------- -->
     <section data-view="media" hidden>
-      <p class="st-crumb u-text-style-main">Media</p>
-      <h1 class="st-display">Images</h1>
-      <p class="st-lede u-text-style-h4">Upload once, use anywhere. Paste the path into any image field.</p>
-      <div class="st-field">
-        <label class="st-label u-text-style-main" for="st-upload">Add an image</label>
-        <p class="st-note u-text-style-main">Up to 8MB. JPEG, PNG, WebP or AVIF. The path is copied to your clipboard.</p>
-        <input id="st-upload" type="file" data-upload accept="image/png,image/jpeg,image/webp,image/avif">
+      <div class="st-head">
+        <div>
+          <p class="st-crumb u-text-style-main">Library</p>
+          <h1 class="st-display">Pictures</h1>
+        </div>
+        <label class="g_btn_main st-upload-btn">
+          <div class="g_btn_text_contain"><div class="g_btn_text u-text-style-small u-text-trim-off">Upload</div></div>
+          <div class="g_btn_aside_wrap"><div class="g_btn_aside_bg"></div>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 12 12" fill="none" class="g_btn_svg is-absolute"><path d="M8.90954 9.09046L9 3L2.90954 3.09046L2.90213 4.32367L6.86437 4.25391L2.55914 8.55914L3.44086 9.44086L7.74609 5.13563L7.68708 9.10862L8.90954 9.09046Z" fill="currentColor"></path></svg>
+          </div>
+          <input type="file" data-upload hidden multiple
+                 accept="image/png,image/jpeg,image/webp,image/avif">
+        </label>
       </div>
+      <p class="st-lede u-text-style-h4">Upload once, use anywhere. Describe each one — the description is what a
+        search engine and a screen reader both read.</p>
+
+      <div class="st-filters">
+        <input class="st-input st-search" type="search" data-media-search
+               placeholder="Search by name" aria-label="Search pictures">
+      </div>
+
       <ul class="st-media" data-media></ul>
     </section>
 
