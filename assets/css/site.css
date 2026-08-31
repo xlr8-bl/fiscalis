@@ -1803,7 +1803,6 @@ figure {
 }
 .works_home_item {
   padding-bottom:var(--_spacing---space--5);
-  border-bottom:1px dotted var(--swatch--beige-400);
   position:relative;
 }
 .works_home_left {
@@ -2499,9 +2498,6 @@ figure {
   padding-right:var(--site--margin);
   padding-bottom:var(--_spacing---section-space--none);
   padding-left:var(--site--margin);
-  border-left-style:solid;
-  border-left-width:1px;
-  border-left-color:var(--swatch--card-bg);
   background-color:var(--swatch--beige-100);
   pointer-events:auto;
   color:var(--swatch--black-400);
@@ -2592,7 +2588,6 @@ figure {
 .about_modal_awards {
   margin-top:var(--_spacing---space--6);
   padding-top:var(--_spacing---space--6);
-  border-top:1px solid var(--swatch--beige-300);
   display:flex;
 }
 .about_clients_collection {
@@ -3608,7 +3603,6 @@ figure {
 .about_modal_values {
   margin-top:var(--_spacing---space--6);
   padding-top:var(--_spacing---space--6);
-  border-top:1px solid var(--swatch--beige-300);
   display:flex;
 }
 .about_values_p.u-text-style-small {
@@ -3626,7 +3620,6 @@ figure {
   margin-bottom:var(--_spacing---space--6);
   padding-bottom:var(--_spacing---space--6);
   grid-row-gap:var(--_spacing---space--4);
-  border-bottom:1px solid var(--swatch--beige-300);
   flex-flow:column;
   display:flex;
 }

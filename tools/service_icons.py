@@ -4,29 +4,24 @@ service_icons.py — the marks in the services grid.
 
     python3 tools/service_icons.py        # write them into index.html
 
-Small objects, built out of cubes and drawn in isometric projection. Each
-mark is a list of voxel coordinates; the geometry is worked out here rather
-than drawn by eye, so the projection is exact and every mark sits on the
-same grid, at the same angle, lit from the same side.
+Abstract geometric marks in the Italian modernist line — Olivetti, Munari,
+the Milanese studios, with the Memphis habit of putting a form somewhere it
+does not belong. Solid shapes, not outlines. Circles, bars, wedges and
+arcs, and the negative space between them doing as much work as the ink.
 
-Three passes at this before it landed. The export shipped primitives — a
-circle, a plus, a diamond — that said nothing. Replacing them with thin
-rounded outline strokes only swapped one anonymity for another: that is
-the house style of every free icon library. Bitmaps came next and had the
-right idea, rhyming with the pixel wordmark, but flat.
+The rules that hold the set together:
 
-Depth is what makes them read as designed rather than picked. A cube shows
-three faces, and shading them apart — top brightest, then the left, then
-the right, as though the light comes over your shoulder — carries the form
-without introducing a single colour the site does not already use.
+  Solid.       Filled forms at one heavy weight, to sit with a display
+               face set at 800. Thin strokes read as an icon library.
+  Two or three parts. Never more. A mark that needs four is a diagram.
+  Off-balance. Something is always offset, bitten into, or interrupted.
+               Symmetry is what makes a geometric mark look corporate.
+  Optical.     Overlaps knock out rather than stack, so the eye reads a
+               shape that is not drawn.
 
-    top    the full ink
-    left   58% of it
-    right  30%
-
-Silhouette does the identifying, so no two marks share one: flat and wide,
-a diagonal rise, a standing slab, an angular L, four columns, a pin on a
-plate, a pair with a span between them, a stack.
+Not pictograms. A mark here is an association, not a picture of the thing
+— which is why they can be this reduced and still not collide with each
+other.
 """
 
 from __future__ import annotations
@@ -36,101 +31,48 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Isometric projection. The top of a cube is a rhombus twice as wide as it
-# is tall, which is the ratio that reads as isometric rather than as a
-# drawing mistake. RISE is the vertical travel of one cube of height.
-HALF_W, HALF_H, RISE = 1.0, 0.5, 1.15
+MARKS: dict[str, str] = {
+    # a field with a half-disc taken out of its edge, and a disc sitting in
+    # the hole, too high
+    'Web design':
+        '<path fill-rule="evenodd" d="M3 3h26v26H3z m26 0a13 13 0 0 0 0 26z"/>'
+        '<circle cx="24" cy="12" r="4.5"/>',
 
+    # two slabs leaning, at different heights — the tension is the point
+    'Development':
+        '<path d="M11 3h8l-5 26h-8z"/>'
+        '<path d="M22 11h6.5l-3.6 18h-6.5z"/>',
 
-def project(x: float, y: float, z: float) -> tuple[float, float]:
-    return ((x - y) * HALF_W, (x + y) * HALF_H - z * RISE)
+    # a standing form, and a corner of something else that got away
+    'Mobile apps':
+        '<rect x="4" y="3" width="12" height="26" rx="6"/>'
+        '<path d="M18 29a11 11 0 0 1 11-11v11z"/>',
 
+    # two slabs crossing off-centre, and the crossing knocked out
+    'Internal tools':
+        '<path fill-rule="evenodd" d="M3 14h26v7H3z m6-11h7v26H9z"/>',
 
-# The three faces you can see, as offsets from a cube's origin, with the
-# share of the ink each one takes.
-FACES = (
-    (((0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)), 1.0),    # top
-    (((0, 1, 0), (1, 1, 0), (1, 1, 1), (0, 1, 1)), 0.58),   # left
-    (((1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)), 0.30),   # right
-)
+    # a climb, and then the one that is not a bar
+    'Analytics':
+        '<rect x="3" y="20" width="6" height="9"/>'
+        '<rect x="11" y="15" width="6" height="14"/>'
+        '<path d="M19 29V16a5 5 0 0 1 10 0v13z"/>',
 
+    # a disc with a wedge taken out of it, and the wedge nowhere near
+    'Search':
+        '<path d="M14 17V6a11 11 0 1 0 7.78 3.22z"/>'
+        '<circle cx="26" cy="6.5" r="3.5"/>',
 
-def plate(w: int, d: int, z: int = 0) -> list[tuple[int, int, int]]:
-    return [(x, y, z) for x in range(w) for y in range(d)]
+    # two of them, and the part they share knocked out
+    'Integrations':
+        '<path fill-rule="evenodd" d="M12 6a10 10 0 1 0 0 20 10 10 0 1 0 0-20z'
+        'm8 0a10 10 0 1 0 0 20 10 10 0 1 0 0-20z"/>',
 
-
-def column(x: int, y: int, height: int) -> list[tuple[int, int, int]]:
-    return [(x, y, z) for z in range(height)]
-
-
-# Each mark, as the cubes it is made of.
-MARKS: dict[str, list[tuple[int, int, int]]] = {
-    # a board with things laid out on it — wide and flat
-    'Web design': plate(3, 3) + [(0, 0, 1), (1, 0, 1), (2, 2, 1)],
-
-    # a rise, two cubes wide, stepping up
-    'Development': [
-        (0, 0, 0), (0, 1, 0),
-        (1, 0, 0), (1, 1, 0), (1, 0, 1), (1, 1, 1),
-        (2, 0, 0), (2, 1, 0), (2, 0, 1), (2, 1, 1), (2, 0, 2), (2, 1, 2),
-    ],
-
-    # a slab stood on its end
-    'Mobile apps': [(0, y, z) for y in range(2) for z in range(3)],
-
-    # an angular fixture, raised at both ends
-    'Internal tools': [
-        (0, 0, 0), (1, 0, 0), (2, 0, 0), (0, 1, 0), (0, 2, 0),
-        (0, 0, 1), (2, 0, 1), (0, 2, 1),
-    ],
-
-    # four readings. Standing them a cube apart reads as four things when
-    # you blow the mark up and as scatter at the size it is actually shown,
-    # so they stay shoulder to shoulder and climb.
-    'Analytics': (column(0, 0, 1) + column(1, 0, 2) + column(2, 0, 3) + column(3, 0, 4)),
-
-    # a plate, and the one thing standing up out of it
-    'Search': plate(3, 3) + column(1, 1, 3)[1:],
-
-    # two of them, and the span between
-    'Integrations': [
-        (0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1),
-        (1, 0, 0), (1, 1, 0),
-        (2, 0, 0), (2, 0, 1), (2, 1, 0), (2, 1, 1),
-    ],
-
-    # stacked, and offset, so someone is on top of it
-    'Support': plate(2, 2) + [(0, 0, 1), (0, 0, 2)],
+    # one disc, cut in half, and the halves refusing to line up
+    'Support':
+        '<path d="M15 4a12 12 0 0 0 0 24z"/>'
+        '<path d="M20 10a9 9 0 0 1 0 18z"/>',
 }
-
-
-def draw(voxels: list[tuple[int, int, int]], box: float = 32.0, pad: float = 2.0) -> str:
-    """Polygons for one mark, back to front, fitted to the viewBox."""
-    # Painter's order: further back first. Larger x+y is nearer the viewer,
-    # and within a column the lower cube is drawn before the one on it.
-    ordered = sorted(set(voxels), key=lambda v: (v[0] + v[1], v[2]))
-
-    faces = []
-    for (vx, vy, vz) in ordered:
-        for corners, ink in FACES:
-            pts = [project(vx + dx, vy + dy, vz + dz) for dx, dy, dz in corners]
-            faces.append((pts, ink))
-
-    xs = [p[0] for pts, _ in faces for p in pts]
-    ys = [p[1] for pts, _ in faces for p in pts]
-    span = max(max(xs) - min(xs), max(ys) - min(ys)) or 1.0
-    scale = (box - pad * 2) / span
-    # centre what is drawn inside the square
-    ox = (box - (max(xs) - min(xs)) * scale) / 2 - min(xs) * scale
-    oy = (box - (max(ys) - min(ys)) * scale) / 2 - min(ys) * scale
-
-    out = []
-    for pts, ink in faces:
-        pairs = ' '.join(f'{x * scale + ox:.2f},{y * scale + oy:.2f}' for x, y in pts)
-        opacity = '' if ink == 1.0 else f' opacity="{ink}"'
-        out.append(f'<polygon points="{pairs}"{opacity}/>')
-    return ''.join(out)
-
 
 SHELL = (
     '<svg class="problems_home_image" viewBox="0 0 32 32" fill="currentColor"'
@@ -156,12 +98,12 @@ def main() -> int:
 
     def swap(m: re.Match) -> str:
         name = m.group('name').strip()
-        voxels = MARKS.get(name)
-        if not voxels:
+        body = MARKS.get(name)
+        if not body:
             missing.append(name)
             return m.group(0)
         done.append(name)
-        return SHELL.format(body=draw(voxels)) + m.group('label')
+        return SHELL.format(body=body) + m.group('label')
 
     html, n = ITEM.subn(swap, html)
     if missing:
@@ -172,9 +114,7 @@ def main() -> int:
         return 1
 
     path.write_text(html, encoding='utf-8')
-    print(f'{n} marks inlined')
-    for name in done:
-        print(f'  {name:16} {len(set(MARKS[name])):2} cubes')
+    print(f'{n} marks inlined: ' + ', '.join(done))
     return 0
 
 
