@@ -40,10 +40,18 @@ import {
   uniqueSlug, slugify, mayMove, agentMayTouchCarousel,
   MIN_SLIDES, MAX_SLIDES, SLOTS,
 } from '../../../../lib/carousels.js';
+import { problems as platformProblems, INSTAGRAM } from '../../../../assets/js/platforms.js';
 
 const MAX_FIELD = 400;
 const MAX_TEXT = 8_000;
-const MAX_IMAGE = 25 * 1024 * 1024;   // a 4K vertical master
+// Instagram's own cap is 2200 characters including the hashtags. Storing
+// more than the strictest destination accepts only defers the failure to
+// the moment it was supposed to post, so it is refused at the field.
+const MAX_CAPTION = INSTAGRAM.maxCaption;
+const MAX_IMAGE = 25 * 1024 * 1024;   // a 4K master, before any derivative
+// The master is kept in whatever it arrives as — Instagram wants JPEG and
+// says so at approval, where it can still be fixed, rather than here where
+// a rejected upload loses the take.
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const clean = (v, max = MAX_FIELD) => String(v ?? '').trim().slice(0, max);
@@ -193,7 +201,7 @@ export async function onRequest({ request, env, params }) {
         title,
         clean(input.topic, MAX_TEXT),
         asJson(input.research),
-        clean(input.caption, MAX_TEXT),
+        clean(input.caption, MAX_CAPTION),
         clean(input.hashtags, MAX_TEXT),
         'planned',
         clean(Array.isArray(input.targets) ? input.targets.join(',') : input.targets)
@@ -243,7 +251,7 @@ export async function onRequest({ request, env, params }) {
         keep(input.title, existing.title),
         keep(input.pillar, existing.pillar),
         keep(input.topic, existing.topic, MAX_TEXT),
-        keep(input.caption, existing.caption, MAX_TEXT),
+        keep(input.caption, existing.caption, MAX_CAPTION),
         keep(input.hashtags, existing.hashtags, MAX_TEXT),
         input.targets === undefined
           ? existing.targets.join(',')
@@ -286,6 +294,12 @@ export async function onRequest({ request, env, params }) {
         );
       }
       if (!existing.caption) return json({ error: 'Write a caption first.' }, 400);
+
+      // What the platforms themselves will refuse, checked here rather
+      // than at the slot — a batch that fails at the moment it was due to
+      // go out has already missed the slot, with nobody watching.
+      const wrong = platformProblems(existing);
+      if (wrong.length) return json({ error: wrong[0], problems: wrong }, 400);
     }
 
     await env.DB

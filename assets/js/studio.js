@@ -20,6 +20,7 @@
 import { renderMarkdown, countWords, readingMinutes } from '/assets/js/markdown.js?v=55a3dc7d00';
 import { attachEditor, attachAll } from '/assets/js/editor.js?v=ac48360925';
 import { choosePicture, uploadImage, fileSize } from '/assets/js/picker.js?v=f337b82d38';
+import { problems as platformProblems } from '/assets/js/platforms.js?v=407e53cb9c';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -1464,7 +1465,8 @@ function paintCarouselActions(host) {
              `${unready.some((s) => s.state === 'redo') ? ' — Spark has the notes' : ''}.`;
     }
     if (!c.caption.trim()) return 'Write a caption first.';
-    return null;
+    // and what the platforms themselves will refuse, from their own docs
+    return platformProblems(c)[0] || null;
   })();
 
   const acts = [];

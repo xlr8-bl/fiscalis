@@ -96,18 +96,89 @@ three is missing rather than offering something certain to fail.
    Preview. A deployment carries the variables it was built with, so
    retry the deployment after adding it.
 
+## What the platforms will take
+
+Read off their own reference pages, not remembered. The numbers live in
+`assets/js/platforms.js` with the URL each came from, and are checked at
+approval — the alternative is a batch that looks finished for hours and
+fails at the moment it was due to go out, with nobody watching.
+
+**Instagram** ([media reference][ig-media], [content publishing][ig-pub])
+
+| | |
+|---|---|
+| format | **JPEG only.** Not PNG, not WebP |
+| file size | 8 MB |
+| aspect ratio | 4:5 to 1.91:1 — **4:5 is the tallest a feed carousel takes** |
+| width | min 320, max 1440; outside that it is scaled, not refused |
+| carousel | 2 to 10 items |
+| caption | 2200 characters, 30 hashtags, 20 @ tags |
+| rate | 100 API-published posts per rolling 24 hours |
+| account | Professional (Business or Creator) on a linked Facebook Page |
+| media | pulled by Meta **from a public URL** — no direct upload |
+
+Two things follow for a 4K pipeline. Instagram downscales to 1440 wide
+anyway, so the 4K master is for the archive, not for the post — what the
+8MB cap actually bites is a 4K JPEG. And **9:16 is a Reel or a Story, not
+a feed carousel**; if "4K vertical" means 9:16 it will be refused. Generate
+at 4:5.
+
+**TikTok** ([photo post reference][tt-photo], [getting started][tt-start])
+
+| | |
+|---|---|
+| photos | up to 35 |
+| title | 90 UTF-16 runes |
+| description | 4000 UTF-16 runes |
+| media | publicly accessible URLs, verified by the app |
+| scope | `video.publish`, approved and user-authorised |
+| modes | `DIRECT_POST`, or `MEDIA_UPLOAD` to hand off to TikTok's editor |
+
+An unaudited client **can** direct-post — the content is restricted to
+private viewing until the audit passes. So the automation can run end to
+end from day one; what the audit buys is the posts being public.
+
+Format, file size and resolution are not stated on TikTok's photo-post
+reference, so nothing is checked for them.
+
+**Facebook Pages** is deliberately unchecked. Its photo limits were not
+verified, and a guessed limit that silently passes reads as checked when
+it is not.
+
+**Gemini** ([image generation][gem]) — `gemini-3-pro-image` (Nano Banana
+Pro) does 1K, 2K and 4K, and takes up to **14 reference images**, so ten
+fits with room. `gemini-3.1-flash-image` (Nano Banana 2) also reaches 4K
+and is the cheaper option if the likeness holds.
+
+[ig-media]: https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/
+[ig-pub]: https://developers.facebook.com/docs/instagram-platform/content-publishing
+[tt-photo]: https://developers.tiktok.com/doc/content-posting-api-reference-photo-post
+[tt-start]: https://developers.tiktok.com/doc/content-posting-api-get-started
+[gem]: https://ai.google.dev/gemini-api/docs/image-generation
+
 ## Not built yet
 
 Posting. The five timed publishes need cron, which Pages Functions do not
-have — that is a companion Worker bound to the same D1 and R2, and it is
-the next piece. Two things about it are worth knowing before it is
-written, because they are external gates rather than code:
+have — [Workers has cron triggers and Pages does not][cf-migrate]. Two ways
+out:
 
-- **Instagram** pulls media from a public URL rather than accepting an
-  upload, which R2 already serves. But `instagram_business_content_publish`
-  needs Meta App Review, and the account has to be Business or Creator on
-  a linked Facebook Page.
-- **TikTok** Direct Post needs the app to pass audit. Until it does, an
-  unaudited app can only drop a draft into the inbox for you to finish by
-  hand — so TikTok may stay semi-manual for a while after IG and FB are
-  automatic.
+- **A companion Worker** on the same D1 and R2, deployed alongside. Small,
+  and leaves this project exactly as it is.
+- **Migrate the project to Workers static assets**, which folds the cron
+  in and gains Durable Objects and proper observability. `_headers` is
+  supported and the D1/R2 bindings carry over, but `functions/` has to be
+  compiled (`wrangler pages functions build`) rather than file-routed, and
+  Workers does not yet split production and preview bindings the way Pages
+  does — which is the thing that has already cost us a deployment once.
+
+The companion Worker is the smaller bet. The migration is the better place
+to end up.
+
+[cf-migrate]: https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/
+
+Before writing either, start the two applications — they are the long pole,
+and neither is a code problem:
+
+- **Meta App Review** for `instagram_business_content_publish` (Instagram
+  Login) or `instagram_content_publish` (Facebook Login).
+- **The TikTok audit**, which lifts posts out of private-only.

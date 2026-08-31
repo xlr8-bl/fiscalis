@@ -284,6 +284,120 @@ await step('a carousel with no caption cannot be approved', async () => {
   });
 });
 
+/*
+ * What the platforms themselves refuse. Every number checked here came off
+ * the platform's own reference page — see assets/js/platforms.js for the
+ * URLs. The point of catching them at approval is that the alternative is
+ * a batch that looks finished for hours and fails at its slot.
+ */
+
+await step('Instagram will not take a PNG, and it is said at approval', async () => {
+  // the three slides were uploaded as PNG, which is what the masters are
+  const { status, body } = await person(`/carousels/${slug.value}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status: 'approved' }),
+  });
+  is(status, 400, 'status');
+  if (!/JPEG/.test(body.error || '')) throw new Error(`does not name the format: ${body.error}`);
+  if (!Array.isArray(body.problems)) throw new Error('no problems array to show');
+});
+
+await step('the same batch is fine once Instagram is not a target', async () => {
+  await person(`/carousels/${slug.value}`, {
+    method: 'PUT',
+    body: JSON.stringify({ targets: 'facebook' }),
+  });
+  const { status } = await person(`/carousels/${slug.value}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status: 'approved' }),
+  });
+  is(status, 200, 'status');
+  // back to review for the checks below
+  await person(`/carousels/${slug.value}/status`, {
+    method: 'POST', body: JSON.stringify({ status: 'changes' }),
+  });
+  await person(`/carousels/${slug.value}/status`, {
+    method: 'POST', body: JSON.stringify({ status: 'review' }),
+  });
+});
+
+await step('a caption longer than Instagram allows is cut at the field', async () => {
+  await person(`/carousels/${slug.value}`, {
+    method: 'PUT',
+    body: JSON.stringify({ targets: 'instagram', caption: 'x'.repeat(4000) }),
+  });
+  const { body } = await person(`/carousels/${slug.value}`);
+  is(body.carousel.caption.length, 2200, 'stored caption length');
+});
+
+await step('too many hashtags is refused, with the count', async () => {
+  await person(`/carousels/${slug.value}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      caption: 'Eleven seconds.',
+      hashtags: Array.from({ length: 35 }, (_, i) => `#tag${i}`).join(' '),
+    }),
+  });
+  const { status, body } = await person(`/carousels/${slug.value}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status: 'approved' }),
+  });
+  is(status, 400, 'status');
+  if (!/30 hashtags/.test((body.problems || []).join(' '))) {
+    throw new Error(`does not name the limit: ${JSON.stringify(body.problems)}`);
+  }
+  await person(`/carousels/${slug.value}`, {
+    method: 'PUT',
+    body: JSON.stringify({ hashtags: '#webdesign #pagespeed' }),
+  });
+});
+
+await step('a shape Instagram will not take is refused, with the size', async () => {
+  // 9:16 is a Reel or a Story. A feed carousel stops at 4:5.
+  const form = new FormData();
+  form.set('file', new File([PNG], 's0.jpg', { type: 'image/jpeg' }));
+  form.set('width', '1080');
+  form.set('height', '1920');
+  await spark(`/carousels/${slug.value}/slides/0`, { method: 'PUT', body: form });
+  const { status, body } = await person(`/carousels/${slug.value}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status: 'approved' }),
+  });
+  is(status, 400, 'status');
+  const said = (body.problems || []).join(' ');
+  if (!/1080×1920/.test(said)) throw new Error(`does not say the size: ${said}`);
+  if (!/4:5/.test(said)) throw new Error(`does not say the limit: ${said}`);
+});
+
+await step('a 4:5 JPEG passes every one of them', async () => {
+  for (const pos of [0, 1, 2]) {
+    const form = new FormData();
+    form.set('file', new File([PNG], `s${pos}.jpg`, { type: 'image/jpeg' }));
+    form.set('width', '2160');    // 4K wide; Instagram scales to 1440 itself
+    form.set('height', '2700');   // 4:5, the tallest a feed carousel takes
+    const { status } = await spark(`/carousels/${slug.value}/slides/${pos}`, {
+      method: 'PUT', body: form,
+    });
+    is(status, 201, `slide ${pos}`);
+  }
+  await person(`/carousels/${slug.value}`, {
+    method: 'PUT',
+    body: JSON.stringify({ targets: 'instagram,facebook,tiktok' }),
+  });
+  const { status, body } = await person(`/carousels/${slug.value}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status: 'approved' }),
+  });
+  if (status !== 200) throw new Error(`refused: ${JSON.stringify(body)}`);
+  // put it back for the approval step below
+  await person(`/carousels/${slug.value}/status`, {
+    method: 'POST', body: JSON.stringify({ status: 'changes' }),
+  });
+  await person(`/carousels/${slug.value}/status`, {
+    method: 'POST', body: JSON.stringify({ status: 'review' }),
+  });
+});
+
 await step('a person approves it', async () => {
   const { status } = await person(`/carousels/${slug.value}/status`, {
     method: 'POST',
@@ -350,11 +464,6 @@ await step('a slot clash is refused with the name of what has it', async () => {
     body: JSON.stringify({ title: 'The rival', caption: 'x' }),
   });
   made.push(rival.body.slug);
-  for (const pos of [0, 1]) {
-    const form = new FormData();
-    form.set('file', new File([PNG], `s${pos}.png`, { type: 'image/png' }));
-    await spark(`/carousels/${rival.body.slug}/slides/${pos}`, { method: 'PUT', body: form });
-  }
   // it was created by a person, so it has no slides until they are sent
   await person(`/carousels/${rival.body.slug}`, {
     method: 'PUT',
@@ -362,9 +471,12 @@ await step('a slot clash is refused with the name of what has it', async () => {
       slides: [{ kind: 'hook', copy: 'a' }, { kind: 'cta', copy: 'b' }],
     }),
   });
+  // JPEG at 4:5, or the platform check refuses the approval this needs
   for (const pos of [0, 1]) {
     const form = new FormData();
-    form.set('file', new File([PNG], `s${pos}.png`, { type: 'image/png' }));
+    form.set('file', new File([PNG], `s${pos}.jpg`, { type: 'image/jpeg' }));
+    form.set('width', '2160');
+    form.set('height', '2700');
     await spark(`/carousels/${rival.body.slug}/slides/${pos}`, { method: 'PUT', body: form });
   }
   await person(`/carousels/${rival.body.slug}/status`, {
