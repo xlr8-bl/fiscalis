@@ -17,9 +17,9 @@
  * so a new collection appears in the navigation, gets a form, and becomes
  * editable without a change here.
  */
-import { renderMarkdown, countWords, readingMinutes } from '/assets/js/markdown.js';
-import { attachEditor, attachAll } from '/assets/js/editor.js';
-import { choosePicture, uploadImage, fileSize } from '/assets/js/picker.js';
+import { renderMarkdown, countWords, readingMinutes } from '/assets/js/markdown.js?v=55a3dc7d00';
+import { attachEditor, attachAll } from '/assets/js/editor.js?v=ac48360925';
+import { choosePicture, uploadImage, fileSize } from '/assets/js/picker.js?v=f337b82d38';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
