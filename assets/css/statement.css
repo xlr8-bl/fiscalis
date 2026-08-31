@@ -336,20 +336,3 @@
    the name touching the line beneath it. */
 .gap_home_content_text + .gap_home_content_text { margin-top: .4rem; }
 
-/* --- the services grid --------------------------------------------
-   The marks behave the way every list on this site behaves: the whole
-   set steps back and the one under the finger comes up. Nothing else
-   moves. */
-.problems_home_list:hover .problems_home_image { opacity: .28; }
-.problems_home_item:hover .problems_home_image {
-  opacity: 1;
-  transform: translateY(-.2rem);
-}
-.problems_home_list:hover .problems_home_label { color: var(--swatch--black-200, #524d47); }
-.problems_home_item:hover .problems_home_label { color: var(--swatch--beige-100, #e8e8e3); }
-.problems_home_label { transition: color 380ms ease; }
-
-@media (prefers-reduced-motion: reduce) {
-  .problems_home_image, .problems_home_label { transition: none; }
-  .problems_home_item:hover .problems_home_image { transform: none; }
-}
