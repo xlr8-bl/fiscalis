@@ -13,7 +13,8 @@
     "check": "python3 tools/stamp_assets.py --check && node tools/check_studio.mjs && node tools/check_nav.mjs",
     "check:nav": "node tools/check_nav.mjs",
     "check:studio": "node tools/check_studio.mjs",
-    "stamp": "python3 tools/stamp_assets.py"
+    "stamp": "python3 tools/stamp_assets.py",
+    "icons": "python3 tools/service_icons.py"
   },
   "type": "module"
 }

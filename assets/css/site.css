@@ -3397,7 +3397,7 @@ figure {
 .problems_home_label {
   width:100%;
   margin-bottom:var(--_spacing---space--2);
-  color:var(--swatch--black-200);
+  color:var(--swatch--black-50);
   font-family:var(--_typography---font--primary-family);
   font-size:0.74rem;
   font-weight:500;
@@ -3408,7 +3408,16 @@ figure {
   inset:auto 0% 0%;
 }
 .problems_home_image {
-  height:100%;
+  /* inline, so it takes the page's ink rather than an <img> document's
+     black — which is what made these invisible on this background */
+  display:block;
+  width:clamp(2.6rem, 9vw, 3.4rem);
+  height:auto;
+  margin:0 auto var(--_spacing---space--4);
+  color:var(--swatch--beige-100, #e8e8e3);
+  opacity:.62;
+  overflow:visible;
+  transition:opacity 380ms ease, transform 620ms cubic-bezier(.22,1,.36,1);
 }
 
 /* --- misc ------------------------------------------------------ */
