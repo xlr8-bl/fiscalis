@@ -18,6 +18,7 @@
 import { json } from '../../../lib/respond.js';
 import { identify } from '../../../lib/auth.js';
 import { SCHEMA, SEED } from '../../../lib/seed.js';
+import { applyCorrections } from '../../../lib/corrections.js';
 
 async function state(db) {
   try {
@@ -96,11 +97,17 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
+  // Values seeded from a mistake, put right where they have not been
+  // edited since. The seed itself cannot do this: it inserts only where
+  // nothing exists, precisely so it never walks over an edit.
+  const corrected = await applyCorrections(env.DB);
+
   const after = await state(env.DB);
   return json({
     ok: true,
     firstRun: !before.ready,
     statements: SEED.length,
+    corrected,
     counts: after.counts,
   });
 }

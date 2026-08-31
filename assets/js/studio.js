@@ -1092,7 +1092,14 @@ $('[data-setup-run]').addEventListener('click', async () => {
   say('Setting up…');
   try {
     const r = await api('/setup', { method: 'POST' });
-    say(`Done — ${r.counts.articles} articles, ${r.counts.entries} items, ${r.counts.settings} settings.`, 'ok');
+    const put = r.corrected?.length
+      ? ` ${r.corrected.length} value${r.corrected.length === 1 ? '' : 's'} put right.`
+      : '';
+    say(
+      `Done — ${r.counts.articles} articles, ${r.counts.entries} items, ` +
+      `${r.counts.settings} settings.${put}`,
+      'ok'
+    );
     schema = null;
     await boot();
   } catch (e) { say(e.message, 'err'); }
