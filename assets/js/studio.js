@@ -52,6 +52,7 @@ let current = null;      // the article being edited
 let entryCtx = null;     // the entry or settings group being edited
 let dirty = false;
 let listCtx = null;      // what the list view is showing, and how it is filtered
+let socialWaiting = 0;   // carousels sitting in review, for the menu badge
 
 /* --------------------------------------------------------------- plumbing */
 
@@ -187,6 +188,11 @@ function renderNav() {
   $('[data-nav-links]').innerHTML =
     group('Studio', [['#/', 'Overview']]) +
     group('Journal', [['#/journal', 'Articles', waiting || null]]) +
+    group('Social', [
+      ['#/social', 'Carousels', socialWaiting || null],
+      ['#/kit/pillars', 'Pillars'],
+      ['#/kit/refs', 'Brand kit'],
+    ]) +
     (collections.length ? group('The site', collections) : '') +
     (settings.length ? group('Settings', settings) : '') +
     group('Library', [['#/media', 'Pictures']]);
@@ -596,6 +602,7 @@ $$('[data-tab]').forEach((tab) =>
   })
 );
 $('[data-back]').addEventListener('click', () => { if (confirmDiscard()) { dirty = false; location.hash = '#/journal'; } });
+$('[data-board-back]').addEventListener('click', () => { location.hash = '#/social'; });
 
 const articleValues = () => ({
   title: field('title').value.trim(),
@@ -1229,6 +1236,407 @@ $('[data-upload]').addEventListener('change', async (e) => {
 
 /* ----------------------------------------------------------------- router */
 
+/* ================================================================== social
+ *
+ * The back of the house. Spark researches, plans and generates; this is
+ * where a person looks at what came back and either lets it out or sends
+ * particular slides back. It replaces a staging folder and a review email
+ * with a screen that knows what state everything is in.
+ *
+ * None of it is public. No site route renders any of it.
+ */
+
+const CAR_STATES = {
+  planned:    { label: 'Planned',    note: 'Filed by Spark. No pictures yet.' },
+  generating: { label: 'Making',     note: 'The slides are being drawn.' },
+  review:     { label: 'Waiting on you', note: 'Everything is drawn. Your turn.' },
+  changes:    { label: 'Being redone', note: 'Spark is redoing the slides you flagged.' },
+  approved:   { label: 'Approved',   note: 'Cleared to post. Give it a slot.' },
+  scheduled:  { label: 'Scheduled',  note: 'It goes out at its slot.' },
+  posted:     { label: 'Posted',     note: '' },
+  rejected:   { label: 'Killed',     note: '' },
+};
+
+const BOARD_TABS = [
+  ['review', 'Waiting on you'],
+  ['', 'Everything'],
+  ['planned', 'Planned'],
+  ['approved', 'Approved'],
+  ['scheduled', 'Scheduled'],
+  ['posted', 'Posted'],
+];
+
+let boardCtx = { status: 'review', query: '', carousels: [] };
+let carousel = null;
+
+async function viewBoard() {
+  await ensureSchema();
+  showView('board');
+  const { carousels } = await api('/carousels');
+  boardCtx.carousels = carousels;
+  socialWaiting = carousels.filter((c) => c.status === 'review').length;
+  renderNav();
+
+  const tabs = $('[data-board-tabs]');
+  tabs.innerHTML = BOARD_TABS.map(
+    ([value, label]) =>
+      `<button type="button" role="tab" class="st-toggle__btn${
+        value === boardCtx.status ? ' is-on' : ''
+      }" data-tab="${value}" aria-selected="${value === boardCtx.status}">${label}</button>`
+  ).join('');
+  $$('[data-tab]', tabs).forEach((b) =>
+    b.addEventListener('click', () => { boardCtx.status = b.dataset.tab; viewBoard(); })
+  );
+
+  const search = $('[data-board-search]');
+  search.value = boardCtx.query;
+  search.oninput = () => { boardCtx.query = search.value; paintBoard(); };
+  paintBoard();
+}
+
+function paintBoard() {
+  const host = $('[data-board-body]');
+  const q = boardCtx.query.trim().toLowerCase();
+  const shown = boardCtx.carousels.filter(
+    (c) =>
+      (!boardCtx.status || c.status === boardCtx.status) &&
+      (!q || `${c.title} ${c.topic} ${c.pillar}`.toLowerCase().includes(q))
+  );
+
+  if (!shown.length) {
+    host.innerHTML =
+      `<p class="st-lede u-text-style-h4">${
+        boardCtx.status === 'review'
+          ? 'Nothing is waiting on you.'
+          : 'Nothing here yet.'
+      }</p>`;
+    return;
+  }
+
+  const list = document.createElement('ul');
+  list.className = 'st-rows';
+  shown.forEach((c) => {
+    const state = CAR_STATES[c.status] || { label: c.status };
+    const pics = c.slides ? `${c.ready}/${c.slides} drawn` : 'no slides';
+    list.append(
+      row({
+        title: c.title || c.slug,
+        note: c.topic,
+        meta: [
+          c.pillar || null,
+          pics,
+          c.redo ? `${c.redo} to redo` : null,
+          c.slot ? `slot ${c.slot}` : null,
+          state.label,
+        ],
+        onClick: () => { location.hash = `#/social/${encodeURIComponent(c.slug)}`; },
+      })
+    );
+  });
+  host.replaceChildren(list);
+}
+
+/** One carousel: the slides as a filmstrip, and what you can do about them. */
+async function viewCarousel(slug) {
+  showView('carousel');
+  ({ carousel } = await api(`/carousels/${encodeURIComponent(slug)}`));
+  $('[data-car-crumb]').textContent = carousel.title || carousel.slug;
+  paintCarousel();
+}
+
+function paintCarousel() {
+  const c = carousel;
+  const state = CAR_STATES[c.status] || { label: c.status, note: '' };
+  const host = $('[data-car-body]');
+
+  const ready = c.slides.filter((s) => s.state === 'ready').length;
+  const redo = c.slides.filter((s) => s.state === 'redo').length;
+
+  host.innerHTML =
+    `<div class="st-head">
+       <div>
+         <h1 class="st-display">${escapeHtml(c.title || c.slug)}</h1>
+       </div>
+     </div>
+     <p class="st-lede u-text-style-h4">${escapeHtml(state.note || '')}</p>
+
+     <dl class="st-facts">
+       <div><dt>State</dt><dd>${escapeHtml(state.label)}</dd></div>
+       <div><dt>Pillar</dt><dd>${escapeHtml(c.pillar || '—')}</dd></div>
+       <div><dt>Slides</dt><dd>${ready} of ${c.slides.length} drawn${
+         redo ? `, ${redo} to redo` : ''
+       }</dd></div>
+       <div><dt>Goes to</dt><dd>${escapeHtml(c.targets.join(', ') || '—')}</dd></div>
+       <div><dt>Slot</dt><dd>${
+         c.slot ? `${c.slot}${c.scheduled_for ? ` — ${escapeHtml(c.scheduled_for)}` : ''}` : '—'
+       }</dd></div>
+     </dl>
+
+     ${c.topic ? `<p class="st-note st-note--topic u-text-style-main">${escapeHtml(c.topic)}</p>` : ''}
+
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="car-caption">Caption</label>
+       <textarea class="st-input st-input--area" id="car-caption" rows="5"
+                 data-car-caption>${escapeHtml(c.caption)}</textarea>
+     </div>
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="car-tags">Hashtags</label>
+       <input class="st-input" id="car-tags" data-car-tags value="${escapeAttr(c.hashtags)}">
+     </div>
+     <div class="st-acts">
+       <button class="st-link" type="button" data-car-save>Save the words</button>
+     </div>
+
+     <h2 class="st-h2">The slides</h2>
+     <ul class="st-strip" data-car-slides></ul>
+
+     <h2 class="st-h2">What happens next</h2>
+     <div class="st-acts" data-car-acts></div>`;
+
+  const strip = $('[data-car-slides]', host);
+  c.slides.forEach((s) => {
+    const li = document.createElement('li');
+    li.className = `st-slide is-${s.state}`;
+    li.innerHTML =
+      `<div class="st-slide__frame">${
+        s.url
+          ? `<img src="${escapeAttr(s.url)}" alt="${escapeAttr(s.copy || `Slide ${s.position + 1}`)}" loading="lazy">`
+          : '<span class="st-slide__blank">not drawn</span>'
+      }</div>
+       <p class="st-slide__no u-text-style-main">${s.position + 1} · ${escapeHtml(s.kind)}${
+         s.attempts > 1 ? ` · take ${s.attempts}` : ''
+       }</p>
+       ${s.copy ? `<p class="st-slide__copy">${escapeHtml(s.copy)}</p>` : ''}
+       ${s.note ? `<p class="st-slide__note u-text-style-main">Asked again: ${escapeHtml(s.note)}</p>` : ''}
+       <div class="st-slide__acts">
+         <button class="st-link" type="button" data-redo="${s.position}">${
+           s.state === 'redo' ? 'Change the note' : 'Ask for this one again'
+         }</button>
+         ${s.url ? `<a class="st-link" href="${escapeAttr(s.url)}" target="_blank" rel="noopener">Full size</a>` : ''}
+       </div>`;
+    strip.append(li);
+  });
+
+  $$('[data-redo]', host).forEach((b) =>
+    b.addEventListener('click', () => askAgain(Number(b.dataset.redo)))
+  );
+
+  $('[data-car-save]', host).addEventListener('click', async () => {
+    try {
+      await api(`/carousels/${encodeURIComponent(c.slug)}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          caption: $('[data-car-caption]', host).value,
+          hashtags: $('[data-car-tags]', host).value,
+        }),
+      });
+      say('Saved.');
+      await viewCarousel(c.slug);
+    } catch (e) { say(e.message, 'err'); }
+  });
+
+  paintCarouselActions($('[data-car-acts]', host));
+}
+
+/** Only the moves the API will actually accept, so nothing offered fails. */
+function paintCarouselActions(host) {
+  const c = carousel;
+  const move = async (status, ask) => {
+    if (ask && !confirm(ask)) return;
+    try {
+      await api(`/carousels/${encodeURIComponent(c.slug)}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      });
+      await viewCarousel(c.slug);
+      say('Done.');
+    } catch (e) { say(e.message, 'err'); }
+  };
+
+  // Why it cannot be approved yet, in the order the API checks. Offering a
+  // button that is certain to fail is worse than not offering it, and worse
+  // still is offering it with no word about what is missing.
+  const blocked = (() => {
+    if (c.slides.length < 2) return 'It needs at least two slides.';
+    const unready = c.slides.filter((s) => s.state !== 'ready');
+    if (unready.length) {
+      return `${unready.length} slide${unready.length > 1 ? 's are' : ' is'} not drawn yet` +
+             `${unready.some((s) => s.state === 'redo') ? ' — Spark has the notes' : ''}.`;
+    }
+    if (!c.caption.trim()) return 'Write a caption first.';
+    return null;
+  })();
+
+  const acts = [];
+  if ((c.status === 'review' || c.status === 'changes') && !blocked) {
+    acts.push(['Approve it', () => move('approved')]);
+  }
+  if (c.status === 'approved') {
+    acts.push(['Give it a slot', schedule]);
+    acts.push(['Send it back', () => move('changes')]);
+  }
+  if (c.status === 'scheduled') {
+    acts.push(['Unschedule', () => move('approved')]);
+  }
+  if (c.status !== 'posted' && c.status !== 'rejected') {
+    acts.push(['Kill it', () => move('rejected', 'Kill this carousel? Spark will stop proposing it.')]);
+  }
+  if (c.status === 'rejected') acts.push(['Put it back', () => move('planned')]);
+
+  host.replaceChildren();
+  acts.forEach(([label, fn]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'st-link';
+    b.textContent = label;
+    b.addEventListener('click', fn);
+    host.append(b);
+  });
+  if (blocked && (c.status === 'review' || c.status === 'changes')) {
+    const p = document.createElement('p');
+    p.className = 'st-note u-text-style-main';
+    p.textContent = `Not ready to approve. ${blocked}`;
+    host.append(p);
+  } else if (!acts.length) {
+    host.innerHTML = '<p class="st-note u-text-style-main">Nothing left to do here.</p>';
+  }
+}
+
+/**
+ * The feedback loop, in one call: mark this slide and let Spark find it.
+ * Per slide rather than per carousel, because asking for one again must
+ * not cost the nine that were already right.
+ */
+async function askAgain(position) {
+  const s = carousel.slides.find((x) => x.position === position);
+  const note = prompt(`What is wrong with slide ${position + 1}?`, s?.note || '');
+  if (note === null) return;
+  try {
+    await api(
+      `/carousels/${encodeURIComponent(carousel.slug)}/slides/${position}/redo`,
+      { method: 'POST', body: JSON.stringify({ note }) }
+    );
+    await viewCarousel(carousel.slug);
+    say(`Slide ${position + 1} goes back to Spark.`);
+  } catch (e) { say(e.message, 'err'); }
+}
+
+async function schedule() {
+  const slot = prompt('Which slot, 1 to 5?', String(carousel.slot || 1));
+  if (slot === null) return;
+  const at = prompt('When? YYYY-MM-DDTHH:MM:SSZ, or leave blank.', carousel.scheduled_for || '');
+  if (at === null) return;
+  try {
+    await api(`/carousels/${encodeURIComponent(carousel.slug)}/schedule`, {
+      method: 'POST',
+      body: JSON.stringify({ slot: Number(slot), at }),
+    });
+    await viewCarousel(carousel.slug);
+    say('Scheduled.');
+  } catch (e) { say(e.message, 'err'); }
+}
+
+/* ------------------------------------------------------- pillars and kit */
+
+async function viewKit(which) {
+  showView('kit');
+  const host = $('[data-kit-body]');
+  host.replaceChildren();
+
+  if (which === 'pillars') {
+    $('[data-kit-title]').textContent = 'Pillars';
+    $('[data-kit-lede]').textContent =
+      'The buckets a day is spread across. Spark reads these before it researches anything, ' +
+      'so the brief here is what steers what it writes about.';
+    const { pillars } = await api('/carousels/-/pillars');
+    const rows = pillars.length ? pillars : [{ slug: '', name: '', brief: '' }];
+    host.innerHTML =
+      `<div data-pillars>${rows.map(pillarRow).join('')}</div>
+       <div class="st-acts">
+         <button class="st-link" type="button" data-pillar-add>Add one</button>
+         <button class="st-link" type="button" data-pillars-save>Save</button>
+       </div>`;
+    $('[data-pillar-add]', host).addEventListener('click', () => {
+      $('[data-pillars]', host).insertAdjacentHTML('beforeend', pillarRow({ name: '', brief: '' }));
+    });
+    $('[data-pillars-save]', host).addEventListener('click', async () => {
+      const pillars = $$('[data-pillar]', host).map((r) => ({
+        name: $('[data-pillar-name]', r).value,
+        brief: $('[data-pillar-brief]', r).value,
+      })).filter((p) => p.name.trim());
+      try {
+        await api('/carousels/-/pillars', { method: 'PUT', body: JSON.stringify({ pillars }) });
+        say(`Saved ${pillars.length} pillar${pillars.length === 1 ? '' : 's'}.`);
+      } catch (e) { say(e.message, 'err'); }
+    });
+    return;
+  }
+
+  $('[data-kit-title]').textContent = 'Brand kit';
+  $('[data-kit-lede]').textContent =
+    'The reference pictures the image model is given: you, for the likeness, and the look. ' +
+    'Spark fetches these by URL at the start of every cycle, so changing one here changes ' +
+    'every carousel made after it.';
+
+  const [{ refs }, { media }] = await Promise.all([
+    api('/carousels/-/refs'),
+    api('/media'),
+  ]);
+  const chosen = new Map(refs.map((r) => [r.media_key, r.role]));
+
+  host.innerHTML =
+    `<p class="st-note u-text-style-main" data-kit-count></p>
+     <ul class="st-media" data-kit-pics></ul>
+     <div class="st-acts"><button class="st-link" type="button" data-kit-save>Save the kit</button></div>`;
+
+  const count = () => {
+    const roles = [...chosen.values()];
+    $('[data-kit-count]', host).textContent =
+      `${roles.filter((r) => r === 'likeness').length} of you, ` +
+      `${roles.filter((r) => r === 'aesthetic').length} for the look.`;
+  };
+
+  const pics = $('[data-kit-pics]', host);
+  media.forEach((m) => {
+    const li = document.createElement('li');
+    li.className = 'st-media__item';
+    const role = chosen.get(m.key) || '';
+    li.innerHTML =
+      `<img src="/media/${escapeAttr(m.key)}" alt="${escapeAttr(m.alt)}" loading="lazy">
+       <div class="st-media__body">
+         <select class="st-input" data-role data-key="${escapeAttr(m.key)}">
+           <option value=""${role ? '' : ' selected'}>Not a reference</option>
+           <option value="likeness"${role === 'likeness' ? ' selected' : ''}>You</option>
+           <option value="aesthetic"${role === 'aesthetic' ? ' selected' : ''}>The look</option>
+         </select>
+       </div>`;
+    li.querySelector('[data-role]').addEventListener('change', (e) => {
+      if (e.target.value) chosen.set(m.key, e.target.value);
+      else chosen.delete(m.key);
+      count();
+    });
+    pics.append(li);
+  });
+  count();
+
+  $('[data-kit-save]', host).addEventListener('click', async () => {
+    const body = { refs: [...chosen].map(([media_key, role]) => ({ media_key, role })) };
+    try {
+      await api('/carousels/-/refs', { method: 'PUT', body: JSON.stringify(body) });
+      say(`Saved ${body.refs.length} reference${body.refs.length === 1 ? '' : 's'}.`);
+    } catch (e) { say(e.message, 'err'); }
+  });
+}
+
+const pillarRow = (p) =>
+  `<div class="st-field" data-pillar>
+     <input class="st-input" data-pillar-name placeholder="Name"
+            value="${escapeAttr(p.name || '')}" aria-label="Pillar name">
+     <textarea class="st-input st-input--area" rows="2" data-pillar-brief
+               placeholder="What Spark should aim at here"
+               aria-label="Brief">${escapeHtml(p.brief || '')}</textarea>
+   </div>`;
+
 async function ensureSchema() {
   if (!schema) { schema = await api('/content/schema'); renderNav(); }
   return schema;
@@ -1249,6 +1657,8 @@ async function route() {
     if (area === 'site' && a) return b ? await viewEntry(a, b) : await viewCollection(a);
     if (area === 'settings' && a) return await viewSettings(a);
     if (area === 'media') return await viewMedia();
+    if (area === 'social') return a ? await viewCarousel(a) : await viewBoard();
+    if (area === 'kit') return await viewKit(a || 'refs');
     location.hash = '#/';
   } catch (e) {
     say(e.message, 'err');
@@ -1301,6 +1711,11 @@ async function boot() {
 
   await ensureSchema();
   ({ articles } = await api('/articles'));
+  // the badge is the only reason to ask on load; a pipeline that is not set
+  // up yet must not stop the studio opening, so this failing is not fatal
+  socialWaiting = await api('/carousels?status=review')
+    .then((r) => r.carousels.length)
+    .catch(() => 0);
   renderNav();
   await route();
 }

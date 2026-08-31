@@ -12,7 +12,7 @@
 <link rel="preload" href="/assets/fonts/pixel.woff2" as="font" type="font/woff2" crossorigin>
 <link href="/assets/css/site.css?v=1cb2b46507" rel="stylesheet" type="text/css">
 <link href="/assets/css/statement.css?v=fa9ba48a14" rel="stylesheet" type="text/css">
-<link href="/assets/css/studio.css?v=b6bfe8526a" rel="stylesheet" type="text/css">
+<link href="/assets/css/studio.css?v=2ec1658b16" rel="stylesheet" type="text/css">
 </head>
 <body class="body st-body" data-theme-section="dark">
 
@@ -250,9 +250,43 @@
       <ul class="st-media" data-media></ul>
     </section>
 
+    <!-- the social board -------------------------------------------------- -->
+    <section data-view="board" hidden>
+      <div class="st-head">
+        <div>
+          <p class="st-crumb u-text-style-main">Social</p>
+          <h1 class="st-display">Carousels</h1>
+        </div>
+      </div>
+      <p class="st-lede u-text-style-h4">What Spark has planned, made and is waiting on. Nothing here is on the
+        site — it goes to Instagram, Facebook and TikTok, and only after you say so.</p>
+
+      <div class="st-filters">
+        <input class="st-input st-search" type="search" data-board-search
+               placeholder="Search by topic" aria-label="Search carousels">
+        <div class="st-toggle" data-board-tabs role="tablist"></div>
+      </div>
+
+      <div data-board-body></div>
+    </section>
+
+    <!-- one carousel ------------------------------------------------------ -->
+    <section data-view="carousel" hidden>
+      <p class="st-crumb u-text-style-main"><button class="st-link" data-board-back type="button">Carousels</button> / <span data-car-crumb>Carousel</span></p>
+      <div data-car-body></div>
+    </section>
+
+    <!-- the brand kit and the pillars ------------------------------------- -->
+    <section data-view="kit" hidden>
+      <p class="st-crumb u-text-style-main">Social</p>
+      <h1 class="st-display" data-kit-title>Brand kit</h1>
+      <p class="st-lede u-text-style-h4" data-kit-lede></p>
+      <div data-kit-body></div>
+    </section>
+
   </main>
 </div>
 
-<script type="module" src="/assets/js/studio.js?v=505a8eb932"></script>
+<script type="module" src="/assets/js/studio.js?v=e1ef29e07a"></script>
 </body>
 </html>

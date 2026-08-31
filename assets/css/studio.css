@@ -711,3 +711,66 @@ body.st-body {
    note and the first label read as one run-on line */
 [data-entry-form] { margin-top: clamp(1.8rem, 4.5vh, 2.8rem); }
 [data-entry-note]:empty { display: none; }
+
+/* ------------------------------------------------------------------ social
+   The slides of a carousel, laid out as the strip they will be swiped as.
+   Vertical 4:5 frames because that is what goes out, so what you approve
+   here is the shape a phone will show. */
+.st-strip {
+  list-style: none;
+  margin: 0 0 clamp(2rem, 5vh, 3rem);
+  padding: 0 0 .8rem;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(11rem, 14rem);
+  gap: 1.4rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+}
+.st-slide { scroll-snap-align: start; display: flex; flex-flow: column; gap: .5rem; }
+.st-slide__frame {
+  aspect-ratio: 4 / 5;
+  display: grid;
+  place-items: center;
+  background: var(--swatch--card-bg, #14130f);
+  overflow: hidden;
+}
+.st-slide__frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.st-slide__blank { color: var(--swatch--black-100, #6b645c); font-size: .85rem; }
+.st-slide__no { margin: 0; color: var(--swatch--black-50, #938f8a); }
+.st-slide__copy {
+  margin: 0;
+  color: var(--swatch--beige-100, #e8e8e3);
+  font-size: .92rem;
+  line-height: 1.35;
+}
+.st-slide__note { margin: 0; color: var(--swatch--beige-400, #bfbfb1); }
+.st-slide__acts { display: flex; flex-wrap: wrap; gap: .9rem; margin-top: .2rem; }
+.st-slide__acts .st-link { font-size: .85rem; }
+/* a slide that is going back reads as unfinished, not as one of the good ones */
+.st-slide.is-redo .st-slide__frame,
+.st-slide.is-failed .st-slide__frame { opacity: .38; }
+.st-slide.is-pending .st-slide__frame { opacity: .55; }
+
+/* the state of one carousel, told in pairs rather than in a table */
+.st-facts {
+  margin: 0 0 clamp(1.8rem, 4vh, 2.6rem);
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem 2.6rem;
+}
+.st-facts > div { display: flex; flex-flow: column; gap: .1rem; }
+.st-facts dt { color: var(--swatch--black-100, #6b645c); font-size: .82rem; }
+.st-facts dd { margin: 0; color: var(--swatch--beige-100, #e8e8e3); }
+
+.st-acts { display: flex; flex-wrap: wrap; gap: 1.4rem; margin-bottom: clamp(1.8rem, 4vh, 2.6rem); }
+.st-h2 {
+  margin: 0 0 1rem;
+  color: var(--swatch--beige-100, #e8e8e3);
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+/* the topic sits above the caption's own label, so without this the two
+   read as one run-on line */
+.st-note--topic { margin-bottom: clamp(1.8rem, 4vh, 2.6rem); }

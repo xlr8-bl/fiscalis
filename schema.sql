@@ -116,6 +116,121 @@ CREATE INDEX IF NOT EXISTS idx_entries_render
 
 
 -- ==================================================================
+-- The social pipeline.
+--
+-- Gemini Spark researches, plans five carousels a day and generates
+-- their slides; a person here approves them; a scheduler posts them.
+-- These four tables are the whole handover, which is the point — the
+-- staging folder and the review email are replaced by rows a person
+-- can see in the studio and an agent can read back over its token.
+--
+-- None of this is public. Nothing here is rendered by any site route.
+-- ==================================================================
+
+-- The buckets a day's five carousels are spread across.
+CREATE TABLE IF NOT EXISTS pillars (
+  slug       TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  brief      TEXT NOT NULL DEFAULT '',      -- what to aim at, in your words
+  position   INTEGER NOT NULL DEFAULT 0,
+  active     INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- The brand kit: the reference images the image model is given.
+-- 'likeness' is you, 'aesthetic' is the look. The bytes are in R2 and
+-- the row in `media`; this only says which ones are references and why.
+CREATE TABLE IF NOT EXISTS brand_refs (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  media_key  TEXT NOT NULL UNIQUE,
+  role       TEXT NOT NULL CHECK (role IN ('likeness', 'aesthetic')),
+  position   INTEGER NOT NULL DEFAULT 0,
+  note       TEXT NOT NULL DEFAULT '',      -- what this one is for
+  active     INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_brand_refs_role
+  ON brand_refs (active, role, position);
+
+-- One carousel: a day's post for one pillar.
+CREATE TABLE IF NOT EXISTS carousels (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug          TEXT NOT NULL UNIQUE,
+  pillar        TEXT NOT NULL DEFAULT '',
+  title         TEXT NOT NULL DEFAULT '',   -- what to call it in here
+  topic         TEXT NOT NULL DEFAULT '',   -- what was researched
+  research      TEXT NOT NULL DEFAULT '',   -- JSON: sources, why this, why now
+  caption       TEXT NOT NULL DEFAULT '',
+  hashtags      TEXT NOT NULL DEFAULT '',
+  -- planned:    filed, no images yet
+  -- generating: the slides are being made
+  -- review:     everything rendered and self-checked, waiting on a person
+  -- changes:    a person asked for particular slides again
+  -- approved:   cleared to post, no slot yet
+  -- scheduled:  a slot is claimed
+  -- posted:     it went out
+  -- rejected:   killed by a person; kept so the agent stops re-proposing it
+  status        TEXT NOT NULL DEFAULT 'planned'
+                CHECK (status IN ('planned', 'generating', 'review', 'changes',
+                                  'approved', 'scheduled', 'posted', 'rejected')),
+  -- which of the five slots, and when it goes
+  slot          INTEGER,
+  scheduled_for TEXT,                       -- ISO 8601, UTC
+  targets       TEXT NOT NULL DEFAULT 'instagram,facebook,tiktok',
+  feedback      TEXT NOT NULL DEFAULT '',   -- a note to the agent about the whole thing
+  qc            TEXT NOT NULL DEFAULT '',   -- JSON: the agent's own check
+  posted_at     TEXT,
+  results       TEXT NOT NULL DEFAULT '',   -- JSON: per-platform id or error
+  author        TEXT NOT NULL DEFAULT '',
+  last_editor   TEXT NOT NULL DEFAULT '',
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- the review queue, and the scheduler's "what is due"
+CREATE INDEX IF NOT EXISTS idx_carousels_status
+  ON carousels (status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_carousels_due
+  ON carousels (status, scheduled_for);
+
+-- The slides, in order. A slide is the unit of feedback: asking for one
+-- again must not cost the other nine.
+CREATE TABLE IF NOT EXISTS slides (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  carousel_id INTEGER NOT NULL,
+  position    INTEGER NOT NULL DEFAULT 0,
+  kind        TEXT NOT NULL DEFAULT 'slide'
+              CHECK (kind IN ('hook', 'slide', 'cta')),
+  copy        TEXT NOT NULL DEFAULT '',     -- the type set into the image
+  prompt      TEXT NOT NULL DEFAULT '',     -- what the image model was given
+  media_key   TEXT NOT NULL DEFAULT '',     -- the master in R2
+  width       INTEGER NOT NULL DEFAULT 0,
+  height      INTEGER NOT NULL DEFAULT 0,
+  -- pending: planned, not generated
+  -- ready:   generated and self-checked
+  -- redo:    a person asked for this one again
+  -- failed:  generation or the check failed
+  state       TEXT NOT NULL DEFAULT 'pending'
+              CHECK (state IN ('pending', 'ready', 'redo', 'failed')),
+  note        TEXT NOT NULL DEFAULT '',     -- why it is being asked for again
+  qc          TEXT NOT NULL DEFAULT '',     -- JSON: the agent's own check
+  attempts    INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (carousel_id, position)
+);
+
+CREATE INDEX IF NOT EXISTS idx_slides_carousel
+  ON slides (carousel_id, position);
+
+-- what the agent asks for on every poll: which slides need work
+CREATE INDEX IF NOT EXISTS idx_slides_state
+  ON slides (state, carousel_id);
+
+
+-- ==================================================================
 -- Columns added after the first release.
 --
 -- A database created from the CREATE statements above already has
