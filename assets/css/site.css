@@ -3414,15 +3414,19 @@ figure {
 }
 .problems_home_image {
   /* inline, so it takes the page's ink rather than an <img> document's
-     black — which is what made these invisible on this background */
+     black — which is what made the originals invisible on this background */
   display:block;
-  width:clamp(2.6rem, 9vw, 3.4rem);
-  height:auto;
+  /* an even multiple of the 16-cell grid keeps every square the same size
+     as its neighbours instead of some rounding up and some down */
+  width:48px;
+  height:48px;
   margin:0 auto var(--_spacing---space--4);
   color:var(--swatch--beige-100, #e8e8e3);
   opacity:.62;
-  overflow:visible;
   transition:opacity 380ms ease, transform 620ms cubic-bezier(.22,1,.36,1);
+}
+@media (min-width:768px) {
+  .problems_home_image { width:64px; height:64px; }
 }
 
 /* --- misc ------------------------------------------------------ */
