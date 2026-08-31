@@ -1,6 +1,11 @@
 /* ==================================================================
    site.js — page-level behaviour that sits alongside the bundle
-   Video governor, nav scrim, live clock, back-to-top.
+   Video governor, nav scrim, the menu, live clock, back-to-top.
+
+   This file loads on every page. The bundle does not: app.js is only
+   on the home page, which is why the menu lives here instead. Its own
+   menu needed three elements that were removed with the template it
+   came from, so it bailed out on the pages that had the button.
    ================================================================== */
 (function () {
   'use strict';
@@ -113,6 +118,131 @@
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
+  }
+
+  /* ------------------------------------------------------------------
+     The menu
+
+     Below 768px the navbar links are hidden and this is the only way
+     around the site, so it has to work on every page and it has to get
+     out of the way the moment you have chosen something. Tapping a link
+     and being left staring at the menu, with the page locked behind it,
+     is the failure people remember.
+     ------------------------------------------------------------------ */
+  var menu = document.querySelector('[data-nav-menu]');
+  var toggle = document.querySelector('[data-nav-toggle]');
+
+  if (menu && toggle) {
+    var openedFrom = null;
+
+    var lockScroll = function (on) {
+      document.documentElement.style.overflow = on ? 'hidden' : '';
+      document.body.style.overflow = on ? 'hidden' : '';
+      // the smooth-scroll wrapper watches for this
+      if (on) document.body.setAttribute('data-lenis-prevent', '');
+      else document.body.removeAttribute('data-lenis-prevent');
+    };
+
+    var setOpen = function (on) {
+      if (on === menu.classList.contains('is-open')) return;
+      menu.classList.toggle('is-open', on);
+      toggle.setAttribute('aria-expanded', String(on));
+      // closed, it is out of the tab order and invisible to a screen reader
+      if (on) menu.removeAttribute('inert'); else menu.setAttribute('inert', '');
+      lockScroll(on);
+      document.body.dataset.navigationStatus = on ? 'is-open' : 'is-closed';
+
+      if (on) {
+        openedFrom = document.activeElement;
+        var first = menu.querySelector('a, button');
+        if (first) first.focus({ preventScroll: true });
+      } else if (openedFrom && openedFrom.focus) {
+        openedFrom.focus({ preventScroll: true });
+        openedFrom = null;
+      }
+    };
+
+    // the starting state, set directly: setOpen does nothing when asked for
+    // the state it is already in
+    menu.setAttribute('inert', '');
+    toggle.setAttribute('aria-expanded', 'false');
+
+    toggle.addEventListener('click', function () {
+      setOpen(!menu.classList.contains('is-open'));
+    });
+
+    // Anything chosen inside the menu closes it. An in-page anchor is not a
+    // navigation, so nothing else would.
+    //
+    // On the capture phase, because the bundle intercepts anchor clicks to
+    // scroll smoothly and stops them propagating — a listener waiting for
+    // the bubble never hears about the one link most likely to be tapped.
+    menu.addEventListener('click', function (e) {
+      if (e.target.closest('[data-nav-close]') || e.target.closest('a, button')) setOpen(false);
+    }, true);
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && menu.classList.contains('is-open')) setOpen(false);
+    });
+
+    // keep the tab ring inside the panel while it is open
+    menu.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab' || !menu.classList.contains('is-open')) return;
+      var stops = menu.querySelectorAll('a[href], button:not([disabled])');
+      if (!stops.length) return;
+      var first = stops[0];
+      var last = stops[stops.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+
+    // a back gesture, or a transition that swaps the page under it
+    window.addEventListener('pagehide', function () { setOpen(false); });
+    window.addEventListener('popstate', function () { setOpen(false); });
+
+    // it belongs to small screens; growing past the breakpoint should not
+    // leave an invisible panel holding the scroll lock
+    var wide = window.matchMedia('(min-width: 768px)');
+    var onWide = function (m) { if (m.matches) setOpen(false); };
+    if (wide.addEventListener) wide.addEventListener('change', onWide);
+    else if (wide.addListener) wide.addListener(onWide);
+  }
+
+  /* --- where you are ------------------------------------------------
+     Marked on both navigations, so the answer does not depend on which
+     one you happen to be looking at.
+     ------------------------------------------------------------------ */
+  (function () {
+    var here = location.pathname.replace(/\/+$/, '') || '/';
+    var links = document.querySelectorAll('.navbar_link[href], .nav_menu_link[href]');
+    Array.prototype.forEach.call(links, function (a) {
+      var href = a.getAttribute('href') || '';
+      if (href.charAt(0) === '#' || href.indexOf('/#') === 0) return;  // a place on the home page
+      var path = href.replace(/[?#].*$/, '').replace(/\/+$/, '') || '/';
+      var on = path !== '/' && (here === path || here.indexOf(path + '/') === 0);
+      if (on) {
+        a.setAttribute('aria-current', 'page');
+        a.classList.add('is-here');
+      }
+    });
+  })();
+
+  /* --- About, from a page that does not have the modal ---------------
+     Every other item in the menu is a place. About is a panel that only
+     the home page carries, so elsewhere it links to /#about and the home
+     page opens it on arrival.
+     ------------------------------------------------------------------ */
+  if (location.hash === '#about') {
+    var opener = document.querySelector('[data-open-modal]');
+    if (opener) {
+      // after the bundle has bound its handler
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          history.replaceState(null, '', location.pathname + location.search);
+          opener.click();
+        }, 350);
+      });
+    }
   }
 
   /* --- live GMT+1 clock -------------------------------------------- */

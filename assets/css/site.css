@@ -4928,3 +4928,135 @@ figure {
     grid-column:span 12/span 12;
   }
 }
+
+/* ==================================================================
+   The menu
+
+   Below 768px the navbar links are hidden and this is the whole
+   navigation. Same rules as everywhere else on the site: the display
+   face, separation by space, no rules and no boxed panels.
+   ================================================================== */
+.nav_menu {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity .3s ease, visibility 0s linear .3s;
+}
+.nav_menu.is-open {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity .3s ease;
+}
+
+.nav_menu_scrim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  background: var(--swatch--black-400, #080807);
+  border: 0;
+  padding: 0;
+  cursor: default;
+}
+
+.nav_menu_panel {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-flow: column;
+  justify-content: center;
+  gap: clamp(2rem, 6vh, 3.5rem);
+  padding: calc(var(--nav-h, 4.5rem) + env(safe-area-inset-top) + 1rem)
+           clamp(1.25rem, 6vw, 2.5rem)
+           calc(2rem + env(safe-area-inset-bottom));
+  transform: translateY(-1.25rem);
+  transition: transform .42s cubic-bezier(.22, 1, .36, 1);
+}
+.nav_menu.is-open .nav_menu_panel { transform: none; }
+
+.nav_menu_list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-flow: column;
+}
+
+/* the footer's link rhythm: the word, and an arrow that arrives with it */
+.nav_menu_link {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: .5rem 0;
+  background: transparent none;
+  border: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  color: var(--swatch--beige-100, #e8e8e3);
+  font-family: var(--_typography---font--secondary-family, sans-serif);
+  font-weight: 800;
+  font-size: clamp(2rem, 11vw, 3rem);
+  line-height: 1.04;
+  letter-spacing: -.025em;
+  text-transform: uppercase;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color .3s ease, opacity .3s ease;
+}
+.nav_menu_arrow {
+  flex: none;
+  font-size: .5em;
+  opacity: 0;
+  transform: translateX(-.6rem);
+  transition: opacity .3s ease, transform .42s cubic-bezier(.22, 1, .36, 1);
+}
+.nav_menu_link:hover .nav_menu_arrow,
+.nav_menu_link:focus-visible .nav_menu_arrow,
+.nav_menu_link.is-here .nav_menu_arrow { opacity: 1; transform: none; }
+
+/* the rest step back rather than the hovered one lighting up */
+.nav_menu_list:hover .nav_menu_link { opacity: .4; }
+.nav_menu_list:hover .nav_menu_link:hover { opacity: 1; }
+.nav_menu_link:focus-visible { outline: 2px solid currentColor; outline-offset: .4rem; }
+.nav_menu_link.is-here { color: var(--swatch--beige-400, #bfbfb1); }
+
+.nav_menu_foot { display: flex; flex-flow: column; align-items: flex-start; gap: 1rem; }
+
+/* the current page, in the bar itself */
+.navbar_link.is-here .footer_nav_span { color: var(--swatch--beige-400, #bfbfb1); }
+
+@media (min-width: 768px) {
+  /* the bar carries the links at this size; the panel is never opened */
+  .nav_menu { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav_menu, .nav_menu_panel, .nav_menu_link, .nav_menu_arrow { transition: none; }
+  .nav_menu_panel { transform: none; }
+}
+
+/* The button's two words were printed on top of each other: the swap used
+   to be driven by a Webflow variant class that went with the template. It
+   rides on aria-expanded now, which the button has to carry anyway. */
+.navbar_menu_span-wrap { overflow: hidden; }
+.navbar_menu_btn .navbar_menu_span {
+  transition: transform .35s cubic-bezier(.16, 1, .35, 1), opacity .22s ease;
+}
+.navbar_menu_btn .navbar_menu_span.is-close { opacity: 0; transform: translateY(100%); }
+.navbar_menu_btn[aria-expanded="true"] .navbar_menu_span { opacity: 0; transform: translateY(-100%); }
+.navbar_menu_btn[aria-expanded="true"] .navbar_menu_span.is-close { opacity: 1; transform: none; }
+
+/* The panel carries its own "Start a project", so the bar's copy would sit
+   directly above it saying the same thing. */
+body[data-navigation-status="is-open"] .navbar_cta_wrap {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar_menu_btn .navbar_menu_span, .navbar_cta_wrap { transition: none; }
+}
