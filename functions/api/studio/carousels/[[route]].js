@@ -41,6 +41,8 @@ import {
   MIN_SLIDES, MAX_SLIDES, SLOTS,
 } from '../../../../lib/carousels.js';
 import { problems as platformProblems, INSTAGRAM } from '../../../../assets/js/platforms.js';
+import { send as sendMail } from '../../../../lib/mail.js';
+import { gather, compose } from '../../../../lib/digest.js';
 
 const MAX_FIELD = 400;
 const MAX_TEXT = 8_000;
@@ -91,6 +93,35 @@ export async function onRequest({ request, env, params }) {
 
     if (what === 'queue' && method === 'GET') {
       return json(await agentQueue(env.DB));
+    }
+
+    /*
+     * The one mail a day. Spark asks for it when the batch is actually
+     * ready rather than a clock firing while the images are still
+     * rendering — which is also why nothing here is scheduled.
+     *
+     * GET previews it without sending, so the wording can be checked
+     * without waiting for a real batch.
+     */
+    if (what === 'digest') {
+      if (method === 'GET') {
+        const mail = compose(await gather(env.DB), SITE);
+        return json({ ...mail, configured: Boolean(env.RESEND_API_KEY) });
+      }
+      if (method === 'POST') {
+        const { force } = await request.json().catch(() => ({}));
+        const mail = compose(await gather(env.DB), SITE);
+        // a mail that says "nothing" trains you to stop opening them
+        if (!mail.count && !force) {
+          return json({ sent: false, reason: 'Nothing is waiting on a person.', count: 0 });
+        }
+        const out = await sendMail(env, {
+          subject: mail.subject,
+          text: mail.text,
+          html: mail.html,
+        });
+        return json({ ...out, count: mail.count, subject: mail.subject }, out.sent ? 200 : 502);
+      }
     }
 
     if (what === 'pillars') {

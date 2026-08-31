@@ -493,8 +493,125 @@ await step('a slot clash is refused with the name of what has it', async () => {
   if (!body.error.includes(slug.value)) throw new Error(`does not say what has it: ${body.error}`);
 });
 
+/*
+ * How long a carousel runs is the topic's call. A teardown with four
+ * findings is longer than a single statistic, and padding both to the
+ * same length is how a set of posts starts to look like a template.
+ */
+await step('a carousel is as long as its topic needs', async () => {
+  const lengths = [2, 5, 10];
+  for (const n of lengths) {
+    const { status, body } = await spark('/carousels', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: `A ${n} slide idea`,
+        slides: Array.from({ length: n }, (_, i) => ({
+          kind: i === 0 ? 'hook' : i === n - 1 ? 'cta' : 'slide',
+          copy: `line ${i}`,
+          prompt: `picture ${i}`,
+        })),
+      }),
+    });
+    is(status, 201, `filing ${n}`);
+    is(body.slides, n, `slides kept for ${n}`);
+    made.push(body.slug);
+    const got = await person(`/carousels/${body.slug}`);
+    is(got.body.carousel.slides.length, n, `slides read back for ${n}`);
+  }
+});
+
+await step('past ten it is cut to what Instagram takes', async () => {
+  const { body } = await spark('/carousels', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: 'A very long idea',
+      slides: Array.from({ length: 16 }, (_, i) => ({ copy: `line ${i}` })),
+    }),
+  });
+  made.push(body.slug);
+  is(body.slides, 10, 'slides kept');
+});
+
+await step('the brief says the length is the topic\'s call', async () => {
+  const { body } = await spark('/carousels/-/brief');
+  is(body.slides.min, 2, 'min');
+  is(body.slides.max, 10, 'max');
+  if (!/topic/i.test(body.slides.note || '')) {
+    throw new Error(`no guidance on length: ${JSON.stringify(body.slides)}`);
+  }
+});
+
+/* --------------------------------------------------------------- the mail */
+
+await step('the digest can be read without sending it', async () => {
+  const { status, body } = await person('/carousels/-/digest');
+  is(status, 200, 'status');
+  if (!body.subject) throw new Error('no subject');
+  if (typeof body.count !== 'number') throw new Error('no count');
+});
+
+await step('it names what is waiting, and links to each one', async () => {
+  const one = await spark('/carousels', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: 'Something to look at',
+      pillar: 'teardowns',
+      slides: [{ kind: 'hook', copy: 'a' }, { kind: 'cta', copy: 'b' }],
+    }),
+  });
+  made.push(one.body.slug);
+  await spark(`/carousels/${one.body.slug}/status`, {
+    method: 'POST', body: JSON.stringify({ status: 'review' }),
+  });
+
+  const { body } = await person('/carousels/-/digest');
+  if (body.count < 1) throw new Error(`counted ${body.count}`);
+  if (!/\d+ carousels? to review/.test(body.subject)) {
+    throw new Error(`subject does not say how many: ${body.subject}`);
+  }
+  if (!body.text.includes(`#/social/${one.body.slug}`)) {
+    throw new Error('the text has no link to it');
+  }
+  if (!body.html.includes(`#/social/${one.body.slug}`)) {
+    throw new Error('the html has no link to it');
+  }
+  if (!body.text.includes('Something to look at')) throw new Error('it is not named');
+  // 2 slides, so the mail should say so rather than making you open it
+  if (!/2 slides/.test(body.text)) throw new Error(`no slide count: ${body.text}`);
+});
+
+await step('Spark can ask for the mail — it ends its own cycle', async () => {
+  // no RESEND_API_KEY in dev, so this reports why rather than pretending
+  const { status, body } = await spark('/carousels/-/digest', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  if (status !== 502 && status !== 200) throw new Error(`unexpected ${status}`);
+  if (status === 502 && !/RESEND_API_KEY/.test(body.reason || '')) {
+    throw new Error(`does not say what is missing: ${body.reason}`);
+  }
+});
+
+await step('a mail that would say nothing is not sent', async () => {
+  // put everything back where it is not waiting on a person
+  const { body: list } = await person('/carousels?status=review');
+  for (const c of list.carousels) {
+    await person(`/carousels/${c.slug}/status`, {
+      method: 'POST', body: JSON.stringify({ status: 'changes' }),
+    });
+  }
+  const { body } = await person('/carousels/-/digest', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  is(body.sent, false, 'sent');
+  is(body.count, 0, 'count');
+  if (!/[Nn]othing/.test(body.reason || '')) throw new Error(`unclear: ${body.reason}`);
+});
+
 await step('signed out, none of it answers', async () => {
-  for (const path of ['/carousels', '/carousels/-/brief', '/carousels/-/queue']) {
+  for (const path of ['/carousels', '/carousels/-/brief', '/carousels/-/queue',
+                      '/carousels/-/digest']) {
     const res = await fetch(API + path);
     is(res.status, 401, path);
   }

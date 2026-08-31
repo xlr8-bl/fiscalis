@@ -38,8 +38,15 @@ proposed twice. One call to start a cycle.
       slides: [ { kind: 'hook'|'slide'|'cta', copy, prompt }, … ] }
 
 Files a plan. Lands `planned`. `copy` is the type that goes into the
-image; `prompt` is what the image model is given. Two to ten slides —
-ten is Instagram's ceiling.
+image; `prompt` is what the image model is given.
+
+**How long it runs is the topic's call.** A teardown with four findings is
+four slides plus a hook and a card at the end; a single statistic is two.
+Padding everything to the same length is how a set of posts starts to look
+like a template, which is the thing this exists to avoid. Two is the floor
+because below it there is no carousel, and ten is Instagram's ceiling —
+anything past ten is cut to ten rather than refused. The brief repeats this
+so it does not have to be remembered.
 
     PUT  /api/studio/carousels/:slug/slides/:position
     multipart: file, width, height, qc
@@ -68,6 +75,19 @@ that were already good.
 
 Deliver the redraw with the same `PUT` and hand it back with the same
 `status: 'review'`.
+
+    POST /api/studio/carousels/-/digest
+
+The one mail a day: what is waiting, how many slides each, and a link
+straight to it. Ask for it when the batch is actually ready — nothing
+schedules it, because a clock firing while the images are still rendering
+sends a mail about a day that is not finished.
+
+A mail that would say "nothing" is not sent, since that trains you to stop
+opening them. `GET` the same path to read what it *would* say without
+sending. Needs `RESEND_API_KEY`, the same Resend account the booking form
+uses; with no key it says so rather than reporting a success that never
+arrived.
 
 ## Where it can go from where
 
