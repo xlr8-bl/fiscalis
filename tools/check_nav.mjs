@@ -217,6 +217,67 @@ await step('About reaches the panel from another page', async () => {
   if (open !== 'is-open') throw new Error(`the about panel is ${open}`);
 });
 
+/* ------------------------------------------------- nothing off the side
+
+   The document does not scroll sideways — something up the tree clips —
+   so measuring scrollWidth says everything is fine while the words are
+   being cut off the edge. This measures each element instead, at several
+   scroll positions, because the offender was a scroll-linked drift that
+   is not applied until you reach it. */
+
+for (const [name, path] of PAGES) {
+  await step(`phone ${name}: nothing runs off the side`, async () => {
+    await phone.goto(BASE + path, { waitUntil: 'domcontentloaded' });
+    await phone.waitForTimeout(1500);
+    const height = await phone.evaluate(() => document.body.scrollHeight);
+    const worst = new Map();
+
+    for (let y = 0; y < height; y += 500) {
+      await phone.evaluate((yy) => window.scrollTo(0, yy), y);
+      await phone.waitForTimeout(220);
+      const found = await phone.evaluate((vw) => {
+        const out = [];
+        for (const el of document.querySelectorAll('body *')) {
+          if (!el.getClientRects().length) continue;
+          const s = getComputedStyle(el);
+          if (s.visibility === 'hidden' || s.display === 'none') continue;
+          // the About panel and the menu are parked off-screen by design
+          if (el.closest('.about_wrap, .nav_menu')) continue;
+          const r = el.getBoundingClientRect();
+          if (!r.width || !r.height) continue;
+          if (r.right - vw <= 2) continue;
+
+          // an ancestor that clips, and is itself inside the viewport,
+          // means this is a cover crop rather than something escaping
+          let clipped = false;
+          for (let a = el.parentElement; a; a = a.parentElement) {
+            const as = getComputedStyle(a);
+            if (/hidden|clip|auto|scroll/.test(as.overflowX) &&
+                a.getBoundingClientRect().right - vw <= 2) { clipped = true; break; }
+          }
+          if (clipped) continue;
+
+          out.push({
+            over: Math.round(r.right - vw),
+            what: el.tagName + '.' + (String(el.className || '').split(/\s+/)[0] || ''),
+            text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 28),
+          });
+        }
+        return out;
+      }, 390);
+      for (const f of found) {
+        if (!worst.has(f.what) || worst.get(f.what).over < f.over) worst.set(f.what, f);
+      }
+    }
+
+    if (worst.size) {
+      const list = [...worst.values()].sort((a, b) => b.over - a.over).slice(0, 4)
+        .map((b) => `${b.what} +${b.over}px "${b.text}"`);
+      throw new Error(list.join('; '));
+    }
+  });
+}
+
 await browser.close();
 console.log('\n' + (problems.length
   ? 'PROBLEMS:\n  ' + problems.join('\n  ')

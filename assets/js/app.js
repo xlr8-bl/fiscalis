@@ -647,19 +647,27 @@ var OdynCode = (() => {
           clipPath: "inset(0% 1.25% 1.25% 1.25% round 0.35rem)",
           ease: "none",
         }),
-        gsap
-          .timeline({
-            scrollTrigger: {
-              trigger: r,
-              start: "top bottom",
-              end: "bottom top",
-              scrub: !0,
-            },
-          })
-          .to(".cta_heading_inner", {
-            xPercent: 50,
-            ease: "none",
-          }));
+        // "Get in touch" drifts half its own width to the right as you
+        // scroll past. On a wide screen there is slack around it and it
+        // reads as parallax. On a phone the row already fills the column,
+        // so half of it leaves the screen and the words are cut off the
+        // side. matchMedia keeps it to the widths that have room, and
+        // reverts it if the phone is turned.
+        gsap.matchMedia().add("(min-width: 768px)", () => {
+          gsap
+            .timeline({
+              scrollTrigger: {
+                trigger: r,
+                start: "top bottom",
+                end: "bottom top",
+                scrub: !0,
+              },
+            })
+            .to(".cta_heading_inner", {
+              xPercent: 50,
+              ease: "none",
+            });
+        }));
     }
     e();
     function t() {
