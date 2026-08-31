@@ -10,10 +10,11 @@
     "seed": "python3 tools/seed_d1.py && python3 tools/seed_content.py",
     "backup": "npx wrangler d1 export web3ashley --remote --output=journal-backup.sql",
     "seed:build": "python3 tools/build_seed.py",
-    "check": "python3 tools/stamp_assets.py --check && node tools/check_brand.mjs && node tools/check_studio.mjs && node tools/check_nav.mjs && node tools/check_social.mjs",
+    "check": "python3 tools/stamp_assets.py --check && node tools/check_brand.mjs && node tools/check_studio.mjs && node tools/check_nav.mjs && node tools/check_social.mjs && node tools/check_mcp.mjs",
     "check:nav": "node tools/check_nav.mjs",
     "check:studio": "node tools/check_studio.mjs",
     "check:social": "node tools/check_social.mjs",
+    "check:mcp": "node tools/check_mcp.mjs",
     "check:brand": "node tools/check_brand.mjs",
     "stamp": "python3 tools/stamp_assets.py",
     "icons": "python3 tools/service_icons.py"

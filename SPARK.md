@@ -10,12 +10,62 @@ reads its own feedback back over the same API it wrote to.
 
 None of this is public. No site route renders any of it.
 
+## Connecting it to Spark
+
+Spark does not call REST endpoints. It connects to a third-party app by
+**MCP server URL**, which you paste into the Gemini web app — so the
+doorway is `/mcp`, and everything in this document sits behind it.
+
+1. Set `AGENT_TOKEN` in the Pages project, under **both** Production and
+   Preview, then retry the deployment — a deployment carries the variables
+   it was built with.
+2. In the Gemini **web** app (this cannot be done from mobile), open
+   Connected Apps and add a custom app.
+3. URL: `https://web3ashley.com/mcp`
+4. This server does not do Dynamic Client Registration, so open **Advanced
+   features → Show more** and give it the agent token as a bearer
+   credential. That panel exists for exactly this case.
+
+Once connected there, it works in Spark on both web and mobile. Google's
+requirements: a personal Google account (not Workspace), "Keep Activity"
+on, 18+, US.
+
+Google also warns that it does not control or secure third-party MCP
+servers, and that you are responsible for the one you connect. That is the
+reason the tool list below stops where it does.
+
+### What the server exposes
+
+Seven tools, and deliberately nothing else:
+
+| tool | what it does |
+|---|---|
+| `brief` | pillars, brand kit URLs, recent topics, slide limits |
+| `plan_carousel` | file one plan with its slides |
+| `queue` | slides needing a first draw or a redraw, with your notes |
+| `deliver_slide` | put a picture on one slide, by URL or base64 |
+| `hand_over` | move a carousel to review |
+| `list_carousels` | the board |
+| `send_digest` | send the day's mail |
+
+There is no approve, no schedule, no post and no delete — not hidden, not
+permission-gated, **absent**. `check_mcp.mjs` asserts that no tool name
+contains any of those words, and separately that the underlying API
+refuses them to this credential.
+
+The endpoint is **dual-era**. The MCP spec now has two: modern
+(`2026-07-28`), where every request carries its own version in `_meta` and
+there is no handshake, and legacy (`2025-11-25` and earlier), which opens
+with `initialize`. Spark's help page says "standard MCP specifications"
+without naming a revision, so guessing wrong means it simply will not
+connect. Both are served; the branch is chosen by how the client opens.
+
 ## The two credentials
 
 | | how | what it can do |
 |---|---|---|
 | you | sign in at `/studio` | everything |
-| Spark | `Authorization: Bearer $AGENT_TOKEN` | plan, draw, hand over for review |
+| Spark | the MCP server at `/mcp`, or `Authorization: Bearer $AGENT_TOKEN` on the REST API | plan, draw, hand over for review |
 
 Spark cannot approve, schedule, post or delete, and cannot touch a
 carousel once a person has approved it. That ceiling is the security
