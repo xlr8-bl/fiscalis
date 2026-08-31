@@ -330,3 +330,8 @@
   --column-margin--1: calc(var(--column-width--1) + var(--site--gutter));
   --column-margin--2: calc(var(--column-width--2) + var(--site--gutter));
 }
+
+/* The author's name and handle sit on trimmed boxes — 12px tall for a
+   16px face — so stacked they read as one clump with the descender of
+   the name touching the line beneath it. */
+.gap_home_content_text + .gap_home_content_text { margin-top: .4rem; }
