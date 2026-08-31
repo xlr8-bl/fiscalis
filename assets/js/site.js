@@ -143,8 +143,24 @@
       else document.body.removeAttribute('data-lenis-prevent');
     };
 
+    var hideTimer = null;
+
     var setOpen = function (on) {
       if (on === menu.classList.contains('is-open')) return;
+      window.clearTimeout(hideTimer);
+
+      if (on) {
+        // `hidden` is the resting state in the markup, so that a stylesheet
+        // that fails to arrive leaves the panel closed rather than spilling
+        // its links down the top of the page. Drop it, let the browser lay
+        // the panel out, and only then animate — same frame means no
+        // transition at all.
+        menu.hidden = false;
+        void menu.offsetWidth;
+      } else {
+        hideTimer = window.setTimeout(function () { menu.hidden = true; }, 380);
+      }
+
       menu.classList.toggle('is-open', on);
       toggle.setAttribute('aria-expanded', String(on));
       // closed, it is out of the tab order and invisible to a screen reader
@@ -164,6 +180,7 @@
 
     // the starting state, set directly: setOpen does nothing when asked for
     // the state it is already in
+    menu.hidden = true;
     menu.setAttribute('inert', '');
     toggle.setAttribute('aria-expanded', 'false');
 

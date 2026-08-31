@@ -403,51 +403,6 @@
 }
 
 /* ==================================================================
-   Route wipe — the panel that carries the eye between the home page
-   and /book. Two documents, one continuous motion: the outgoing page
-   wipes it up over itself, the incoming page wipes it off the top.
-   ================================================================== */
-.rt_wipe {
-  position: fixed;
-  inset: 0;
-  z-index: 2147483646;
-  pointer-events: none;
-  background: var(--swatch--black-400, #080807);
-  transform: translateY(100%);
-  display: grid;
-  place-items: center;
-  will-change: transform;
-}
-/* set by the inline head script before first paint, so an arriving
-   page never flashes its content before the panel lifts */
-html.rt-arriving .rt_wipe { transform: translateY(0); }
-
-.rt_wipe.is-cover {
-  transform: translateY(0);
-  transition: transform 520ms cubic-bezier(.76, 0, .24, 1);
-}
-.rt_wipe.is-reveal {
-  transform: translateY(-100%);
-  transition: transform 640ms cubic-bezier(.76, 0, .24, 1);
-}
-
-.rt_wipe__label {
-  font-family: PixelDisplay, monospace;
-  font-size: clamp(.7rem, 1.6vw, 1rem);
-  letter-spacing: .06em;
-  color: var(--swatch--beige-100, #e8e8e3);
-  opacity: 0;
-  transform: translateY(.5em);
-  transition: opacity 300ms ease 120ms, transform 460ms cubic-bezier(.22,1,.36,1) 120ms;
-}
-.rt_wipe.is-cover .rt_wipe__label,
-html.rt-arriving .rt_wipe__label { opacity: .55; transform: none; }
-
-@media (prefers-reduced-motion: reduce) {
-  .rt_wipe, .rt_wipe__label { transition: none; }
-}
-
-/* ==================================================================
    Grid tokens. These were declared in an inline <style> inside
    index.html, so any page that is not the home page inherited the
    broken 6px fallbacks left in site.css by the export. Same values,
