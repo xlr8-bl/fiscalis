@@ -42,8 +42,39 @@ CREATE TABLE IF NOT EXISTS media (
   filename     TEXT NOT NULL,
   content_type TEXT NOT NULL,
   bytes        INTEGER NOT NULL DEFAULT 0,
+  -- Measured in the browser before upload, which is the only place the
+  -- pixels are already decoded. Written into every <img> so a page
+  -- reserves the space instead of reflowing as each image arrives.
+  width        INTEGER NOT NULL DEFAULT 0,
+  height       INTEGER NOT NULL DEFAULT 0,
+  -- Written once here rather than retyped at each use.
+  alt          TEXT NOT NULL DEFAULT '',
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+
+-- ==================================================================
+-- History.
+--
+-- One row per save, of an article or an entry, holding what the thing
+-- looked like *before* that save. An agent writes into the same store
+-- a person does; being able to read back and restore is what makes
+-- that safe rather than merely convenient.
+-- ==================================================================
+CREATE TABLE IF NOT EXISTS revisions (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind       TEXT NOT NULL CHECK (kind IN ('article', 'entry')),
+  -- 'article' -> the slug; 'entry' -> 'collection/slug'
+  ref        TEXT NOT NULL,
+  data       TEXT NOT NULL DEFAULT '{}',        -- JSON of the previous state
+  editor     TEXT NOT NULL DEFAULT '',
+  note       TEXT NOT NULL DEFAULT '',          -- 'saved', 'published', 'restored'…
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- the history panel's query: one thing, newest first
+CREATE INDEX IF NOT EXISTS idx_revisions_ref
+  ON revisions (kind, ref, id DESC);
 
 
 -- ==================================================================
@@ -82,3 +113,16 @@ CREATE TABLE IF NOT EXISTS entries (
 -- the render query: one collection, in order
 CREATE INDEX IF NOT EXISTS idx_entries_render
   ON entries (collection, status, position);
+
+
+-- ==================================================================
+-- Columns added after the first release.
+--
+-- A database created from the CREATE statements above already has
+-- these, so each of these raises "duplicate column" there. Setup
+-- expects that and moves on; the point of running them is the
+-- databases that predate the column.
+-- ==================================================================
+ALTER TABLE media ADD COLUMN width INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE media ADD COLUMN height INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE media ADD COLUMN alt TEXT NOT NULL DEFAULT '';

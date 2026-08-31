@@ -11,6 +11,9 @@
  *   DELETE /api/studio/content/:collection/:slug
  *   POST   /api/studio/content/:collection/reorder  { slugs: [...] }
  *   POST   /api/studio/content/:collection/:slug/status { status }
+ *   GET    /api/studio/content/:collection/:slug/history
+ *   GET    /api/studio/content/:collection/:slug/history/:id
+ *   POST   /api/studio/content/:collection/:slug/restore { id }
  *
  * Same two identities as the articles API. The agent may add and edit, and
  * what it adds arrives as a draft; publishing, deleting and reordering are a
@@ -26,6 +29,7 @@ import {
   createEntry, updateEntry, deleteEntry, setEntryStatus, reorder,
 } from '../../../../lib/content.js';
 import { SITE } from '../../../../lib/templates.js';
+import * as history from '../../../../lib/revisions.js';
 
 /** The home page is what these feed, so drop it from the edge on any change. */
 async function purgeHome() {
@@ -87,6 +91,7 @@ export async function onRequest({ request, env, params }) {
 
   const slug = rest[0] || null;
   const action = rest[1] || null;
+  const arg = rest[2] || null;
 
   // list
   if (!slug && method === 'GET') {
@@ -136,9 +141,41 @@ export async function onRequest({ request, env, params }) {
       return json({ error: 'The agent token cannot edit something already live.' }, 403);
     }
     const input = await request.json().catch(() => ({}));
+    await history.record(env.DB, 'entry', history.entryRef(name, slug),
+                         existing.data, who.name, 'edited');
     const updated = await updateEntry(env.DB, name, slug, input, who.name);
     if (existing.status === 'published') await purgeHome();
     return json(updated);
+  }
+
+  /* -------------------------------------------------------------- history */
+  if (action === 'history' && method === 'GET') {
+    const ref = history.entryRef(name, slug);
+    if (arg) {
+      const rev = await history.get(env.DB, 'entry', ref, arg);
+      if (!rev) return json({ error: 'No such revision.' }, 404);
+      return json({ revision: rev });
+    }
+    return json({ revisions: await history.list(env.DB, 'entry', ref) });
+  }
+
+  // Restoring records the state it replaces, so it can itself be undone.
+  if (action === 'restore' && method === 'POST') {
+    const denied = guard('restore');
+    if (denied) return denied;
+    const { id } = await request.json().catch(() => ({}));
+    const ref = history.entryRef(name, slug);
+    const rev = await history.get(env.DB, 'entry', ref, id);
+    if (!rev) return json({ error: 'No such revision.' }, 404);
+
+    await history.record(env.DB, 'entry', ref, existing.data, who.name, 'before restoring');
+    // Every field, not just the ones the revision holds. updateEntry merges,
+    // so a field added since would otherwise survive a restore that predates
+    // it — leaving a state the entry was never actually in.
+    const whole = Object.fromEntries(def.fields.map((f) => [f.name, rev.data[f.name] ?? '']));
+    const updated = await updateEntry(env.DB, name, slug, whole, who.name);
+    if (existing.status === 'published') await purgeHome();
+    return json({ ok: true, entry: updated });
   }
 
   if (action === 'status' && method === 'POST') {
@@ -157,6 +194,7 @@ export async function onRequest({ request, env, params }) {
     const denied = guard('delete');
     if (denied) return denied;
     await deleteEntry(env.DB, name, slug);
+    await history.drop(env.DB, 'entry', history.entryRef(name, slug));
     await purgeHome();
     return json({ ok: true });
   }

@@ -189,6 +189,33 @@ body.jr-body {
 }
 .jr_prose hr { display: none; }
 
+/* --- pictures ------------------------------------------------------
+   No frame, no caption rule, no rounded corners. The image sits in the
+   prose column at its own width and the caption reads as another line
+   of body text, one step quieter. */
+.jr_figure { margin-top: var(--_spacing---space--7, 2.5rem); }
+.jr_figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* width and height are written into the markup when the studio knows
+     them, so the space is reserved before the bytes arrive */
+  background: var(--swatch--black-300, #12120f);
+}
+.jr_figure figcaption {
+  margin-top: var(--_spacing---space--3, .7rem);
+  color: var(--swatch--black-100, #6b645c);
+  font-size: .92em;
+  line-height: 1.45;
+}
+
+/* A pause between passages, as space. A rule would be the one hairline
+   on a site that has none. */
+.jr_break {
+  height: var(--_spacing---space--6, 2rem);
+  pointer-events: none;
+}
+
 /* --- closing call, then what to read next ------------------------- */
 .jr_end {
   margin-top: var(--_spacing---section-space--large, 8rem);

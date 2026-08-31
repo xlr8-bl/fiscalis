@@ -15,8 +15,13 @@
  *   POST   /api/studio/articles/:slug/publish              -> go live
  *   POST   /api/studio/articles/:slug/unpublish
  *   DELETE /api/studio/articles/:slug
+ *   GET    /api/studio/articles/:slug/history              -> past versions
+ *   GET    /api/studio/articles/:slug/history/:id          -> one, with body
+ *   POST   /api/studio/articles/:slug/restore { id }       -> put one back
  *   POST   /api/studio/media          (multipart)          -> upload to R2
  *   GET    /api/studio/media                               -> list uploads
+ *   PUT    /api/studio/media/:key     { alt }              -> describe one
+ *   DELETE /api/studio/media/:key                          -> remove one
  */
 
 import { listAll, getBySlug, uniqueSlug, slugify } from '../../../lib/articles.js';
@@ -26,6 +31,13 @@ import {
   AGENT_ALLOWED, agentMayTouch,
 } from '../../../lib/auth.js';
 import { SITE } from '../../../lib/templates.js';
+import * as history from '../../../lib/revisions.js';
+
+/** The fields a revision of an article keeps. */
+const snapshot = (a) => ({
+  title: a.title, description: a.description, body: a.body,
+  tags: a.tags, slug: a.slug, status: a.status,
+});
 
 const MAX_BODY = 200_000;      // an article
 const MAX_FIELD = 400;         // title, description, tags
@@ -119,14 +131,18 @@ export async function onRequest(context) {
   if (head === 'media') {
     if (!env.MEDIA) return json({ error: 'No R2 bucket is bound.' }, 503);
 
-    if (method === 'GET') {
+    // the picker shows every image, so this lists more than a page of them
+    if (method === 'GET' && !rest.length) {
       const { results } = await env.DB
-        .prepare('SELECT key, filename, content_type, bytes, created_at FROM media ORDER BY created_at DESC LIMIT 200')
+        .prepare(
+          `SELECT key, filename, content_type, bytes, width, height, alt, created_at
+           FROM media ORDER BY created_at DESC, key DESC LIMIT 500`
+        )
         .all();
       return json({ media: results ?? [] });
     }
 
-    if (method === 'POST') {
+    if (method === 'POST' && !rest.length) {
       const denied = guard('upload');
       if (denied) return denied;
 
@@ -142,15 +158,50 @@ export async function onRequest(context) {
       const ext = (String(file.name).match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase();
       const key = `${today()}/${safe}-${crypto.randomUUID().slice(0, 8)}${ext}`;
 
+      // the browser decoded the image to show a preview, so it knows the
+      // size already; measuring it again here would mean decoding it twice
+      const int = (v) => Math.max(0, Math.min(50_000, Number(v) || 0));
+      const width = int(form.get('width'));
+      const height = int(form.get('height'));
+      const alt = clean(form.get('alt'));
+
       await env.MEDIA.put(key, file.stream(), {
         httpMetadata: { contentType: file.type, cacheControl: 'public, max-age=31536000, immutable' },
       });
       await env.DB
-        .prepare('INSERT INTO media (key, filename, content_type, bytes) VALUES (?1, ?2, ?3, ?4)')
-        .bind(key, clean(file.name), file.type, file.size)
+        .prepare(
+          `INSERT INTO media (key, filename, content_type, bytes, width, height, alt)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+        )
+        .bind(key, clean(file.name), file.type, file.size, width, height, alt)
         .run();
 
-      return json({ key, url: `/media/${key}` }, 201);
+      return json({ key, url: `/media/${key}`, width, height, alt }, 201);
+    }
+
+    // /media/<key…> — a key contains slashes, so it is the rest of the path
+    const mediaKey = rest.map(String).join('/');
+    if (mediaKey) {
+      if (method === 'PUT') {
+        const denied = guard('media');
+        if (denied) return denied;
+        const { alt } = await request.json().catch(() => ({}));
+        await env.DB
+          .prepare('UPDATE media SET alt = ?1 WHERE key = ?2')
+          .bind(clean(alt), mediaKey)
+          .run();
+        return json({ ok: true, key: mediaKey, alt: clean(alt) });
+      }
+
+      if (method === 'DELETE') {
+        const denied = guard('media');
+        if (denied) return denied;
+        // the row goes first: an orphaned object costs storage, whereas a
+        // row pointing at bytes that are gone is a broken image on a page
+        await env.DB.prepare('DELETE FROM media WHERE key = ?1').bind(mediaKey).run();
+        await env.MEDIA.delete(mediaKey);
+        return json({ ok: true });
+      }
     }
     return json({ error: 'Method not allowed.' }, 405);
   }
@@ -160,6 +211,7 @@ export async function onRequest(context) {
 
   const slug = rest[0] ? String(rest[0]) : null;
   const action = rest[1] ? String(rest[1]) : null;
+  const arg = rest[2] ? String(rest[2]) : null;
 
   // list
   if (!slug && method === 'GET') {
@@ -224,6 +276,13 @@ export async function onRequest(context) {
         ? await uniqueSlug(env.DB, input.slug, existing.id)
         : existing.slug;
 
+    // what it looked like before this save
+    await history.record(env.DB, 'article', history.articleRef(existing.slug),
+                         snapshot(existing), who.name, 'edited');
+    if (nextSlug !== existing.slug) {
+      await history.rename(env.DB, 'article', existing.slug, nextSlug);
+    }
+
     await env.DB
       .prepare(
         `UPDATE articles SET slug = ?1, title = ?2, description = ?3, body = ?4,
@@ -248,6 +307,8 @@ export async function onRequest(context) {
     if (!existing.description) {
       return json({ error: 'Add a description first — it is the search result.' }, 400);
     }
+    await history.record(env.DB, 'article', history.articleRef(existing.slug),
+                         snapshot(existing), who.name, 'before publishing');
     await env.DB
       .prepare(
         `UPDATE articles SET status = 'published',
@@ -276,11 +337,51 @@ export async function onRequest(context) {
     return json({ slug: existing.slug, status: 'draft' });
   }
 
+  /* -------------------------------------------------------------- history */
+  if (action === 'history' && method === 'GET') {
+    const denied = guard('get');
+    if (denied) return denied;
+    const ref = history.articleRef(existing.slug);
+    if (arg) {
+      const rev = await history.get(env.DB, 'article', ref, arg);
+      if (!rev) return json({ error: 'No such revision.' }, 404);
+      return json({ revision: rev });
+    }
+    return json({ revisions: await history.list(env.DB, 'article', ref) });
+  }
+
+  // Restoring is itself an edit, so the state being replaced is recorded
+  // first — which means a restore can be undone by another restore.
+  if (action === 'restore' && method === 'POST') {
+    const denied = guard('restore');
+    if (denied) return denied;
+    const { id } = await request.json().catch(() => ({}));
+    const ref = history.articleRef(existing.slug);
+    const rev = await history.get(env.DB, 'article', ref, id);
+    if (!rev) return json({ error: 'No such revision.' }, 404);
+
+    await history.record(env.DB, 'article', ref, snapshot(existing), who.name, 'before restoring');
+    const d = rev.data;
+    await env.DB
+      .prepare(
+        `UPDATE articles SET title = ?1, description = ?2, body = ?3, tags = ?4,
+                             last_editor = ?6, updated_at = datetime('now')
+         WHERE id = ?5`
+      )
+      .bind(clean(d.title) || existing.title, clean(d.description),
+            clean(d.body, MAX_BODY), clean(d.tags), existing.id, who.name)
+      .run();
+
+    if (existing.status === 'published') await purge(existing);
+    return json({ ok: true, slug: existing.slug });
+  }
+
   // delete — a person only
   if (!action && method === 'DELETE') {
     const denied = guard('delete');
     if (denied) return denied;
     await env.DB.prepare('DELETE FROM articles WHERE id = ?1').bind(existing.id).run();
+    await history.drop(env.DB, 'article', history.articleRef(existing.slug));
     await purge(existing);
     return json({ ok: true });
   }

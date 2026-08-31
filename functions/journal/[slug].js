@@ -8,6 +8,7 @@ import { getBySlug, related } from '../../lib/articles.js';
 import { renderArticlePage, prepare } from '../../lib/templates.js';
 import { htmlResponse, notFound, missingDatabase, orNotReady } from '../../lib/respond.js';
 import { timingSafeEqual } from '../../lib/auth.js';
+import { sizesFor } from '../../lib/media.js';
 
 export async function onRequestGet({ env, params, request }) {
   if (!env.DB) return missingDatabase();
@@ -21,9 +22,12 @@ export async function onRequestGet({ env, params, request }) {
   const row = got.value;
   if (!row) return notFound();
 
-  const article = prepare(row);
   const isDraft = row.status !== 'published';
-  const rel = isDraft ? [] : await related(env.DB, row);
+  const [sizes, rel] = await Promise.all([
+    sizesFor(env.DB, row.body),
+    isDraft ? [] : related(env.DB, row),
+  ]);
+  const article = prepare(row, sizes);
 
   return htmlResponse(renderArticlePage(article, rel, { preview: isDraft }), {
     // a draft is never cached and never indexed
