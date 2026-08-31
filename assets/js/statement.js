@@ -1,8 +1,11 @@
 /* ------------------------------------------------------------------
-   Statement section controller
-   Drives the rotating word, the index and the image panel from one
-   clock. Pauses off-screen and on hover; honours reduced-motion.
-   Vanilla — no dependency on the animation bundle.
+   The approach — controller
+
+   Lights one statement at a time and turns the word in the heading with
+   it, from a single clock. Pauses off-screen, and hands over to the
+   pointer while you are reading a particular line. Honours
+   reduced-motion, where nothing moves and the first line simply stays
+   lit. Vanilla — no dependency on the animation bundle.
    ------------------------------------------------------------------ */
 (function () {
   'use strict';
@@ -13,8 +16,6 @@
   var rotator = root.querySelector('[data-ash-rotator]');
   var words = rotator ? Array.prototype.slice.call(rotator.children) : [];
   var rows = Array.prototype.slice.call(root.querySelectorAll('[data-ash-row]'));
-  var imgs = Array.prototype.slice.call(root.querySelectorAll('[data-ash-img]'));
-  var caption = root.querySelector('[data-ash-caption]');
   if (!rows.length) return;
 
   var DWELL = parseInt(root.getAttribute('data-ash-dwell'), 10) || 3400;
@@ -37,19 +38,8 @@
     index = (next + rows.length) % rows.length;
 
     rows.forEach(function (row, i) {
-      // re-trigger the progress hairline by replaying the attribute
-      if (i === index) {
-        row.removeAttribute('data-active');
-        void row.offsetWidth;
-        row.setAttribute('data-active', '');
-      } else {
-        row.removeAttribute('data-active');
-      }
-    });
-
-    imgs.forEach(function (img, i) {
-      if (i === index) img.setAttribute('data-active', '');
-      else img.removeAttribute('data-active');
+      if (i === index) row.setAttribute('data-active', '');
+      else row.removeAttribute('data-active');
     });
 
     if (words.length) {
@@ -63,11 +53,6 @@
         }
       });
       fitRotator(index);
-    }
-
-    if (caption) {
-      var label = rows[index].getAttribute('data-ash-caption-text');
-      if (label) caption.textContent = label;
     }
   }
 
@@ -87,19 +72,16 @@
     }
   }
 
-  // Hover / focus takes over from the clock.
+  // Reading with the pointer takes over from the clock. These are
+  // statements rather than controls, so there is nothing to click — the
+  // rows used to be buttons that only lit themselves, which is an
+  // affordance offering nothing.
   rows.forEach(function (row, i) {
-    var select = function () {
+    row.addEventListener('mouseenter', function () {
       held = true;
       stop();
       paint(i);
-    };
-    row.addEventListener('mouseenter', select);
-    var btn = row.querySelector('button');
-    if (btn) {
-      btn.addEventListener('focus', select);
-      btn.addEventListener('click', select);
-    }
+    });
     row.addEventListener('mouseleave', function () {
       held = false;
       start();
