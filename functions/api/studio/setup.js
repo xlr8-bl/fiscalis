@@ -18,7 +18,7 @@
 import { json } from '../../../lib/respond.js';
 import { identify } from '../../../lib/auth.js';
 import { SCHEMA, SEED } from '../../../lib/seed.js';
-import { applyCorrections } from '../../../lib/corrections.js';
+import { applyCorrections, applyEntryCorrections } from '../../../lib/corrections.js';
 
 async function state(db) {
   try {
@@ -82,6 +82,12 @@ export async function onRequestPost({ request, env }) {
     return json({ error: `Could not create the tables: ${problems[0]}` }, 500);
   }
 
+  // Renames before the seed, not after. The seed inserts WHERE NOT EXISTS
+  // on (collection, slug), so a row whose slug moved has to be renamed
+  // first — otherwise the seed adds the new slug and the old row is left
+  // orphaned on the page beside it rather than replaced.
+  const moved = await applyEntryCorrections(env.DB);
+
   // the rows, in batches small enough to stay well inside a request
   let inserted = 0;
   const SIZE = 20;
@@ -109,6 +115,7 @@ export async function onRequestPost({ request, env }) {
     firstRun: !before.ready,
     statements: SEED.length,
     corrected,
+    moved,
     counts: after.counts,
   });
 }
