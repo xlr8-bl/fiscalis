@@ -3416,17 +3416,15 @@ figure {
   /* inline, so it takes the page's ink rather than an <img> document's
      black — which is what made the originals invisible on this background */
   display:block;
-  /* an even multiple of the 16-cell grid keeps every square the same size
-     as its neighbours instead of some rounding up and some down */
-  width:48px;
-  height:48px;
+  width:56px;
+  height:56px;
   margin:0 auto var(--_spacing---space--4);
   color:var(--swatch--beige-100, #e8e8e3);
   opacity:.62;
   transition:opacity 380ms ease, transform 620ms cubic-bezier(.22,1,.36,1);
 }
 @media (min-width:768px) {
-  .problems_home_image { width:64px; height:64px; }
+  .problems_home_image { width:72px; height:72px; }
 }
 
 /* --- misc ------------------------------------------------------ */
