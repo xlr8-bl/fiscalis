@@ -1670,7 +1670,7 @@ async function viewAccounts() {
        ? `<div class="st-acts">
             <a class="st-link" href="/oauth/tiktok/start">${
               tt.connected ? 'Connect TikTok again' : 'Connect TikTok'}</a>
-            <a class="st-link" href="/oauth/tiktok/start?check=1">Check what it sends</a>
+            <a class="st-link" href="/oauth/tiktok/start?check=1">Check the setup</a>
           </div>`
        : `<p class="st-note u-text-style-main">Add <code>TIKTOK_CLIENT_KEY</code> and
           <code>TIKTOK_CLIENT_SECRET</code> to the Pages project first, under both

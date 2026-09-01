@@ -15,7 +15,7 @@
 import { identify } from '../../../lib/auth.js';
 import { mintToken } from '../../../lib/oauth.js';
 import {
-  authorizeUrl, redirectUri, scopes, clientKey, clientSecret,
+  authorizeUrl, redirectUri, scopes, clientKey, clientSecret, testCredentials,
 } from '../../../lib/tiktok.js';
 import { page, esc } from '../../../lib/plainpage.js';
 
@@ -38,7 +38,7 @@ const problem = (title, body) => page(title, `<h1>${title}</h1>${body}`, 503);
  * whether anything invisible came along with it is all that is needed
  * to tell two keys apart.
  */
-function report(env, origin) {
+function report(env, origin, tested = null) {
   const key = clientKey(env);
   const raw = String(env.TIKTOK_CLIENT_KEY || '');
   const secret = clientSecret(env);
@@ -69,14 +69,53 @@ function report(env, origin) {
       <li>this deployment: <code>${esc(origin)}</code></li>
     </ul>
     ${notes.length ? `<p class="err">${notes.map(esc).join('<br>')}</p>` : ''}
-    <p>If the key matches the dashboard character for character, the two remaining
-      causes are that the key belongs to a different client than the one being
-      authorised — a sandbox and the live app each have their own — or that this
-      deployment is older than the variable. A Pages deployment carries the
-      variables it was built with, so a retry of the deployment is what picks up
-      a change.</p>
+    ${tested ? verdict(tested, redirectUri(origin)) : `
+      <form method="post">
+        <button type="submit">Ask TikTok whether this key is real</button>
+      </form>
+      <p>That checks the key and the secret on their own — no redirect, no Login
+        Kit, no account. It is the one question that splits "the value is wrong"
+        from "the app is not set up for the web", and those two have completely
+        different fixes.</p>`}
     <p><a href="/oauth/tiktok/start">Try connecting</a> &nbsp;·&nbsp;
        <a href="/studio#/social/accounts">Back to the studio</a></p>`);
+}
+
+/**
+ * What TikTok's own answer means. The whole value of asking is that the
+ * two directions have nothing in common: one is a wrong string in
+ * Cloudflare, the other is a checkbox in a dashboard, and the
+ * authorization page's "correct the following: client_key" is the same
+ * words for both.
+ */
+const verdict = (t, redirect) =>
+  t.ok
+    ? `<p><strong>TikTok accepted this key and secret.</strong> The pair is real, so
+       the value stored here is not the problem — the authorization page is
+       refusing it for how the app is configured, not for what it is.</p>
+       <ul>
+         <li>Under <strong>Platforms</strong>, is <strong>Web</strong> ticked? Without it
+           this key has no web client behind it and the authorization page has
+           nothing to match it against. That is the usual answer.</li>
+         <li>Under <strong>Login Kit</strong>, is <strong>Configure for Web</strong> turned
+           on, with <code>${esc(redirect)}</code> registered on it exactly?</li>
+         <li>Is this the client you are authorising against? A sandbox and the live
+           app are separate clients with separate keys.</li>
+       </ul>`
+    : `<p class="err"><strong>TikTok refused this key and secret:</strong>
+        <code>${esc(t.error)}</code></p>
+       <p>So it is the value that is wrong, not the app's configuration. Copy both
+         again from the Credentials panel of whichever client you are authorising
+         against — a sandbox has its own — into the Pages project, and retry the
+         deployment.</p>`;
+
+export async function onRequestPost({ request, env }) {
+  const who = await identify(request, env);
+  if (!who || who.kind !== 'studio') {
+    return Response.redirect(new URL('/studio', request.url).toString(), 302);
+  }
+  const origin = new URL(request.url).origin;
+  return report(env, origin, await testCredentials(env));
 }
 
 export async function onRequestGet({ request, env }) {

@@ -86,6 +86,51 @@ await step('video.list is asked for only when the app actually has it', () => {
   is(tiktok.scopes({ ...ENV, TIKTOK_SCOPES: 'video.publish, video.list' }).length, 3, 'no duplicates');
 });
 
+/* --------------------------------------------------- are the keys real */
+
+await step('a valid pair comes back as valid', async () => {
+  const out = await tiktok.testCredentials(ENV, {
+    fetcher: async (url, init) => {
+      const body = new URLSearchParams(init.body);
+      is(body.get('grant_type'), 'client_credentials', 'grant type');
+      is(body.get('client_key'), 'awx123', 'key');
+      is(body.get('client_secret'), 'secret', 'secret');
+      return { json: async () => ({ access_token: 'clt.x', expires_in: 7200, token_type: 'Bearer' }) };
+    },
+  });
+  is(out.ok, true, 'ok');
+  is(out.expiresIn, 7200, 'lifetime');
+});
+
+await step('a bad pair comes back with what TikTok said, not a shrug', async () => {
+  const out = await tiktok.testCredentials(ENV, {
+    fetcher: async () => ({
+      json: async () => ({ error: 'invalid_client', error_description: 'Client info is illegal or malformed.' }),
+    }),
+  });
+  is(out.ok, false, 'ok');
+  is(out.error, 'Client info is illegal or malformed.', 'the reason');
+  is(out.code, 'invalid_client', 'the code');
+});
+
+await step('nothing set is answered without calling out', async () => {
+  const out = await tiktok.testCredentials({}, {
+    fetcher: async () => { throw new Error('should not have been called'); },
+  });
+  is(out.ok, false, 'ok');
+  if (!/not set/.test(out.error)) throw new Error(out.error);
+});
+
+await step('the credentials are trimmed on the way to this call too', async () => {
+  let sent = null;
+  await tiktok.testCredentials(
+    { TIKTOK_CLIENT_KEY: ' awx123\n', TIKTOK_CLIENT_SECRET: 'secret ' },
+    { fetcher: async (url, init) => { sent = new URLSearchParams(init.body); return { json: async () => ({}) }; } }
+  );
+  is(sent.get('client_key'), 'awx123', 'key');
+  is(sent.get('client_secret'), 'secret', 'secret');
+});
+
 /* ------------------------------------------------------- privacy choice */
 
 const PUBLIC_ACCOUNT = ['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'SELF_ONLY'];

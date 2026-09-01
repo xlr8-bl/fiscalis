@@ -391,6 +391,26 @@ the studio has a button for it.
 you to TikTok, you approve, and it comes back with the tokens stored and
 the account name shown. Nothing to paste.
 
+### When TikTok says "correct the following: client_key"
+
+That is its answer to a key it does not recognise, and it names nothing
+else — so the key was sent, and re-pasting the secret cannot help, since
+the secret is not part of the authorization request at all.
+
+**Check the setup**, beside Connect TikTok, shows what is actually being
+sent — the key's ends and length, the redirect URI, the scopes, which
+deployment is answering — and will ask TikTok directly whether the key
+and secret are a real pair, using `client_credentials`, which involves no
+user and no Login Kit. That splits the error in two:
+
+- **TikTok accepts the pair** → the value is fine and the app is not
+  configured for the web. Tick **Web** under Platforms, turn on
+  **Configure for Web** under Login Kit, and register the redirect URI on
+  it. A key with no web client behind it is exactly this error.
+- **TikTok refuses the pair** → the value is wrong. Note that a sandbox
+  and the live app are separate clients with separate credentials, so the
+  demo recording has to use whichever one the key belongs to.
+
 The access token is renewed on use and the refresh token — which lasts a
 year, and which TikTok *replaces* on every refresh — is written back each
 time. That last part is why this is not a secret: not writing it back is a
