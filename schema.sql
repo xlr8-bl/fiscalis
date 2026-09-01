@@ -210,6 +210,11 @@ CREATE TABLE IF NOT EXISTS slides (
   copy        TEXT NOT NULL DEFAULT '',     -- the type set into the image
   prompt      TEXT NOT NULL DEFAULT '',     -- what the image model was given
   media_key   TEXT NOT NULL DEFAULT '',     -- the master in R2
+  -- The drawn picture before the copy was set over it. Only the free
+  -- path fills this: Workers AI draws a wordless background and the
+  -- studio typesets it into media_key. Kept rather than discarded so
+  -- the type can be reset without paying to redraw the picture.
+  ground_key  TEXT NOT NULL DEFAULT '',
   width       INTEGER NOT NULL DEFAULT 0,
   height      INTEGER NOT NULL DEFAULT 0,
   -- pending: planned, not generated

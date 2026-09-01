@@ -1394,11 +1394,24 @@ function paintBoard() {
 }
 
 /** One carousel: the slides as a filmstrip, and what you can do about them. */
+// setTheType calls back into viewCarousel to repaint, so without this the
+// two would call each other until the stack ran out
+let typesetting = false;
+
 async function viewCarousel(slug) {
   showView('carousel');
   ({ carousel } = await api(`/carousels/${encodeURIComponent(slug)}`));
   $('[data-car-crumb]').textContent = carousel.title || carousel.slug;
   paintCarousel();
+
+  // Backgrounds Spark drew overnight have no words on them yet. Finish
+  // them now rather than waiting to be asked: it is the same visit, and
+  // a carousel that looks half-made when it is really one canvas away
+  // reads as broken.
+  if (!typesetting && carousel.slides.some((s) => s.needs_type)) {
+    typesetting = true;
+    try { await setTheType(); } finally { typesetting = false; }
+  }
 }
 
 function paintCarousel() {
@@ -1460,6 +1473,10 @@ function paintCarousel() {
       `<div class="st-slide__frame">${
         s.url
           ? `<img src="${escapeAttr(s.url)}" alt="${escapeAttr(s.copy || `Slide ${s.position + 1}`)}" loading="lazy">`
+          : s.ground
+          // the picture is drawn and paid for; only the words are missing
+          ? `<img src="${escapeAttr(s.ground)}" alt="" loading="lazy">
+             <span class="st-slide__blank">setting the type</span>`
           : '<span class="st-slide__blank">not drawn</span>'
       }</div>
        <p class="st-slide__no u-text-style-main">${s.position + 1} · ${escapeHtml(s.kind)}${
@@ -1639,7 +1656,12 @@ function paintCarouselActions(host) {
   // cannot be approved anyway, and this is the button that fixes that
   if (['planned', 'generating', 'changes', 'review'].includes(c.status)
       && c.slides.some((s) => s.state !== 'ready')) {
-    acts.push(['Draw the slides', drawSlides]);
+    // a background with no words on it is not undrawn, and offering to
+    // draw it again would spend a generation on a picture already paid
+    // for. Typesetting is the action it actually needs.
+    acts.push(c.slides.every((s) => s.needs_type || s.state === 'ready')
+      ? ['Set the type', setTheType]
+      : ['Draw the slides', drawSlides]);
   }
   if (readyToApprove.includes(c.status) && !blocked) {
     acts.push(['Approve it', () => move('approved')]);
@@ -1740,11 +1762,63 @@ async function drawSlides() {
     await viewCarousel(c.slug);
     if (out.failed?.length) {
       say(out.failed.map((f) => `Slide ${f.position + 1}: ${f.error}`).join(' · '), 'err');
+    } else if (out.awaiting_type) {
+      // the free path: pictures are drawn, the words are not on them yet
+      await setTheType();
     } else {
       say(`Drew ${out.drawn} of ${owed}, from ${out.references_used} reference${
         out.references_used === 1 ? '' : 's'}.`);
     }
   } catch (e) { say(e.message, 'err'); }
+}
+
+/**
+ * Set the copy over any background that is waiting for it.
+ *
+ * The second half of the free path. Cloudflare draws a picture with no
+ * words in it; this puts the words on in the site's own typeface and
+ * uploads the finished slide through the same route a photograph from
+ * the phone goes through.
+ *
+ * It runs on opening a carousel as well as after drawing, because a
+ * carousel Spark drew overnight has backgrounds and no type until
+ * somebody opens it. That costs nothing: nothing can post without being
+ * approved on this screen anyway, so the work happens on a visit that
+ * was already going to happen.
+ */
+async function setTheType() {
+  const c = carousel;
+  const owed = c.slides.filter((s) => s.needs_type);
+  if (!owed.length) return 0;
+
+  say(`Setting the type on ${owed.length} slide${owed.length === 1 ? '' : 's'}…`);
+  const { typeset } = await import('./typeset.js');
+
+  let done = 0;
+  const failed = [];
+  for (const slide of owed) {
+    try {
+      const { blob, width, height } = await typeset(slide.ground, slide);
+      const form = new FormData();
+      form.append('file', new File([blob], `${c.slug}-${slide.position}.jpg`,
+                                   { type: 'image/jpeg' }));
+      form.append('width', String(width));
+      form.append('height', String(height));
+      const res = await fetch(
+        `/api/studio/carousels/${encodeURIComponent(c.slug)}/slides/${slide.position}`,
+        { method: 'PUT', body: form, credentials: 'same-origin' }
+      );
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+      done += 1;
+    } catch (e) {
+      failed.push(`Slide ${slide.position + 1}: ${e.message}`);
+    }
+  }
+
+  await viewCarousel(c.slug);
+  if (failed.length) say(failed.join(' · '), 'err');
+  else say(`Type set on ${done} slide${done === 1 ? '' : 's'}.`);
+  return done;
 }
 
 /**
@@ -1843,6 +1917,7 @@ async function viewAccounts() {
 
   const ig = state.instagram;
   const tt = state.tiktok;
+  const free = state.drawing?.provider !== 'gemini';
   const line = (label, ok, detail) =>
     `<div><dt>${escapeHtml(label)}</dt><dd>${ok ? '' : 'Not connected'}${
       escapeHtml(detail || '')}</dd></div>`;
@@ -1869,33 +1944,56 @@ async function viewAccounts() {
      </dl>
 
      <h2 class="st-h2">Drawing the slides</h2>
-     <p class="st-note u-text-style-main">The site draws them itself, with your brand kit,
-       so Spark never has to carry pictures back and forth. The key is from Google AI
-       Studio. There is no free tier on any of these models and a Google AI subscription
-       does not cover them, so every slide costs what it says below.</p>
+     <p class="st-note u-text-style-main">The site draws them itself, so Spark never has
+       to carry pictures back and forth. Two ways, and the difference is who sets the
+       type.</p>
      <div class="st-field">
-       <label class="st-label u-text-style-main" for="gem-key">Gemini API key</label>
-       <input class="st-input" id="gem-key" data-f="gemini_api_key"
-              placeholder="${state.drawing?.ready
-                ? `set in ${state.drawing.source}` : 'AIza…'}">
-     </div>
-     <div class="st-field">
-       <label class="st-label u-text-style-main" for="gem-model">Model</label>
-       <select class="st-input" id="gem-model" data-f="gemini_model">
-         ${(state.drawing?.choices || []).map((m) => `
-           <option value="${escapeAttr(m.id)}"${m.id === state.drawing?.model ? ' selected' : ''}
-             >${escapeHtml(m.name)} — $${m.per_image.toFixed(3)} a slide, about $${
-               (m.per_image * 5).toFixed(2)} a carousel</option>`).join('')}
-         ${(state.drawing?.choices || []).some((m) => m.id === state.drawing?.model)
-           ? ''
-           : `<option value="${escapeAttr(state.drawing?.model || '')}" selected
-               >${escapeHtml(state.drawing?.model || '')} (set by hand)</option>`}
+       <label class="st-label u-text-style-main" for="draw-how">Draw with</label>
+       <select class="st-input" id="draw-how" data-f="draw_provider">
+         <option value="workers"${free ? ' selected' : ''}
+           >Cloudflare — free, and the site sets the type</option>
+         <option value="gemini"${free ? '' : ' selected'}
+           >Google — paid, and the model sets the type</option>
        </select>
      </div>
-     <p class="st-note u-text-style-main">Five a day at five slides is about $${
-       ((state.drawing?.per_image ?? 0) * 25 * 30).toFixed(0)} a month on this one.
-       Redraws cost again, so the cheaper model only saves money while its spelling
-       holds up. Look at a carousel before you decide.</p>
+     ${free
+       ? `<p class="st-note u-text-style-main">Cloudflare draws the picture and the studio
+            sets your copy over it in the site's own typeface, so the words are spelled
+            right every time rather than left to a model. About ${
+              state.drawing?.per_image_neurons ?? 58} neurons a slide against ${
+              (state.drawing?.free_daily ?? 10000).toLocaleString()} free a day, so
+            twenty-five slides is around a seventh of the allowance. Past it, it stops
+            rather than charges. ${state.drawing?.bound
+              ? ''
+              : '<strong>Not bound on this deployment yet</strong> — it arrives with the next deploy.'}</p>`
+       : `<p class="st-note u-text-style-main">Google draws the copy into the picture and
+            can use your brand kit for a likeness, which Cloudflare cannot. There is no
+            free tier on any of these and a Google AI subscription does not cover them:
+            the credits it comes with need a card on the billing account before they
+            unlock.</p>
+          <div class="st-field">
+            <label class="st-label u-text-style-main" for="gem-key">Gemini API key</label>
+            <input class="st-input" id="gem-key" data-f="gemini_api_key"
+                   placeholder="${state.drawing?.has_key
+                     ? `set in ${state.drawing.key_source}` : 'AIza…'}">
+          </div>
+          <div class="st-field">
+            <label class="st-label u-text-style-main" for="gem-model">Model</label>
+            <select class="st-input" id="gem-model" data-f="gemini_model">
+              ${(state.drawing?.choices || []).map((m) => `
+                <option value="${escapeAttr(m.id)}"${m.id === state.drawing?.model ? ' selected' : ''}
+                  >${escapeHtml(m.name)} — $${m.per_image.toFixed(3)} a slide, about $${
+                    (m.per_image * 5).toFixed(2)} a carousel</option>`).join('')}
+              ${(state.drawing?.choices || []).some((m) => m.id === state.drawing?.model)
+                ? ''
+                : `<option value="${escapeAttr(state.drawing?.model || '')}" selected
+                    >${escapeHtml(state.drawing?.model || '')} (set by hand)</option>`}
+            </select>
+          </div>
+          <p class="st-note u-text-style-main">Five a day at five slides is about $${
+            ((state.drawing?.per_image ?? 0) * 25 * 30).toFixed(0)} a month on this one.
+            Redraws cost again, so the cheaper model only saves money while its spelling
+            holds up. Look at a carousel before you decide.</p>`}
 
      <h2 class="st-h2">Instagram</h2>
      <p class="st-note u-text-style-main">A professional account — business or creator.
@@ -1996,6 +2094,10 @@ async function viewAccounts() {
     const picked = $('#gem-model', host);
     if (picked && picked.value && picked.value !== state.drawing?.model) {
       body.gemini_model = picked.value;
+    }
+    const how = $('#draw-how', host);
+    if (how && how.value && how.value !== state.drawing?.provider) {
+      body.draw_provider = how.value;
     }
     // the checkbox is a state rather than a value, so it is sent whenever
     // it disagrees with what is stored — including when it is turned off

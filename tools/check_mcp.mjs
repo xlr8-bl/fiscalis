@@ -359,15 +359,23 @@ await step('a URL that is not an image is refused', async () => {
   is(r.body.result.isError, true, 'isError');
 });
 
-await step('draw says plainly when there is no key, rather than half-drawing', async () => {
-  // No Gemini key is set against this test deployment, and that is the
-  // point: the tool has to name what is missing and who sets it, because
-  // the agent has no way to see the studio and no authority to fix it.
+await step('draw names what is missing rather than half-drawing', async () => {
+  /*
+   * Neither drawing path is configured against this test deployment:
+   * Workers AI has no local implementation so the binding is absent, and
+   * no Gemini key is set. Which message comes back depends on which path
+   * is selected, and the point is the same either way — the agent cannot
+   * see the studio and has no authority to fix this, so the tool has to
+   * say what is missing and who fixes it rather than failing vaguely or
+   * drawing half a carousel.
+   */
   const r = await call('draw', { carousel: slug });
   is(r.body.result.isError, true, 'isError');
   const said = r.body.result.content.map((c) => c.text).join(' ');
-  if (!/API key/i.test(said)) throw new Error(said);
-  if (!/studio/i.test(said)) throw new Error(`does not say who sets it: ${said}`);
+  if (!/Workers AI is not bound|API key/i.test(said)) throw new Error(said);
+  if (!/studio|deploys/i.test(said)) throw new Error(`does not say who fixes it: ${said}`);
+  // and never silently: an empty error is the failure this guards against
+  if (said.trim().length < 20) throw new Error(`too terse to act on: ${said}`);
 });
 
 await step('hand_over moves it to review', async () => {

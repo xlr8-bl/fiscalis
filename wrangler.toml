@@ -28,6 +28,32 @@ database_id = "e7e23024-ebc9-4378-8b70-302e0cdc0ce0"
 binding = "MEDIA"
 bucket_name = "web3ashley-media"
 
+# --- Drawing the slides ------------------------------------------------
+# Workers AI draws the picture behind each slide. It is bound in the
+# DASHBOARD, not here: Pages project -> Settings -> Functions -> Bindings
+# -> Add -> Workers AI, named AI.
+#
+# It is not in this file, and that is not an oversight. Workers AI has no
+# local implementation, so `wrangler pages dev` classifies the binding as
+# remote-only and opens a proxy session to Cloudflare to serve it, which
+# needs a CLOUDFLARE_API_TOKEN. Declared here, every local run and every
+# check suite dies at startup with no way out: `pages dev` rejects
+# --config, so a stripped copy cannot be pointed at either, and
+# `experimental_remote = false` is ignored for this binding.
+#
+# The cost of the dashboard is that the binding is not in version
+# control, so a rebuilt project comes back unable to draw. What catches
+# that is the studio: Social -> Accounts says "Not bound on this
+# deployment yet" rather than failing at the first carousel.
+#
+# This is the free path. The Workers Free plan includes 10,000 Neurons a
+# day and Flux Schnell is about 58 neurons a picture, so twenty-five
+# slides a day is roughly 14% of it. Past the allowance the Free plan
+# errors rather than charging, so there is no bill to be surprised by.
+#
+# The paid path (Google, Nano Banana) needs no binding at all, just an
+# API key. Which one runs is a setting in the studio.
+
 # --- Secrets (never commit these) --------------------------------------
 # Dashboard: your Pages project -> Settings -> Variables and Secrets -> Add,
 # with Encrypt ticked. Or `npx wrangler pages secret put <NAME>`.

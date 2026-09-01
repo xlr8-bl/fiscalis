@@ -38,7 +38,7 @@ import { addReference } from '../lib/references.js';
 import { progress } from '../lib/progress.js';
 import { refreshStats } from '../lib/insights.js';
 import { drawCarousel } from '../lib/draw.js';
-import { apiKey, imageModel } from '../lib/imagen.js';
+import { apiKey, imageModel, drawProvider } from '../lib/imagen.js';
 import { getSetting } from '../lib/tokens.js';
 
 const MAX_IMAGE = 25 * 1024 * 1024;
@@ -255,17 +255,31 @@ async function runTool(name, args, env) {
     }
 
     case 'draw': {
-      const { key } = await apiKey(db, env, { getSetting });
-      if (!key) {
+      const { provider } = await drawProvider(db, env, { getSetting });
+
+      // only the paid path needs a key; the free one draws on Cloudflare
+      let key = null;
+      let model = null;
+      if (provider === 'gemini') {
+        ({ key } = await apiKey(db, env, { getSetting }));
+        if (!key) {
+          return toolFailed(
+            'No Gemini API key is set, so nothing can be drawn. A person sets it in '
+            + 'the studio under Social, Accounts.'
+          );
+        }
+        ({ model } = await imageModel(db, env, { getSetting }));
+      } else if (!env.AI) {
         return toolFailed(
-          'No Gemini API key is set, so nothing can be drawn. A person sets it in '
-          + 'the studio under Social, Accounts.'
+          'Workers AI is not bound on this deployment, so nothing can be drawn. '
+          + 'A person deploys it, or switches to Google in the studio.'
         );
       }
-      const { model } = await imageModel(db, env, { getSetting });
+
       const out = await drawCarousel({ ...env, SITE }, clean(args.carousel, 120), {
         key,
         model,
+        provider,
         only: Array.isArray(args.positions) ? args.positions.map(Number) : null,
       });
       if (out.error) return toolFailed(out.error);

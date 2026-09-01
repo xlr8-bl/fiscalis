@@ -52,7 +52,7 @@ import { accountState, putSetting } from '../../../../lib/tokens.js';
 import { refreshStats, storedStats } from '../../../../lib/insights.js';
 import { progress } from '../../../../lib/progress.js';
 import { drawCarousel } from '../../../../lib/draw.js';
-import { apiKey, imageModel } from '../../../../lib/imagen.js';
+import { apiKey, imageModel, drawProvider } from '../../../../lib/imagen.js';
 import { getSetting } from '../../../../lib/tokens.js';
 
 const MAX_FIELD = 400;
@@ -211,6 +211,10 @@ export async function onRequest({ request, env, params }) {
           // the only way to settle it is to draw a carousel on one, look
           // at it, and switch. That loop should not cost a build.
           'gemini.model': body.gemini_model,
+          // which of the two drawing paths runs. Free on Cloudflare, or
+          // paid on Google. A switch, not a credential, but it belongs
+          // with them because it is the same screen and the same tap.
+          'draw.provider': body.draw_provider,
           'tiktok.token': body.tiktok_token,
           'tiktok.refresh_token': body.tiktok_refresh_token,
           // which TikTok client to act as. Kept here rather than in the
@@ -513,14 +517,30 @@ export async function onRequest({ request, env, params }) {
   /* Draw what this carousel still needs, with the brand kit. */
   if (action === 'draw' && method === 'POST') {
     const body = await request.json().catch(() => ({}));
-    const { key } = await apiKey(env.DB, env, { getSetting });
-    if (!key) {
-      return json({ error: 'No Gemini API key is set. Add it under Social, Accounts.' }, 503);
+    const { provider } = await drawProvider(env.DB, env, { getSetting });
+
+    // Only the paid path needs a key. Asking for one before drawing on
+    // Cloudflare would put a card in front of the free option, which is
+    // the whole reason the free option exists.
+    let key = null;
+    let model = null;
+    if (provider === 'gemini') {
+      ({ key } = await apiKey(env.DB, env, { getSetting }));
+      if (!key) {
+        return json({ error: 'No Gemini API key is set. Add it under Social, Accounts.' }, 503);
+      }
+      ({ model } = await imageModel(env.DB, env, { getSetting }));
+    } else if (!env.AI) {
+      return json({
+        error: 'Workers AI is not bound on this deployment yet. It arrives with the '
+             + 'next deploy, or switch to Google under Social, Accounts.',
+      }, 503);
     }
-    const { model } = await imageModel(env.DB, env, { getSetting });
+
     const out = await drawCarousel({ ...env, SITE }, slug, {
       key,
       model,
+      provider,
       only: Array.isArray(body.positions) ? body.positions.map(Number) : null,
     });
     return json(out, out.error ? 400 : 200);

@@ -1,8 +1,8 @@
 # The content machine
 
-Five carousels a day, planned by Gemini Spark, drawn on the site with
-Nano Banana Pro, approved by a person here, posted by the site. This is
-the contract between the two.
+Five carousels a day, planned by Gemini Spark, drawn on the site,
+approved by a person here, posted by the site. This is the contract
+between the two.
 
 The site is the portal: the pillars, the brand kit, the plans, the slides
 and their verdicts all live in D1 and R2 behind `/studio`. There is no
@@ -92,11 +92,17 @@ so it does not have to be remembered.
     POST /api/studio/carousels/:slug/draw
     { positions?: [0, 2] }              # tool: draw
 
-The plan becomes pictures. The site draws them itself, with Nano Banana
-Pro and the brand kit, so Spark never has to make an image in its own
-chat and carry it back through the conversation as base64. One call per
-carousel. Leave `positions` out and it draws every slide that is
-`pending` or that a person asked for again, and leaves the rest alone.
+The plan becomes pictures. The site draws them itself, so Spark never
+has to make an image in its own chat and carry it back through the
+conversation as base64. One call per carousel. Leave `positions` out and
+it draws every slide that is `pending` or that a person asked for again,
+and leaves the rest alone.
+
+Two paths, chosen in the studio and invisible from here. On Cloudflare
+(the default, free) it draws a wordless background and answers
+`awaiting_type`: a person opens the carousel and the studio sets the copy
+over it. On Google (paid) the model sets the type itself and the slide
+comes back finished. Either way Spark's next move is `hand_over`.
 
 It draws one slide at a time rather than all of them at once, so a
 five-slide carousel takes a minute or two. That is deliberate: five in
@@ -270,10 +276,57 @@ three is missing rather than offering something certain to fail.
 3. Set `AGENT_TOKEN` in the Pages project, under **both** Production and
    Preview. A deployment carries the variables it was built with, so
    retry the deployment after adding it.
-4. A Gemini API key, so the site can draw. `/studio` → **Social** →
-   **Accounts** → *Drawing the slides*. See below.
+4. Bind Workers AI in the dashboard, so the site can draw for nothing.
+   See below. A Gemini key instead, if you would rather pay for a model
+   that sets its own type and can use the brand kit.
 
-### The key that draws
+### Drawing for nothing, on Cloudflare
+
+This is the default, and it needs no card and no key.
+
+1. Cloudflare dashboard → your Pages project → **Settings** → **Functions**
+   → **Bindings** → **Add** → **Workers AI**, named `AI`. Then redeploy,
+   because a deployment carries the bindings it was built with.
+2. That is the whole setup. `/studio` → **Social** → **Accounts** shows
+   **Draw with: Cloudflare**, and says so plainly if the binding has not
+   landed yet.
+
+**Why it is not in `wrangler.toml`.** Workers AI has no local
+implementation. Declared in the config, `wrangler pages dev` classifies
+it remote-only and opens a proxy session to Cloudflare to serve it, which
+needs a `CLOUDFLARE_API_TOKEN` — so every local run and every check suite
+dies at startup. There is no way round it from the config: `pages dev`
+rejects `--config` so a stripped copy cannot be pointed at, and
+`experimental_remote = false` is ignored for this binding. The dashboard
+is the only place it can live without breaking local development.
+
+The cost is that the binding is not in version control, so a rebuilt
+project comes back unable to draw. What catches that is Accounts saying
+so, rather than a carousel failing at its slot.
+
+**What it costs.** The Workers Free plan includes 10,000 Neurons a day.
+Flux Schnell is 4.80 neurons per 512×512 tile plus 9.60 per step, so a
+4-step picture is about 58: twenty-five slides a day is roughly 14% of
+the allowance. Past it the Free plan errors rather than charging, so
+there is no bill that can arrive by surprise.
+
+**What it does differently.** Flux Schnell is poor at rendering text, so
+it does not draw the copy. It draws the picture, and the studio sets your
+words over it in the site's own typeface when you open the carousel. That
+is better than the paid path, not worse: type set from the string is
+spelled correctly every time, at a size and weight chosen rather than
+negotiated with a model.
+
+It also cannot use the brand kit — Flux Schnell takes a prompt and
+nothing else, so there is no likeness to steer with. That is the real
+trade against Google, and it is the reason the paid path still exists.
+
+The slide is only finished while the studio is open. That costs nothing:
+nothing can post until a person approves it on that screen anyway, so the
+typesetting happens on a visit that was already going to happen. A
+carousel Spark drew overnight is typeset the moment you open it.
+
+### The key that draws, if you would rather pay
 
 The generation layer calls Google's image model directly. It needs one
 key, and nothing else.
@@ -295,9 +348,15 @@ fallback; a key set in the studio wins over it.
 
 There is no free tier on any Gemini image model. Not a small one, none.
 And since March 2026 the $300 Google Cloud trial credit cannot be spent
-on the Gemini API either, so a new account gets no runway from it. A
-Google AI Pro or Ultra subscription buys the Gemini *app* and is a
-different product from the API; it contributes nothing here.
+on the Gemini API either.
+
+A Google AI Pro subscription *does* come with $10 a month of Google Cloud
+credit, and Ultra with $100 — Google folded Developer Program Premium
+benefits into those subscriptions. But the credit cannot be reached
+without a payment method: promotional credits only unlock once a billing
+account has one, and on prepay only after funds are added. So the credit
+is real and still costs you a card to touch, which is the whole reason
+the Cloudflare path above is the default.
 
 So every slide is money. Per 1K image, off the
 [pricing page](https://ai.google.dev/gemini-api/docs/pricing), with the
