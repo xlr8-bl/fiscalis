@@ -45,6 +45,7 @@ import { problems as brandProblems } from '../../../../assets/js/brand.js';
 import { send as sendMail } from '../../../../lib/mail.js';
 import { gather, compose } from '../../../../lib/digest.js';
 import { runDue } from '../../../../lib/publish.js';
+import { accountState, putSetting } from '../../../../lib/tokens.js';
 
 const MAX_FIELD = 400;
 const MAX_TEXT = 8_000;
@@ -140,6 +141,46 @@ export async function onRequest({ request, env, params }) {
      */
     if (what === 'post' && method === 'POST') {
       return json(await runDue({ ...env, SITE }));
+    }
+
+    /*
+     * The platform tokens. They live here rather than in the Pages
+     * secrets because both platforms expire them — Instagram at 60 days,
+     * TikTok at 24 hours — and a Worker cannot rewrite its own secret.
+     * Keeping them in settings is what lets them be refreshed on use.
+     */
+    if (what === 'accounts') {
+      if (method === 'GET') {
+        const denied = people('read the connected accounts');
+        if (denied) return denied;
+        return json(await accountState(env.DB, env));
+      }
+      if (method === 'PUT') {
+        const denied = people('connect an account');
+        if (denied) return denied;
+        const body = await request.json().catch(() => ({}));
+        const fields = {
+          'ig.user_id': body.ig_user_id,
+          'ig.token': body.ig_token,
+          'tiktok.token': body.tiktok_token,
+          'tiktok.refresh_token': body.tiktok_refresh_token,
+        };
+        const saved = [];
+        for (const [key, value] of Object.entries(fields)) {
+          if (typeof value !== 'string' || !value.trim()) continue;
+          await putSetting(env.DB, key, value.trim());
+          saved.push(key);
+          // a token pasted now is a token refreshed now
+          if (key === 'ig.token') {
+            await putSetting(env.DB, 'ig.refreshed_at', String(Math.floor(Date.now() / 1000)));
+          }
+          if (key === 'tiktok.token') {
+            await putSetting(env.DB, 'tiktok.expires_at',
+                             String(Math.floor(Date.now() / 1000) + 23 * 3600));
+          }
+        }
+        return json({ ok: true, saved, ...(await accountState(env.DB, env)) });
+      }
     }
 
     if (what === 'pillars') {

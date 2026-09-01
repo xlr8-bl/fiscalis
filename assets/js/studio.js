@@ -193,6 +193,7 @@ function renderNav() {
       ['#/social', 'Carousels', socialWaiting || null],
       ['#/kit/pillars', 'Pillars'],
       ['#/kit/refs', 'Brand kit'],
+      ['#/kit/accounts', 'Accounts'],
     ]) +
     (collections.length ? group('The site', collections) : '') +
     (settings.length ? group('Settings', settings) : '') +
@@ -1540,6 +1541,98 @@ async function schedule() {
 
 /* ------------------------------------------------------- pillars and kit */
 
+/**
+ * The platform tokens. A screen rather than a dashboard secret, because
+ * both platforms expire them and a Worker cannot rewrite its own secret
+ * — so they live in the database and get refreshed on use. This is where
+ * the first one is pasted, and where you find out one has lapsed.
+ */
+async function viewAccounts() {
+  showView('kit');
+  $('[data-kit-title]').textContent = 'Accounts';
+  $('[data-kit-lede]').textContent =
+    'Where the posts go. Both platforms expire their tokens, so these are kept here '
+    + 'and renewed automatically — you only come back if one lapses.';
+  const host = $('[data-kit-body]');
+  host.replaceChildren();
+
+  const state = await api('/carousels/-/accounts');
+
+  const ig = state.instagram;
+  const tt = state.tiktok;
+  const line = (label, ok, detail) =>
+    `<div><dt>${escapeHtml(label)}</dt><dd>${ok ? '' : 'Not connected'}${
+      escapeHtml(detail || '')}</dd></div>`;
+
+  host.innerHTML =
+    `<dl class="st-facts">
+       ${line('Instagram', ig.connected,
+              ig.connected
+                ? (ig.expires_in_days === null ? 'Connected'
+                   : `Connected — ${ig.expires_in_days} days left, renews itself`)
+                : '')}
+       ${line('TikTok', tt.connected,
+              tt.connected
+                ? (tt.can_renew ? 'Connected — renews itself'
+                   : 'Connected, but cannot renew: add TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET')
+                : '')}
+     </dl>
+
+     <h2 class="st-h2">Instagram</h2>
+     <p class="st-note u-text-style-main">A professional account. No Facebook Page needed
+       if you use Instagram Login.</p>
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="ig-id">Instagram user ID</label>
+       <input class="st-input" id="ig-id" data-f="ig_user_id" value="${escapeAttr(ig.user_id || '')}">
+     </div>
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="ig-tok">Long-lived access token</label>
+       <textarea class="st-input st-input--area" id="ig-tok" rows="3" data-f="ig_token"
+                 placeholder="${ig.connected ? 'Connected — paste a new one only to replace it' : 'Paste it here'}"></textarea>
+     </div>
+
+     <h2 class="st-h2">TikTok</h2>
+     <p class="st-note u-text-style-main">The access token lasts a day, so the refresh
+       token is the one that matters — it lasts a year.</p>
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="tt-tok">Access token</label>
+       <textarea class="st-input st-input--area" id="tt-tok" rows="2" data-f="tiktok_token"
+                 placeholder="${tt.connected ? 'Connected' : 'Paste it here'}"></textarea>
+     </div>
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="tt-ref">Refresh token</label>
+       <textarea class="st-input st-input--area" id="tt-ref" rows="2" data-f="tiktok_refresh_token"
+                 placeholder="${tt.connected ? 'Connected' : 'Paste it here'}"></textarea>
+     </div>
+
+     <div class="st-acts">
+       <button class="st-link" type="button" data-acc-save>Save</button>
+       <button class="st-link" type="button" data-acc-post>Post anything that is due</button>
+     </div>
+     <p class="st-note u-text-style-main" data-acc-out></p>`;
+
+  $('[data-acc-save]', host).addEventListener('click', async () => {
+    const body = {};
+    $$('[data-f]', host).forEach((el) => { if (el.value.trim()) body[el.dataset.f] = el.value.trim(); });
+    if (!Object.keys(body).length) { say('Nothing to save.'); return; }
+    try {
+      const out = await api('/carousels/-/accounts', { method: 'PUT', body: JSON.stringify(body) });
+      say(`Saved ${out.saved.length} field${out.saved.length === 1 ? '' : 's'}.`);
+      await viewAccounts();
+    } catch (e) { say(e.message, 'err'); }
+  });
+
+  $('[data-acc-post]', host).addEventListener('click', async () => {
+    $('[data-acc-out]', host).textContent = 'Posting…';
+    try {
+      const out = await api('/carousels/-/post', { method: 'POST', body: '{}' });
+      $('[data-acc-out]', host).textContent = out.ran
+        ? `${out.ran} carousel${out.ran === 1 ? '' : 's'} handled. Check the board for what went where.`
+        : 'Nothing was due.';
+    } catch (e) { $('[data-acc-out]', host).textContent = e.message; }
+  });
+}
+
 async function viewKit(which) {
   showView('kit');
   const host = $('[data-kit-body]');
@@ -1660,7 +1753,9 @@ async function route() {
     if (area === 'settings' && a) return await viewSettings(a);
     if (area === 'media') return await viewMedia();
     if (area === 'social') return a ? await viewCarousel(a) : await viewBoard();
-    if (area === 'kit') return await viewKit(a || 'refs');
+    if (area === 'kit') {
+      return a === 'accounts' ? await viewAccounts() : await viewKit(a || 'refs');
+    }
     location.hash = '#/';
   } catch (e) {
     say(e.message, 'err');

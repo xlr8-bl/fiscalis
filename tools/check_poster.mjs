@@ -44,6 +44,14 @@ function fakeDb(state) {
       let args = [];
       const api = {
         bind(...a) { args = a; return api; },
+        async first() {
+          // the token resolver reads settings
+          if (/FROM settings/.test(sql)) {
+            const v = (state.settings || {})[args[0]];
+            return v === undefined ? null : { value: v };
+          }
+          return null;
+        },
         async all() {
           if (/FROM carousels/.test(sql)) {
             const now = args[0];
@@ -57,6 +65,11 @@ function fakeDb(state) {
           return { results: [] };
         },
         async run() {
+          if (/INTO settings/.test(sql)) {
+            state.settings = state.settings || {};
+            state.settings[args[0]] = args[1];
+            return { meta: { changes: 1 } };
+          }
           const row = state.carousels.find((c) => c.id === args[0]);
           if (/status = 'posted'/.test(sql)) {
             // the conditional claim
@@ -117,8 +130,19 @@ const setPosters = (map) => {
 
 const worker = (await import(new URL('../lib/publish.js', import.meta.url).href));
 
+/**
+ * Credentials are in the env so the token resolver seeds them into
+ * settings and hands a live token to the poster. Without them every
+ * platform is correctly skipped, which is a different test.
+ */
 const ENV = (db, over = {}) => ({
-  DB: db, SITE: 'https://web3ashley.com', ...over,
+  DB: db,
+  SITE: 'https://web3ashley.com',
+  IG_USER_ID: '1784100',
+  IG_ACCESS_TOKEN: 'ig-token',
+  TIKTOK_ACCESS_TOKEN: 'tt-token',
+  TIKTOK_REFRESH_TOKEN: 'tt-refresh',
+  ...over,
 });
 
 const runOnce = (state, over = {}) => worker.runDue(ENV(fakeDb(state), over));
@@ -230,6 +254,34 @@ await step('missing credentials are skipped, not failed', async () => {
   await runOnce(state);
   // tiktok went, so it stays posted rather than being put back
   is(state.carousels[0].status, 'posted', 'status');
+});
+
+await step('with no credentials at all, every platform is skipped', async () => {
+  setPosters({
+    instagram: stub({ ok: true, id: 'never' }),
+    tiktok: stub({ ok: true, id: 'never' }),
+  });
+  const state = { carousels: [carousel()], slides: slides(3) };
+  await worker.runDue({ DB: fakeDb(state), SITE: 'https://web3ashley.com' });
+  // nothing went out, so it goes back rather than being marked posted
+  is(state.carousels[0].status, 'approved', 'status');
+  const results = JSON.parse(state.carousels[0].results);
+  is(results.instagram.skipped, true, 'instagram skipped');
+  if (!/not connected/i.test(results.instagram.error)) throw new Error(results.instagram.error);
+});
+
+await step('a token pasted into the studio is used, not the secret', async () => {
+  const seen = [];
+  setPosters({
+    instagram: async (env, p) => { seen.push(p.token); return { ok: true, id: 'ig' }; },
+    tiktok: stub({ ok: true, id: 'tt' }),
+  });
+  const state = {
+    carousels: [carousel()], slides: slides(3),
+    settings: { 'ig.token': 'pasted-in-the-studio', 'ig.refreshed_at': String(Math.floor(Date.now() / 1000)) },
+  };
+  await runOnce(state);
+  is(seen[0], 'pasted-in-the-studio', 'the token that was used');
 });
 
 await step('a carousel with too few pictures is put back, not posted', async () => {

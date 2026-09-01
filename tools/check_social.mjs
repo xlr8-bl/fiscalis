@@ -635,6 +635,41 @@ await step('signed out, none of it answers', async () => {
   }
 });
 
+/* ------------------------------------------------------------- accounts */
+
+await step('the platform tokens are a person\'s, not the agent\'s', async () => {
+  const read = await spark('/carousels/-/accounts');
+  is(read.status, 403, 'the agent reading them');
+  const write = await spark('/carousels/-/accounts', {
+    method: 'PUT', body: JSON.stringify({ ig_token: 'stolen' }),
+  });
+  is(write.status, 403, 'the agent writing them');
+});
+
+await step('a token can be pasted, and reads back as connected', async () => {
+  const before = await person('/carousels/-/accounts');
+  is(before.status, 200, 'status');
+  const { status, body } = await person('/carousels/-/accounts', {
+    method: 'PUT',
+    body: JSON.stringify({ ig_user_id: '1784100', ig_token: 'IGQV-test-token' }),
+  });
+  is(status, 200, 'saving');
+  is(body.instagram.connected, true, 'connected');
+  is(body.instagram.user_id, '1784100', 'user id');
+  // freshly pasted means a full 60 days, not an unknown
+  is(body.instagram.expires_in_days, 60, 'days left');
+});
+
+await step('an empty field does not wipe what is already there', async () => {
+  const { body } = await person('/carousels/-/accounts', {
+    method: 'PUT',
+    body: JSON.stringify({ ig_token: '   ', tiktok_refresh_token: 'rft-test' }),
+  });
+  is(body.saved.includes('ig.token'), false, 'the blank one was skipped');
+  is(body.instagram.connected, true, 'instagram still connected');
+  is(body.tiktok.connected, true, 'tiktok now connected');
+});
+
 /* -------------------------------------------------------------- clean up */
 
 await step('what this run made is cleaned up', async () => {
