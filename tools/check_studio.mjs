@@ -490,6 +490,20 @@ await step('a slot puts it in the poster\'s way', async () => {
   );
 });
 
+/*
+ * A slot in the past with nothing having happened is the failure that
+ * looks like success — the board says Scheduled, and Scheduled sounds
+ * like something is coming. Nothing here has a cron, so it is not.
+ */
+await step('a past-due carousel says so, and offers the run', async () => {
+  const acts = await page.$$eval('[data-car-acts] .st-link', (n) => n.map((x) => x.textContent.trim()));
+  if (!acts.includes('Post it now')) throw new Error(`offered: ${acts.join(', ')}`);
+  const notes = await page.$$eval('[data-car-acts] .st-note', (n) => n.map((x) => x.textContent));
+  if (!notes.some((t) => /Nothing posts on its own/.test(t))) {
+    throw new Error(`said: ${notes.join(' | ') || 'nothing'}`);
+  }
+});
+
 await step('what this run made is cleaned up', async () => {
   if (picKey) {
     await page.evaluate((k) => fetch(`/api/studio/media/${k}`,

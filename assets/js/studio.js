@@ -1254,7 +1254,10 @@ const CAR_STATES = {
   review:     { label: 'Waiting on you', note: 'Everything is drawn. Your turn.' },
   changes:    { label: 'Being redone', note: 'Spark is redoing the slides you flagged.' },
   approved:   { label: 'Approved',   note: 'Cleared to post. Give it a slot.' },
-  scheduled:  { label: 'Scheduled',  note: 'It goes out at its slot.' },
+  // "it goes out at its slot" was a promise nothing here keeps. Pages
+  // Functions have no cron: a slot marks it due, and a run has to be
+  // triggered — from this screen, or by one of Spark's scheduled tasks.
+  scheduled:  { label: 'Scheduled',  note: 'Due at its slot. A run has to be triggered.' },
   posted:     { label: 'Posted',     note: '' },
   rejected:   { label: 'Killed',     note: '' },
 };
@@ -1619,6 +1622,7 @@ function paintCarouselActions(host) {
     acts.push(['Send it back', () => move('changes')]);
   }
   if (c.status === 'scheduled') {
+    acts.push(['Post it now', postNow]);
     acts.push(['Unschedule', () => move('approved')]);
   }
   if (c.status !== 'posted' && c.status !== 'rejected') {
@@ -1635,6 +1639,20 @@ function paintCarouselActions(host) {
     b.addEventListener('click', fn);
     host.append(b);
   });
+  // A slot in the past with nothing having happened is the failure that
+  // looks like success: the board says Scheduled, and Scheduled sounds
+  // like something is coming.
+  const due = c.status === 'scheduled'
+    && (!c.scheduled_for || Date.parse(c.scheduled_for) <= Date.now());
+  if (due) {
+    const p = document.createElement('p');
+    p.className = 'st-note u-text-style-main';
+    p.textContent = c.scheduled_for
+      ? `Its slot has passed. Nothing posts on its own — press Post it now.`
+      : 'Due now. Nothing posts on its own — press Post it now.';
+    host.append(p);
+  }
+
   if (blocked && readyToApprove.includes(c.status)) {
     const p = document.createElement('p');
     p.className = 'st-note u-text-style-main';
@@ -1643,6 +1661,36 @@ function paintCarouselActions(host) {
   } else if (!acts.length) {
     host.innerHTML = '<p class="st-note u-text-style-main">Nothing left to do here.</p>';
   }
+}
+
+/**
+ * Post what is due, from the carousel that is due.
+ *
+ * The same run the Accounts screen and Spark's scheduled task call. It
+ * posts everything past its slot, not only this one — there is one run,
+ * so there is no second implementation to drift — and then reloads this
+ * carousel so the result lands where you are looking.
+ */
+async function postNow() {
+  const c = carousel;
+  say('Posting…');
+  try {
+    const out = await api('/carousels/-/post', { method: 'POST', body: '{}' });
+    await viewCarousel(c.slug);
+    const mine = (out.summary || []).find((r) => r.slug === c.slug);
+    if (!mine) { say('Nothing was due.'); return; }
+    const went = Object.entries(mine.results || {})
+      .filter(([, r]) => r.ok).map(([name]) => name);
+    const failed = Object.entries(mine.results || {})
+      .filter(([, r]) => !r.ok && !r.skipped)
+      .map(([name, r]) => `${name}: ${r.error}`);
+    say(
+      failed.length
+        ? failed.join(' · ')
+        : went.length ? `Posted to ${went.join(', ')}.` : 'Nothing went out.',
+      failed.length ? 'err' : undefined
+    );
+  } catch (e) { say(e.message, 'err'); }
 }
 
 /**
