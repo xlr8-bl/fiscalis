@@ -22,7 +22,8 @@
     "check:tiktok": "node tools/check_tiktok.mjs",
     "check:brand": "node tools/check_brand.mjs",
     "stamp": "python3 tools/stamp_assets.py",
-    "icons": "python3 tools/service_icons.py"
+    "icons": "python3 tools/service_icons.py",
+    "appicon": "node tools/app_icon.mjs"
   },
   "type": "module"
 }
