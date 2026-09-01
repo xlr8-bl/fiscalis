@@ -771,6 +771,15 @@ body.st-body {
   font-size: 1.05rem;
   font-weight: 500;
 }
+/* one platform's numbers, under the totals */
+.st-h3 {
+  margin: 1.4rem 0 .4rem;
+  color: var(--swatch--black-100, #6b645c);
+  font-size: .82rem;
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
 /* the topic sits above the caption's own label, so without this the two
    read as one run-on line */
 .st-note--topic { margin-bottom: clamp(1.8rem, 4vh, 2.6rem); }

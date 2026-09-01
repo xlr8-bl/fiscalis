@@ -1392,6 +1392,8 @@ function paintCarousel() {
      <h2 class="st-h2">The slides</h2>
      <ul class="st-strip" data-car-slides></ul>
 
+     ${c.status === 'posted' ? '<h2 class="st-h2">How it did</h2><div data-car-stats></div>' : ''}
+
      <h2 class="st-h2">What happens next</h2>
      <div class="st-acts" data-car-acts></div>`;
 
@@ -1438,6 +1440,70 @@ function paintCarousel() {
   });
 
   paintCarouselActions($('[data-car-acts]', host));
+  if (c.status === 'posted') paintStats($('[data-car-stats]', host), c.slug);
+}
+
+/**
+ * The numbers, once it has gone out.
+ *
+ * Reading is free and asking the platforms is not, so opening this shows
+ * what is stored and the button is what spends a call. A count that came
+ * back null is printed as a dash with the platform's reason under it —
+ * never as a zero, because "nobody liked it" and "this token cannot read
+ * likes" would otherwise look identical and only one of them is a reason
+ * to change what gets posted.
+ */
+async function paintStats(host, slug, { refresh = false } = {}) {
+  if (!host) return;
+  host.innerHTML = `<p class="st-note u-text-style-main">${
+    refresh ? 'Asking the platforms…' : 'Reading…'
+  }</p>`;
+
+  let post = null;
+  try {
+    const out = refresh
+      ? await api('/carousels/-/stats', { method: 'POST', body: JSON.stringify({ slug }) })
+      : await api(`/carousels/-/stats?slug=${encodeURIComponent(slug)}`);
+    post = out.posts?.[0] || null;
+  } catch (e) {
+    host.innerHTML = `<p class="st-note u-text-style-main">${escapeHtml(e.message)}</p>`;
+    return;
+  }
+
+  const platforms = Object.entries(post?.platforms || {});
+  const n = (v) => (v === null || v === undefined ? '—' : String(v));
+
+  host.innerHTML = platforms.length
+    ? `<dl class="st-facts">
+         <div><dt>Likes</dt><dd>${n(post.totals.likes)}</dd></div>
+         <div><dt>Comments</dt><dd>${n(post.totals.comments)}</dd></div>
+         <div><dt>Saves</dt><dd>${n(post.totals.saves)}</dd></div>
+         <div><dt>Shares</dt><dd>${n(post.totals.shares)}</dd></div>
+         <div><dt>Views</dt><dd>${n(post.totals.views)}</dd></div>
+         <div><dt>Reach</dt><dd>${n(post.totals.reach)}</dd></div>
+       </dl>
+       ${platforms.map(([name, p]) =>
+         `<h3 class="st-h3">${escapeHtml(name)}</h3>
+          <p class="st-note u-text-style-main">${
+            [`${n(p.likes)} likes`, `${n(p.comments)} comments`,
+             p.views !== null && p.views !== undefined ? `${p.views} views` : '',
+             p.permalink
+               ? `<a class="st-link" href="${escapeAttr(p.permalink)}" target="_blank" rel="noopener">See it</a>`
+               : ''].filter(Boolean).join(' · ')
+          }</p>
+          ${p.note ? `<p class="st-note u-text-style-main">${escapeHtml(p.note)}</p>` : ''}`
+       ).join('')}`
+    : '<p class="st-note u-text-style-main">Nothing has been read back yet.</p>';
+
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'st-link';
+  b.textContent = 'Check the numbers again';
+  b.addEventListener('click', () => paintStats(host, slug, { refresh: true }));
+  const acts = document.createElement('div');
+  acts.className = 'st-acts';
+  acts.append(b);
+  host.append(acts);
 }
 
 /** Only the moves the API will actually accept, so nothing offered fails. */

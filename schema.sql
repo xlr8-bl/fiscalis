@@ -263,6 +263,47 @@ CREATE INDEX IF NOT EXISTS idx_oauth_codes_expiry
 
 
 -- ==================================================================
+-- What happened after it went out.
+--
+-- One row per carousel per platform. The counters are NULLABLE on
+-- purpose: "nobody liked it" and "the account is not allowed to read
+-- likes" are different facts, and writing 0 for the second is a lie
+-- that reads as a fact. Null means not known; the note says why.
+--
+-- `post_id` is not always what the posting call returned. Instagram
+-- hands back the media id and that is the thing to query. TikTok hands
+-- back a publish_id, which is a receipt for the upload, not a post —
+-- the real id only appears once the post is public and has cleared
+-- moderation, so it is looked up later and written here.
+-- ==================================================================
+CREATE TABLE IF NOT EXISTS post_stats (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  carousel_id INTEGER NOT NULL,
+  platform    TEXT NOT NULL,
+  post_id     TEXT NOT NULL DEFAULT '',
+  permalink   TEXT NOT NULL DEFAULT '',
+  likes       INTEGER,
+  comments    INTEGER,
+  shares      INTEGER,
+  saves       INTEGER,
+  views       INTEGER,
+  reach       INTEGER,
+  -- ok:          the numbers below were read from the platform
+  -- pending:     the post exists but the platform has nothing to give yet
+  -- unavailable: it cannot be read at all, and `note` says what is missing
+  state       TEXT NOT NULL DEFAULT 'ok'
+              CHECK (state IN ('ok', 'pending', 'unavailable')),
+  note        TEXT NOT NULL DEFAULT '',
+  extra       TEXT NOT NULL DEFAULT '',   -- JSON: whatever else came back
+  checked_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (carousel_id, platform)
+);
+
+CREATE INDEX IF NOT EXISTS idx_post_stats_checked
+  ON post_stats (checked_at);
+
+
+-- ==================================================================
 -- Columns added after the first release.
 --
 -- A database created from the CREATE statements above already has

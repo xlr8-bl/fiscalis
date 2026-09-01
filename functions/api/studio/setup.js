@@ -27,14 +27,15 @@ async function state(db) {
         `SELECT name FROM sqlite_master
          WHERE type = 'table' AND name IN
            ('articles','entries','settings','media','revisions',
-            'pillars','brand_refs','carousels','slides','oauth_codes')`
+            'pillars','brand_refs','carousels','slides','oauth_codes',
+            'post_stats')`
       )
       .all();
     const tables = (results ?? []).map((r) => r.name);
     // A database missing one of these is mid-upgrade, not broken. Reporting
     // it as unready puts the Set up button back, which is what applies the
     // rest — and setup is written to be safe to run again.
-    if (tables.length < 10) return { ready: false, tables, counts: null };
+    if (tables.length < 11) return { ready: false, tables, counts: null };
 
     const counts = {};
     for (const t of ['articles', 'entries', 'settings']) {

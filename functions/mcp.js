@@ -34,6 +34,9 @@ import { problems as brandProblems } from '../assets/js/brand.js';
 import { send as sendMail } from '../lib/mail.js';
 import { gather, compose } from '../lib/digest.js';
 import { runDue } from '../lib/publish.js';
+import { addReference } from '../lib/references.js';
+import { progress } from '../lib/progress.js';
+import { refreshStats } from '../lib/insights.js';
 
 const MAX_IMAGE = 25 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -245,6 +248,37 @@ async function runTool(name, args, env) {
         note: out.ran
           ? 'Anything that failed is back in Approved with the reason against it.'
           : 'Nothing was due.',
+      });
+    }
+
+    case 'add_reference': {
+      const out = await addReference({ ...env, SITE }, args);
+      if (out.error) return toolFailed(out.error);
+      return toolResult({
+        ...out,
+        url: `${SITE}/media/${out.key}`,
+        next: out.kit.likeness
+          ? 'It is in the kit and brief will hand it over from now on.'
+          : 'Add at least one likeness reference too, or the image model has no face to work from.',
+      });
+    }
+
+    case 'progress':
+      return toolResult(await progress(db, env, { site: SITE }));
+
+    case 'performance': {
+      // an hour is long enough that a poll is cheap and short enough that
+      // a post from this morning is still moving
+      const stale = args.refresh ? 0 : 3600;
+      const out = await refreshStats({ ...env, SITE }, {
+        slug: args.carousel ? clean(args.carousel, 120) : null,
+        limit: Number(args.limit) || 20,
+        stale,
+      });
+      if (out.error) return toolFailed(out.error);
+      return toolResult({
+        ...out,
+        note: 'A null count was not readable, not zero — the reason is on the platform.',
       });
     }
 

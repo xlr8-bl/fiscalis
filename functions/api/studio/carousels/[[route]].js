@@ -19,6 +19,9 @@
  *   PUT    /api/studio/carousels/-/pillars  { pillars: [...] }
  *   GET    /api/studio/carousels/-/refs              -> the brand kit
  *   PUT    /api/studio/carousels/-/refs     { refs: [...] }
+ *   GET    /api/studio/carousels/-/stats             -> the numbers, as stored
+ *   POST   /api/studio/carousels/-/stats    { slug? } -> go and ask again
+ *   GET    /api/studio/carousels/-/progress          -> where everything stands
  *
  * What Spark uses, over its bearer token:
  *
@@ -46,6 +49,8 @@ import { send as sendMail } from '../../../../lib/mail.js';
 import { gather, compose } from '../../../../lib/digest.js';
 import { runDue } from '../../../../lib/publish.js';
 import { accountState, putSetting } from '../../../../lib/tokens.js';
+import { refreshStats, storedStats } from '../../../../lib/insights.js';
+import { progress } from '../../../../lib/progress.js';
 
 const MAX_FIELD = 400;
 const MAX_TEXT = 8_000;
@@ -141,6 +146,34 @@ export async function onRequest({ request, env, params }) {
      */
     if (what === 'post' && method === 'POST') {
       return json(await runDue({ ...env, SITE }));
+    }
+
+    /*
+     * How the posts did. GET reads what is already stored and costs
+     * nothing; POST goes and asks the platforms again. They are split
+     * because opening a screen should not spend an API call per post.
+     */
+    if (what === 'stats') {
+      if (method === 'GET') {
+        const wanted = new URL(request.url).searchParams.get('slug');
+        return json(await storedStats(env.DB, {
+          slug: wanted ? clean(wanted, 120) : null,
+          limit: 40,
+        }));
+      }
+      if (method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        return json(await refreshStats({ ...env, SITE }, {
+          slug: body.slug ? clean(body.slug, 120) : null,
+          limit: 40,
+          stale: 0,
+        }));
+      }
+    }
+
+    /* Where everything stands — the same view Spark gets. */
+    if (what === 'progress' && method === 'GET') {
+      return json(await progress(env.DB, env, { site: SITE }));
     }
 
     /*

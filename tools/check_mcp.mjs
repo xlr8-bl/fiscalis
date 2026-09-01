@@ -215,7 +215,8 @@ await step('tools/list describes every tool with a schema', async () => {
   }
   const names = tools.map((t) => t.name).sort();
   is(names.join(','),
-     'brief,deliver_slide,hand_over,list_carousels,plan_carousel,post_due,queue,send_digest',
+     'add_reference,brief,deliver_slide,hand_over,list_carousels,performance,'
+     + 'plan_carousel,post_due,progress,queue,send_digest',
      'the tool set');
 });
 
@@ -400,6 +401,66 @@ await step('once a person approves it, Spark cannot touch it', async () => {
   is(h.body.result.isError, true, 'handing over an approved carousel');
 });
 
+/* -------------------------------------------------- the kit, and the numbers */
+
+await step('add_reference puts a picture in the kit and the brief hands it over', async () => {
+  const out = structured(await call('add_reference', {
+    role: 'likeness',
+    note: 'straight on, daylight',
+    image_base64: JPEG_B64,
+    mime: 'image/jpeg',
+    width: 2000, height: 2500,
+  }));
+  is(out.ok, true, 'ok');
+  is(out.role, 'likeness', 'role');
+  if (!out.key.startsWith('brand/likeness/')) throw new Error(`bad key: ${out.key}`);
+  globalThis.__ref = out.key;
+
+  const b = structured(await call('brief'));
+  const mine = b.references.find((r) => r.key === out.key);
+  if (!mine) throw new Error('the brief does not know about it');
+  is(mine.role, 'likeness', 'role in the brief');
+  is(mine.note, 'straight on, daylight', 'the note survives');
+  if (!mine.url.startsWith('http')) throw new Error(`not fetchable: ${mine.url}`);
+});
+
+await step('add_reference refuses a role it does not understand', async () => {
+  const r = await call('add_reference', { role: 'vibes', image_base64: JPEG_B64 });
+  is(r.body.result.isError, true, 'isError');
+  if (!/likeness/.test(r.body.result.content[0].text)) throw new Error(r.body.result.content[0].text);
+});
+
+await step('add_reference refuses a URL that is not an image', async () => {
+  const r = await call('add_reference', { role: 'aesthetic', image_url: `${BASE}/book` });
+  is(r.body.result.isError, true, 'isError');
+});
+
+await step('progress says where everything stands and what is blocking', async () => {
+  const p = structured(await call('progress'));
+  if (!p.board || typeof p.board.review !== 'number') throw new Error('no board');
+  if (!p.slides) throw new Error('no slide counts');
+  if (!Array.isArray(p.blocking)) throw new Error('no blockers');
+  if (!p.next_step) throw new Error('no next step');
+  if (!p.accounts?.instagram) throw new Error('no account state');
+  is(p.kit.likeness >= 1, true, 'the kit it was just given');
+
+  // the step above approved one and gave it no slot, which is the failure
+  // that looks like everything is fine — approved, and going nowhere
+  if (!p.approved_with_no_slot.some((c) => c.slug === slug)) {
+    throw new Error('the approved carousel is not listed as having no slot');
+  }
+  if (!p.blocking.some((b) => /no slot/.test(b))) {
+    throw new Error(`blockers did not mention it: ${p.blocking.join(' | ')}`);
+  }
+});
+
+await step('performance has nothing to report before anything has posted', async () => {
+  const out = structured(await call('performance'));
+  if (!Array.isArray(out.posts)) throw new Error('no posts array');
+  is(out.checked, 0, 'platforms asked');
+  if (!/null/.test(out.note)) throw new Error(out.note);
+});
+
 await step('send_digest does not send a mail that would say nothing', async () => {
   const cookie = globalThis.__cookie;
   const list = await (await fetch(`${BASE}/api/studio/carousels?status=review`, { headers: { cookie } })).json();
@@ -424,6 +485,17 @@ await step('what this run made is cleaned up', async () => {
   const list = await (await fetch(`${BASE}/api/studio/carousels`, { headers: { cookie } })).json();
   const left = list.carousels.filter((c) => made.includes(c.slug));
   is(left.length, 0, 'left behind');
+
+  // the reference too — an agent has no delete, so this is the studio's
+  // wholesale PUT, which is exactly the route a person would take
+  const refs = await (await fetch(`${BASE}/api/studio/carousels/-/refs`, { headers: { cookie } })).json();
+  const keep = refs.refs.filter((r) => r.media_key !== globalThis.__ref);
+  await fetch(`${BASE}/api/studio/carousels/-/refs`, {
+    method: 'PUT', headers: { 'content-type': 'application/json', cookie },
+    body: JSON.stringify({ refs: keep }),
+  });
+  const after = await (await fetch(`${BASE}/api/studio/carousels/-/refs`, { headers: { cookie } })).json();
+  is(after.refs.some((r) => r.media_key === globalThis.__ref), false, 'the reference is gone');
 });
 
 console.log(

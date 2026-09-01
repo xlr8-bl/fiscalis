@@ -55,7 +55,7 @@ second in the order the endpoint checks.
 | | how | what it can do |
 |---|---|---|
 | you | sign in at `/studio` | everything |
-| Spark | the MCP server at `/mcp`, or `Authorization: Bearer $AGENT_TOKEN` on the REST API | plan, draw, hand over for review |
+| Spark | the MCP server at `/mcp`, or `Authorization: Bearer $AGENT_TOKEN` on the REST API | plan, draw, hand over for review, fill the brand kit, read how it is going |
 
 Spark cannot approve, schedule, post or delete, and cannot touch a
 carousel once a person has approved it. That ceiling is the security
@@ -129,6 +129,81 @@ sending. Needs `RESEND_API_KEY`, the same Resend account the booking form
 uses; with no key it says so rather than reporting a success that never
 arrived.
 
+## The kit, through Spark
+
+    add_reference { role: 'likeness'|'aesthetic', note, image_url | image_base64 }
+
+The brand kit — the ten or so pictures every slide is drawn against — can
+be filled from a chat. Hand Spark an image and tell it which kind it is:
+`likeness` is your face, so the person in the slides is the same person
+every time; `aesthetic` is the look, the grain and palette and the way
+type sits. It goes into R2, into the media library, and into the brief
+from that moment on.
+
+Same two shapes as a slide: a URL it fetches server side, or the bytes
+inline. What comes back has to actually be an image — a URL that answers
+with an HTML error page is refused rather than stored as a JPEG that only
+fails later, in front of the image model.
+
+Twenty-four is the ceiling. Past that the model is being averaged rather
+than steered. **There is no remove**, on purpose: an agent that reads the
+open web having a delete is the thing this design avoids, and a wrong
+upload is a nuisance rather than a loss. Take one out in `/studio` →
+**Brand kit**.
+
+## Checking on it
+
+    progress
+
+One call for the state of everything, and the one to start a scheduled
+task with, since a task wakes with no memory of the last one:
+
+- how many carousels are in each state
+- what is sitting in `review` waiting on a person, oldest first
+- what is scheduled, and for when
+- what is **approved with no slot** — ready, and going nowhere, which is
+  the failure that looks like everything is fine
+- what has gone out, where it went, and its likes and comments
+- how many slides are still owed and how many were sent back
+- whether the accounts and the kit are actually in a state that can
+  produce a post: token expiry, whether TikTok can renew itself, how many
+  likeness and aesthetic references exist, whether any pillars are set
+- `blocking`, a plain list of what is in the way, and `next_step`, one
+  sentence so a scheduled task does not have to reason it out
+
+<!-- -->
+
+    performance { carousel?, limit?, refresh? }
+
+Goes and asks the platforms what the posts did — likes, comments, shares,
+saves, views, reach — per post and per platform, with a total across
+whichever platforms answered. Numbers read in the last hour are handed
+back from storage rather than re-fetched; `refresh: true` asks anyway.
+
+**A count that could not be read comes back `null`, never `0`.** "Nobody
+liked it" and "this token is not allowed to see likes" would otherwise
+look identical, and only one of them is a reason to change what gets
+posted. The reason is on the platform's own entry.
+
+Three honest limits, from the platforms' reference pages:
+
+- `like_count` and `comments_count` are ordinary fields and need only
+  `instagram_business_basic`. **Reach, saves and views are the insights
+  edge** and additionally need `instagram_business_manage_insights` — if
+  the token lacks it, the likes still come back and the reason is said.
+- Instagram **omits** `like_count` entirely when the account hides like
+  counts. That is a setting, not an error, and it is reported as one.
+- TikTok's publish call returns a `publish_id`, which is a receipt for an
+  upload, not a post. The real post id appears only once the post is
+  public and has cleared moderation — so **until the client passes its
+  audit, its posts are private and have no readable numbers at all**.
+  Reading them then also needs the `video.list` scope, which is separate
+  from the one that posts.
+
+The same numbers appear in `/studio` under a posted carousel, as **How it
+did**, with a button that spends the API call. Opening the screen does
+not.
+
 ## Where it can go from where
 
     planned    -> generating, review, rejected
@@ -149,9 +224,12 @@ three is missing rather than offering something certain to fail.
 ## Setting it up
 
 1. `/studio` → **Pillars**. What Spark researches against.
-2. `/studio` → **Brand kit**. Mark pictures in the library as *you* or
-   *the look*. Four and six is the shape the pipeline was designed for;
-   the brief reports the counts so Spark can check before it prompts.
+2. The brand kit. Either hand the pictures to Spark in a chat and let it
+   call `add_reference`, or mark ones already in the library under
+   `/studio` → **Brand kit**. Four likeness and six aesthetic is the
+   shape the pipeline was designed for; the brief reports the counts so
+   Spark can check before it prompts, and `progress` says so out loud
+   when there is no likeness reference at all.
 3. Set `AGENT_TOKEN` in the Pages project, under **both** Production and
    Preview. A deployment carries the variables it was built with, so
    retry the deployment after adding it.
@@ -283,5 +361,11 @@ Nothing in the code. What is left is external and slower than the build:
 - **Meta App Review** for `instagram_business_content_publish`, and an
   Instagram professional account on a linked Facebook Page.
 - **The TikTok audit.** Posting works unaudited; the content is
-  restricted to private viewing until it passes.
+  restricted to private viewing until it passes — and a private post has
+  no readable likes, so `performance` will report TikTok as *pending*
+  with that reason until the audit clears. Add the `video.list` scope to
+  the app at the same time, or the numbers stay unreadable after it does.
+- **`instagram_business_manage_insights`**, if reach, saves and views are
+  wanted alongside the likes. Without it the likes and comments still
+  come back.
 - **Facebook**, once its reference pages are readable again.
