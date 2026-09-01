@@ -278,6 +278,54 @@ for (const [name, path] of PAGES) {
   });
 }
 
+/* ------------------------------------------------------------------ legal */
+
+/*
+ * Privacy and Terms are a platform review requirement, not decoration:
+ * TikTok asks for both to be "visible on your official website" and
+ * reachable without navigating a menu. A page that 404s or a link that
+ * only exists behind the About modal fails a review that takes weeks to
+ * come back, so it is asserted rather than assumed.
+ */
+{
+  const page = await browser.newPage();
+
+  for (const [name, path] of [['Privacy', '/privacy'], ['Terms', '/terms']]) {
+    await step(`${name} is a real page`, async () => {
+      const res = await page.goto(BASE + path, { waitUntil: 'domcontentloaded' });
+      if (res.status() !== 200) throw new Error(`status ${res.status()}`);
+      const h1 = await page.textContent('h1');
+      if (h1.trim() !== name) throw new Error(`heading is "${h1}"`);
+      const words = (await page.textContent('main')).split(/\s+/).length;
+      if (words < 200) throw new Error(`only ${words} words — a reviewer will call that a stub`);
+      // told to a search engine to ignore reads as hidden
+      if (await page.$('meta[name="robots"][content*="noindex"]')) {
+        throw new Error('noindex');
+      }
+    });
+  }
+
+  await step('both are linked from the home page footer, not behind a menu', async () => {
+    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    for (const href of ['/privacy', '/terms']) {
+      const link = await page.$(`footer a[href="${href}"]`);
+      if (!link) throw new Error(`no footer link to ${href}`);
+      if (!await link.isVisible()) throw new Error(`${href} is in the DOM but not visible`);
+    }
+  });
+
+  await step('and from every rendered page', async () => {
+    for (const path of ['/journal/', '/privacy']) {
+      await page.goto(BASE + path, { waitUntil: 'domcontentloaded' });
+      for (const href of ['/privacy', '/terms']) {
+        if (!await page.$(`a[href="${href}"]`)) throw new Error(`${path} has no link to ${href}`);
+      }
+    }
+  });
+
+  await page.close();
+}
+
 await browser.close();
 console.log('\n' + (problems.length
   ? 'PROBLEMS:\n  ' + problems.join('\n  ')

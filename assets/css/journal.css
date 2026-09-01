@@ -315,3 +315,24 @@ body.jr-body {
     transparent 100%
   );
 }
+
+/* ------------------------------------------------------------- legal ---- */
+/* Privacy and Terms, and the row that links to them from every rendered
+   page. A platform review asks for both to be reachable without hunting
+   through a menu, which is also where anyone would look. */
+.jr_footer {
+  padding: clamp(2.4rem, 6vh, 4rem) var(--site--gutter, 1.5rem);
+  display: flex;
+  justify-content: center;
+}
+.footer_legal { display: flex; gap: 1.6rem; flex-wrap: wrap; }
+.footer_legal_link {
+  color: var(--swatch--black-50, #938f8a);
+  text-decoration: none;
+  transition: color 300ms ease;
+}
+.footer_legal_link:hover { color: var(--swatch--beige-100, #e8e8e3); }
+
+/* the prose column takes lists as well as paragraphs on these two */
+.jr_prose ul { margin: 0 0 1.1rem; padding-left: 1.15rem; }
+.jr_prose li { margin-bottom: .5rem; }

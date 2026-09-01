@@ -3215,6 +3215,18 @@ figure {
 .footer_bottom_brand, .footer_bottom_location {
   display:flex;
 }
+/* Privacy and Terms. They sit in the footer's third column rather than
+   behind the About modal because a platform review asks for both to be
+   reachable without navigating a menu — and it is where anyone looks. */
+.footer_legal {
+  display:flex;
+  gap:1.4rem;
+  flex-wrap:wrap;
+}
+.footer_legal_link {
+  color:inherit;
+  text-decoration:none;
+}
 .footer_bottom_span {
   width:fit-content;
   display:flex;
