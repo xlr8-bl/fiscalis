@@ -1,0 +1,60 @@
+# web3ashley-poster — the scheduler that actually posts.
+#
+#   npx wrangler deploy --config poster/wrangler.toml
+#
+# A second Worker rather than part of the site, because Pages Functions
+# have no cron triggers and Workers do. It binds the *same* D1 database
+# and the *same* R2 bucket as the site, so there is one set of carousels
+# and one set of pictures — this only reads what the studio approved and
+# writes back what happened.
+#
+# Migrating the whole project to Workers static assets would fold this
+# back in and is the better place to end up, but Workers does not yet
+# split production and preview bindings the way Pages does, and this
+# project has already lost a deployment to that distinction once.
+
+name = "web3ashley-poster"
+main = "index.js"
+compatibility_date = "2026-08-14"
+workers_dev = false
+
+# Five slots a day, in UTC. Cron is evaluated in UTC, so these are
+# 08:00, 11:30, 14:00, 17:30 and 20:00 in GMT+1.
+#
+# The Worker does not care what time it is: it posts whatever is due,
+# so a missed firing catches up on the next one rather than skipping a
+# post. Change these freely; the slots in the studio are just labels.
+[triggers]
+crons = [
+  "0 7 * * *",
+  "30 10 * * *",
+  "0 13 * * *",
+  "30 16 * * *",
+  "0 19 * * *",
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "web3ashley"
+database_id = "e7e23024-ebc9-4378-8b70-302e0cdc0ce0"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "web3ashley-media"
+
+[vars]
+# Where the pictures are served from. Meta and TikTok both fetch media by
+# URL rather than accepting an upload, so this has to be reachable.
+SITE = "https://web3ashley.com"
+
+# --- Secrets -----------------------------------------------------------
+#   npx wrangler secret put <NAME> --config poster/wrangler.toml
+#
+#   IG_USER_ID          the Instagram professional account's ID
+#   IG_ACCESS_TOKEN     a long-lived token with instagram_business_content_publish
+#   TIKTOK_ACCESS_TOKEN a user access token with video.publish
+#   RESEND_API_KEY      to tell you when something failed
+#
+# Missing credentials are not an error. A platform with no token is
+# reported as skipped, so Instagram can go live while TikTok is still
+# waiting on its audit.

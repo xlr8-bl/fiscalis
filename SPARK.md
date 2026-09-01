@@ -216,29 +216,63 @@ and is the cheaper option if the likeness holds.
 [tt-start]: https://developers.tiktok.com/doc/content-posting-api-get-started
 [gem]: https://ai.google.dev/gemini-api/docs/image-generation
 
-## Not built yet
+## Posting
 
-Posting. The five timed publishes need cron, which Pages Functions do not
-have — [Workers has cron triggers and Pages does not][cf-migrate]. Two ways
-out:
+`poster/` is a second Worker, deployed separately, bound to the same D1
+and the same R2 as the site. It exists apart from the site because Pages
+Functions have no cron triggers and Workers do.
 
-- **A companion Worker** on the same D1 and R2, deployed alongside. Small,
-  and leaves this project exactly as it is.
-- **Migrate the project to Workers static assets**, which folds the cron
-  in and gains Durable Objects and proper observability. `_headers` is
-  supported and the D1/R2 bindings carry over, but `functions/` has to be
-  compiled (`wrangler pages functions build`) rather than file-routed, and
-  Workers does not yet split production and preview bindings the way Pages
-  does — which is the thing that has already cost us a deployment once.
+    npx wrangler deploy --config poster/wrangler.toml
 
-The companion Worker is the smaller bet. The migration is the better place
-to end up.
+Five cron lines, in UTC. It does not care what time it is — it posts
+whatever is due, so a missed firing catches up rather than skipping.
 
-[cf-migrate]: https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/
+**Secrets**, set with `npx wrangler secret put NAME --config poster/wrangler.toml`:
 
-Before writing either, start the two applications — they are the long pole,
-and neither is a code problem:
+| | |
+|---|---|
+| `IG_USER_ID` | the Instagram professional account's ID |
+| `IG_ACCESS_TOKEN` | long-lived, with `instagram_business_content_publish` |
+| `TIKTOK_ACCESS_TOKEN` | a user token with `video.publish` |
+| `AGENT_TOKEN` | the same one the site uses, to reach `/run` by hand |
+| `RESEND_API_KEY` | so a failure reaches you |
 
-- **Meta App Review** for `instagram_business_content_publish` (Instagram
-  Login) or `instagram_content_publish` (Facebook Login).
-- **The TikTok audit**, which lifts posts out of private-only.
+A platform with no credential is **skipped, not failed** — so Instagram
+can go live while TikTok is still waiting on its audit.
+
+### What it will and will not do
+
+It reads carousels in `scheduled` and nothing else. There is no path in
+it that can reach something still in review.
+
+It claims a row with a conditional `UPDATE` before making a single API
+call, so two overlapping firings cannot both post the same carousel.
+
+A carousel that reached nobody goes back to **Approved** with the reason
+written against it, and you get a mail. One that reached *somewhere*
+stays posted with the failures recorded beside it — a live Instagram
+carousel cannot be unsent, so marking it unposted would be a lie in the
+database.
+
+You can run it by hand rather than waiting for a slot:
+
+    curl -X POST https://web3ashley-poster.<subdomain>.workers.dev/run \
+      -H "Authorization: Bearer $AGENT_TOKEN"
+
+### Facebook is deliberately not implemented
+
+Its multi-photo shape is not on the Pages API guide and the reference
+pages were erroring when this was written, so there was nothing to read
+it off. It returns "skipped" every time rather than guessing at a call
+that would post the wrong thing to a real audience. Instagram and TikTok
+were both read off their own references; see `poster/platforms.js`.
+
+## Still to do
+
+Nothing in the code. What is left is external and slower than the build:
+
+- **Meta App Review** for `instagram_business_content_publish`, and an
+  Instagram professional account on a linked Facebook Page.
+- **The TikTok audit.** Posting works unaudited; the content is
+  restricted to private viewing until it passes.
+- **Facebook**, once its reference pages are readable again.
