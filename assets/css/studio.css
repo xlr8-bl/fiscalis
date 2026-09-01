@@ -940,3 +940,105 @@ p + .st-check { margin-top: 1.5rem; }
   font-weight: 400;
   max-width: 56ch;
 }
+
+/* ==================================================================
+   Affordances.
+
+   The studio inherited the site's language, where a link is a word that
+   changes colour on hover and everything is separated by space. That
+   works on a page you read once. It does not work on a tool you use
+   every day: with no underline, no border and no fill, "Save" and
+   "Approve it" look exactly like the sentence above them, and the only
+   way to find out what is clickable is to point at things.
+
+   So the site's restraint stays for type and colour, and the parts you
+   operate get the conventions every CMS uses, because they are what
+   makes a control read as a control.
+   ================================================================== */
+
+/* An action is underlined. Not on hover — always, because hover is not
+   available on the phone this is mostly used from. */
+.st-acts .st-link,
+.st-slide__acts .st-link,
+.st-row-wrap .st-link,
+.st-nav__foot .st-link {
+  text-decoration: underline;
+  text-underline-offset: .25em;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--st-line, #6b645c);
+}
+.st-acts .st-link:hover,
+.st-slide__acts .st-link:hover,
+.st-row-wrap .st-link:hover,
+.st-nav__foot .st-link:hover { text-decoration-color: currentColor; }
+
+/* The first action in a group is the one you came for. */
+.st-acts > .st-link:first-child,
+.st-acts > label.st-link:first-child {
+  padding: .55rem 1rem;
+  border: 1px solid var(--st-line, #6b645c);
+  border-radius: 2px;
+  text-decoration: none;
+  background: var(--st-panel, #1a1917);
+}
+.st-acts > .st-link:first-child:hover,
+.st-acts > label.st-link:first-child:hover {
+  background: var(--swatch--beige-100, #e8e8e3);
+  color: var(--swatch--black-400, #080807);
+  border-color: var(--swatch--beige-100, #e8e8e3);
+}
+.st-acts { align-items: center; gap: 1.1rem; }
+
+/* Anything that wrecks something reads as such before it is pressed. */
+.st-acts .st-link.is-danger,
+.st-acts > .st-link.is-danger:first-child {
+  color: var(--swatch--beige-400, #bfbfb1);
+  text-decoration-color: var(--swatch--beige-400, #bfbfb1);
+}
+
+/* A row in a list is a thing you open, so it looks like one: it lifts on
+   hover instead of dimming its neighbours, which told you what you were
+   *not* pointing at. */
+.st-rows:hover .st-row { opacity: 1; }
+.st-row {
+  padding: .85rem 1rem;
+  margin-inline: -1rem;
+  border-radius: 2px;
+  transition: background-color 200ms ease, transform 420ms cubic-bezier(.22,1,.36,1);
+}
+.st-rows:hover .st-row:hover,
+.st-row:hover { background: var(--st-panel, #1a1917); transform: none; }
+.st-row__title { text-decoration: underline; text-underline-offset: .22em;
+                 text-decoration-color: transparent; transition: text-decoration-color 200ms ease; }
+.st-row:hover .st-row__title { text-decoration-color: var(--st-line, #6b645c); }
+
+/* The sidebar's current screen, marked by something other than brightness
+   alone — on a phone at arm's length two greys are one grey. */
+.st-nav__link { padding-inline-start: .7rem; border-left: 2px solid transparent; }
+.st-nav__link.is-on { border-left-color: var(--swatch--beige-100, #e8e8e3); }
+.st-nav__link:hover { transform: none; background: var(--st-panel, #1a1917); }
+
+/* A group of screens is a heading over a list, and it was the same weight
+   as the links under it. */
+.st-nav__title {
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: .68rem;
+  color: var(--st-faint, #847d73);
+}
+
+/* The tabs above a list are a control, so one of them looks pressed. */
+.st-toggle { gap: .3rem; flex-wrap: wrap; }
+.st-toggle__btn {
+  padding: .4rem .8rem;
+  border-radius: 2px;
+  border: 1px solid transparent;
+}
+.st-toggle__btn:hover { background: var(--st-panel, #1a1917); }
+.st-toggle__btn.is-on {
+  background: var(--st-panel, #1a1917);
+  border-color: var(--st-line, #6b645c);
+}
+
+/* Inline links inside prose, which are not actions but still links. */
+.st-note a, .st-lede a, .st-row__desc a { color: var(--swatch--beige-100, #e8e8e3); }

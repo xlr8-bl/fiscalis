@@ -51,6 +51,9 @@ import { runDue } from '../../../../lib/publish.js';
 import { accountState, putSetting } from '../../../../lib/tokens.js';
 import { refreshStats, storedStats } from '../../../../lib/insights.js';
 import { progress } from '../../../../lib/progress.js';
+import { drawCarousel } from '../../../../lib/draw.js';
+import { apiKey } from '../../../../lib/imagen.js';
+import { getSetting } from '../../../../lib/tokens.js';
 
 const MAX_FIELD = 400;
 const MAX_TEXT = 8_000;
@@ -200,6 +203,9 @@ export async function onRequest({ request, env, params }) {
           // deployment costs a build every time.
           'ig.app_id': body.ig_app_id,
           'ig.app_secret': body.ig_app_secret,
+          // the generation layer's key. Same reasoning again: it is set
+          // once, from a phone, and should not need a build.
+          'gemini.api_key': body.gemini_api_key,
           'tiktok.token': body.tiktok_token,
           'tiktok.refresh_token': body.tiktok_refresh_token,
           // which TikTok client to act as. Kept here rather than in the
@@ -346,7 +352,7 @@ export async function onRequest({ request, env, params }) {
         clean(input.hashtags, MAX_TEXT),
         'planned',
         clean(Array.isArray(input.targets) ? input.targets.join(',') : input.targets)
-          || 'instagram,tiktok',
+          || 'tiktok',
         asJson(input.qc),
         who.name
       )
@@ -497,6 +503,20 @@ export async function onRequest({ request, env, params }) {
       .bind(slot, at || null, existing.id, who.name)
       .run();
     return json({ ok: true, slug, slot, scheduled_for: at || null, status: 'scheduled' });
+  }
+
+  /* Draw what this carousel still needs, with the brand kit. */
+  if (action === 'draw' && method === 'POST') {
+    const body = await request.json().catch(() => ({}));
+    const { key } = await apiKey(env.DB, env, { getSetting });
+    if (!key) {
+      return json({ error: 'No Gemini API key is set. Add it under Social, Accounts.' }, 503);
+    }
+    const out = await drawCarousel({ ...env, SITE }, slug, {
+      key,
+      only: Array.isArray(body.positions) ? body.positions.map(Number) : null,
+    });
+    return json(out, out.error ? 400 : 200);
   }
 
   /* ---------------------------------------------------------------- slides */

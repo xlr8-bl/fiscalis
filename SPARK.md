@@ -1,7 +1,8 @@
 # The content machine
 
-Five carousels a day, planned and drawn by Gemini Spark, approved by a
-person here, posted by the site. This is the contract between the two.
+Five carousels a day, planned by Gemini Spark, drawn on the site with
+Nano Banana Pro, approved by a person here, posted by the site. This is
+the contract between the two.
 
 The site is the portal: the pillars, the brand kit, the plans, the slides
 and their verdicts all live in D1 and R2 behind `/studio`. There is no
@@ -88,10 +89,31 @@ because below it there is no carousel, and ten is Instagram's ceiling —
 anything past ten is cut to ten rather than refused. The brief repeats this
 so it does not have to be remembered.
 
+    POST /api/studio/carousels/:slug/draw
+    { positions?: [0, 2] }              # tool: draw
+
+The plan becomes pictures. The site draws them itself, with Nano Banana
+Pro and the brand kit, so Spark never has to make an image in its own
+chat and carry it back through the conversation as base64. One call per
+carousel. Leave `positions` out and it draws every slide that is
+`pending` or that a person asked for again, and leaves the rest alone.
+
+It draws one slide at a time rather than all of them at once, so a
+five-slide carousel takes a minute or two. That is deliberate: five in
+parallel is five times the rate limit, and on a failure there is no way
+to say which ones were already paid for. What comes back names the
+slides that were drawn, the ones that failed and why, and how many
+references it drew against.
+
+A failure is recorded as a failure. If the model answers with prose
+instead of a picture, the words are never stored as an image file; the
+slide goes to `failed` with what it said, and shows in `queue`.
+
     PUT  /api/studio/carousels/:slug/slides/:position
     multipart: file, width, height, qc
 
-One image, one call. The master goes to R2 and the slide turns `ready`.
+One image, one call. This is the by-hand path, for a picture made
+somewhere else. The master goes to R2 and the slide turns `ready`.
 Sending it again is how a regeneration is delivered; `attempts` counts.
 The first image moves the carousel to `generating` on its own. A previous
 master is never deleted — a regeneration you dislike has to be
@@ -113,8 +135,8 @@ Draw only what it names: asking for one slide again must not cost the
 nine that were already right, in generation time or in the four takes
 that were already good.
 
-Deliver the redraw with the same `PUT` and hand it back with the same
-`status: 'review'`.
+Call `draw` again to redraw them, or deliver one by hand with the same
+`PUT`. Either way it goes back with the same `status: 'review'`.
 
     POST /api/studio/carousels/-/digest
 
@@ -248,6 +270,46 @@ three is missing rather than offering something certain to fail.
 3. Set `AGENT_TOKEN` in the Pages project, under **both** Production and
    Preview. A deployment carries the variables it was built with, so
    retry the deployment after adding it.
+4. A Gemini API key, so the site can draw. `/studio` → **Social** →
+   **Accounts** → *Drawing the slides*. See below.
+
+### The key that draws
+
+The generation layer calls Google's image model directly. It needs one
+key, and nothing else.
+
+1. Go to [Google AI Studio](https://aistudio.google.com/apikey) and
+   create an API key. It starts `AIza`.
+2. Image generation is a paid model, so the key has to be attached to a
+   Google Cloud project with billing on. AI Studio offers to make one
+   while you create the key. A key without billing gets refused at the
+   first call, and the studio reports what Google said rather than
+   failing quietly.
+3. Paste it at `/studio` → **Social** → **Accounts**, under *Drawing the
+   slides*, and save. Accounts then shows **Drawing: Ready** with the
+   model name against it.
+
+It lives in the database, not in the deployment, for the same reason the
+platform credentials do: it is set once from a phone and should not cost
+a build. `GEMINI_API_KEY` in the Pages project still works as a
+fallback; a key set in the studio wins over it.
+
+The model is `gemini-3-pro-image`, which is Nano Banana Pro. Slides are
+asked for at `1K` and `4:5`, which comes back 1024×1280: inside TikTok's
+1080 cap, past Instagram's 320 floor, and the right ratio for both, so
+nothing needs cropping afterwards. `GEMINI_IMAGE_MODEL` moves it to
+another model without a code change.
+
+The brand kit is sent with every slide as pictures rather than as
+adjectives, up to ten of them, because a likeness the model can see
+beats any description of a face. Over and above the slide's own prompt,
+it is told the ratio, that the copy has to be spelled exactly and be
+legible at phone size, and that it must not invent a logo or a
+watermark, which image models do unprompted and which is the fastest way
+to look like a fake brand.
+
+`node tools/check_imagen.mjs` covers the request shape and every failure
+path without spending a call.
 
 ## What the platforms will take
 
@@ -535,6 +597,9 @@ that would post the wrong thing to a real audience.
 
 Nothing in the code. What is left is external and slower than the build:
 
+- **A Gemini API key with billing on**, or nothing draws. Accounts says
+  *Drawing: Ready* once it is in, and `draw` refuses with what is missing
+  rather than half-drawing a carousel.
 - **Meta App Review**, but only eventually: unapproved permissions can be
   granted to accounts holding a role on the app, so posting works today as
   its admin. Review is what another person's account would need.

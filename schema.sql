@@ -178,9 +178,11 @@ CREATE TABLE IF NOT EXISTS carousels (
   -- which of the five slots, and when it goes
   slot          INTEGER,
   scheduled_for TEXT,                       -- ISO 8601, UTC
-  -- Facebook is not posted to. Its multi-photo shape was never verified,
-  -- and a target that is always skipped is noise in every result.
-  targets       TEXT NOT NULL DEFAULT 'instagram,tiktok',
+  -- TikTok alone by default, because it is the one that is connected.
+  -- Instagram is added per carousel, or here, once it is. Facebook is not
+  -- posted to at all: its multi-photo shape was never verified, and a
+  -- target that is always skipped is noise in every result.
+  targets       TEXT NOT NULL DEFAULT 'tiktok',
   feedback      TEXT NOT NULL DEFAULT '',   -- a note to the agent about the whole thing
   qc            TEXT NOT NULL DEFAULT '',   -- JSON: the agent's own check
   posted_at     TEXT,

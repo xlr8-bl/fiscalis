@@ -1635,6 +1635,12 @@ function paintCarouselActions(host) {
   // hand your own pictures to
   const readyToApprove = ['review', 'changes', 'planned', 'generating'];
   const acts = [];
+  // drawing comes before approving: a carousel with slides still to draw
+  // cannot be approved anyway, and this is the button that fixes that
+  if (['planned', 'generating', 'changes', 'review'].includes(c.status)
+      && c.slides.some((s) => s.state !== 'ready')) {
+    acts.push(['Draw the slides', drawSlides]);
+  }
   if (readyToApprove.includes(c.status) && !blocked) {
     acts.push(['Approve it', () => move('approved')]);
   }
@@ -1714,6 +1720,30 @@ async function postNow() {
         : went.length ? `Posted to ${went.join(', ')}.` : 'Nothing went out.',
       failed.length ? 'err' : undefined
     );
+  } catch (e) { say(e.message, 'err'); }
+}
+
+/**
+ * Draw what is missing, with the brand kit, on the site.
+ *
+ * Slow — Nano Banana Pro draws one slide at a time and a carousel is
+ * several — so it says so rather than looking hung, and reports which
+ * slides failed rather than only that something did.
+ */
+async function drawSlides() {
+  const c = carousel;
+  const owed = c.slides.filter((s) => s.state !== 'ready').length;
+  say(`Drawing ${owed} slide${owed === 1 ? '' : 's'}. This takes a minute.`);
+  try {
+    const out = await api(`/carousels/${encodeURIComponent(c.slug)}/draw`,
+                          { method: 'POST', body: '{}' });
+    await viewCarousel(c.slug);
+    if (out.failed?.length) {
+      say(out.failed.map((f) => `Slide ${f.position + 1}: ${f.error}`).join(' · '), 'err');
+    } else {
+      say(`Drew ${out.drawn} of ${owed}, from ${out.references_used} reference${
+        out.references_used === 1 ? '' : 's'}.`);
+    }
   } catch (e) { say(e.message, 'err'); }
 }
 
@@ -1826,6 +1856,8 @@ async function viewAccounts() {
                      : `${ig.expires_in_days} days left, renews itself`,
                   ].filter(Boolean).join(' — ')
                 : '')}
+       ${line('Drawing', state.drawing?.ready,
+              state.drawing?.ready ? `Ready — ${escapeHtml(state.drawing.model)}` : '')}
        ${line('TikTok', tt.connected,
               tt.connected
                 ? [tt.username ? `@${tt.username}` : 'Connected',
@@ -1835,6 +1867,17 @@ async function viewAccounts() {
                   ].filter(Boolean).join(' — ')
                 : '')}
      </dl>
+
+     <h2 class="st-h2">Drawing the slides</h2>
+     <p class="st-note u-text-style-main">The site draws them itself, with Nano Banana
+       Pro and your brand kit, so Spark never has to carry pictures back and forth.
+       The key is from Google AI Studio.</p>
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="gem-key">Gemini API key</label>
+       <input class="st-input" id="gem-key" data-f="gemini_api_key"
+              placeholder="${state.drawing?.ready
+                ? `set in ${state.drawing.source}` : 'AIza…'}">
+     </div>
 
      <h2 class="st-h2">Instagram</h2>
      <p class="st-note u-text-style-main">A professional account — business or creator.

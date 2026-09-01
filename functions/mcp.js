@@ -37,6 +37,9 @@ import { runDue } from '../lib/publish.js';
 import { addReference } from '../lib/references.js';
 import { progress } from '../lib/progress.js';
 import { refreshStats } from '../lib/insights.js';
+import { drawCarousel } from '../lib/draw.js';
+import { apiKey } from '../lib/imagen.js';
+import { getSetting } from '../lib/tokens.js';
 
 const MAX_IMAGE = 25 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -90,7 +93,7 @@ async function runTool(name, args, env) {
           clean(args.caption, 2200),
           clean(args.hashtags, 8000),
           clean(Array.isArray(args.targets) ? args.targets.join(',') : args.targets)
-            || 'instagram,tiktok'
+            || 'tiktok'
         )
         .run();
       const row = await db.prepare('SELECT id FROM carousels WHERE slug = ?1').bind(slug).first();
@@ -249,6 +252,22 @@ async function runTool(name, args, env) {
           ? 'Anything that failed is back in Approved with the reason against it.'
           : 'Nothing was due.',
       });
+    }
+
+    case 'draw': {
+      const { key } = await apiKey(db, env, { getSetting });
+      if (!key) {
+        return toolFailed(
+          'No Gemini API key is set, so nothing can be drawn. A person sets it in '
+          + 'the studio under Social, Accounts.'
+        );
+      }
+      const out = await drawCarousel({ ...env, SITE }, clean(args.carousel, 120), {
+        key,
+        only: Array.isArray(args.positions) ? args.positions.map(Number) : null,
+      });
+      if (out.error) return toolFailed(out.error);
+      return toolResult(out);
     }
 
     case 'add_reference': {

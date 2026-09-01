@@ -215,7 +215,7 @@ await step('tools/list describes every tool with a schema', async () => {
   }
   const names = tools.map((t) => t.name).sort();
   is(names.join(','),
-     'add_reference,brief,deliver_slide,hand_over,list_carousels,performance,'
+     'add_reference,brief,deliver_slide,draw,hand_over,list_carousels,performance,'
      + 'plan_carousel,post_due,progress,queue,send_digest',
      'the tool set');
 });
@@ -357,6 +357,17 @@ await step('a URL that is not an image is refused', async () => {
     carousel: slug, position: 0, image_url: `${BASE}/book`,
   });
   is(r.body.result.isError, true, 'isError');
+});
+
+await step('draw says plainly when there is no key, rather than half-drawing', async () => {
+  // No Gemini key is set against this test deployment, and that is the
+  // point: the tool has to name what is missing and who sets it, because
+  // the agent has no way to see the studio and no authority to fix it.
+  const r = await call('draw', { carousel: slug });
+  is(r.body.result.isError, true, 'isError');
+  const said = r.body.result.content.map((c) => c.text).join(' ');
+  if (!/API key/i.test(said)) throw new Error(said);
+  if (!/studio/i.test(said)) throw new Error(`does not say who sets it: ${said}`);
 });
 
 await step('hand_over moves it to review', async () => {
