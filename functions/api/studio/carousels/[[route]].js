@@ -41,6 +41,7 @@ import {
   MIN_SLIDES, MAX_SLIDES, SLOTS,
 } from '../../../../lib/carousels.js';
 import { problems as platformProblems, INSTAGRAM } from '../../../../assets/js/platforms.js';
+import { problems as brandProblems } from '../../../../assets/js/brand.js';
 import { send as sendMail } from '../../../../lib/mail.js';
 import { gather, compose } from '../../../../lib/digest.js';
 
@@ -329,7 +330,7 @@ export async function onRequest({ request, env, params }) {
       // What the platforms themselves will refuse, checked here rather
       // than at the slot — a batch that fails at the moment it was due to
       // go out has already missed the slot, with nobody watching.
-      const wrong = platformProblems(existing);
+      const wrong = [...platformProblems(existing), ...brandProblems(existing)];
       if (wrong.length) return json({ error: wrong[0], problems: wrong }, 400);
     }
 

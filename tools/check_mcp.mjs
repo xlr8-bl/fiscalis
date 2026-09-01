@@ -241,6 +241,33 @@ await step('brief returns the pillars and the kit', async () => {
   if (!/topic/i.test(b.slides.note || '')) throw new Error('no length guidance');
 });
 
+await step('the brief hands over the voice, not just the pillars', async () => {
+  const b = structured(await call('brief'));
+  if (!b.voice?.person?.includes('never "we build"')) throw new Error('no person rule');
+  if (!b.voice?.price) throw new Error('no price rule');
+  if (!b.voice?.capability) throw new Error('no capability rule');
+  if (!b.research?.needs?.length) throw new Error('no evidence standard');
+  if (!b.self_check?.length) throw new Error('no self check');
+  is(b.signature, 'This is the kind of thing I fix.', 'the signature line');
+  if (!b.anchors?.length) throw new Error('no anchor rotation');
+});
+
+await step('off-voice copy is named the moment a plan is filed', async () => {
+  const out = structured(await call('plan_carousel', {
+    title: 'Our seamless solutions',
+    caption: 'DM me for pricing.',
+    slides: [{ kind: 'hook', copy: 'We deliver' }, { kind: 'cta', copy: 'b' }],
+  }));
+  made.push(out.slug);
+  const said = (out.fix_before_drawing || []).join(' ');
+  if (!said) throw new Error('filed an off-voice plan without a word');
+  for (const want of ['seamless', 'Our', 'DM me', 'pricing', 'We']) {
+    if (!said.includes(want)) throw new Error(`did not catch "${want}": ${said}`);
+  }
+  // it is still filed — losing a researched plan over a stray word is worse
+  is(out.status, 'planned', 'status');
+});
+
 let slug = '';
 
 await step('plan_carousel files a plan of the length it was given', async () => {

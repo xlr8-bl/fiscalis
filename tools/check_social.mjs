@@ -398,6 +398,24 @@ await step('a 4:5 JPEG passes every one of them', async () => {
   });
 });
 
+await step('off-voice copy cannot be approved either', async () => {
+  await person(`/carousels/${slug.value}`, {
+    method: 'PUT',
+    body: JSON.stringify({ caption: 'We deliver seamless solutions. DM me.' }),
+  });
+  const { status, body } = await person(`/carousels/${slug.value}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status: 'approved' }),
+  });
+  is(status, 400, 'status');
+  const said = (body.problems || []).join(' ');
+  if (!/seamless|DM me|plural/.test(said)) throw new Error(`unhelpful: ${said}`);
+  await person(`/carousels/${slug.value}`, {
+    method: 'PUT',
+    body: JSON.stringify({ caption: 'Eleven seconds. Most people are gone before it finishes.' }),
+  });
+});
+
 await step('a person approves it', async () => {
   const { status } = await person(`/carousels/${slug.value}/status`, {
     method: 'POST',

@@ -29,6 +29,7 @@ import {
   brief, agentQueue, getCarousel, listCarousels, setSlides,
   uniqueSlug, slugify, MIN_SLIDES, MAX_SLIDES,
 } from '../lib/carousels.js';
+import { problems as brandProblems } from '../assets/js/brand.js';
 import { send as sendMail } from '../lib/mail.js';
 import { gather, compose } from '../lib/digest.js';
 
@@ -89,12 +90,22 @@ async function runTool(name, args, env) {
         .run();
       const row = await db.prepare('SELECT id FROM carousels WHERE slug = ?1').bind(slug).first();
       const n = await setSlides(db, row.id, slides);
+
+      // Reported, not refused. The plan is filed either way, because
+      // losing a researched plan over a stray "we" is worse than fixing
+      // it — but approval will refuse it later, so saying so now is the
+      // cheapest moment to correct it, before any slide is drawn.
+      const offVoice = brandProblems(await getCarousel(db, slug));
+
       return toolResult({
         slug,
         status: 'planned',
         slides: n,
         cut: slides.length > MAX_SLIDES ? slides.length - MAX_SLIDES : 0,
-        next: 'deliver_slide for each position, then hand_over',
+        ...(offVoice.length ? { fix_before_drawing: offVoice } : {}),
+        next: offVoice.length
+          ? 'fix the copy above with plan_carousel again or a caption edit, then deliver_slide'
+          : 'deliver_slide for each position, then hand_over',
       });
     }
 
