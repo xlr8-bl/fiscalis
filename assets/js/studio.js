@@ -20,6 +20,7 @@
 import { renderMarkdown, countWords, readingMinutes } from '/assets/js/markdown.js?v=55a3dc7d00';
 import { attachEditor, attachAll } from '/assets/js/editor.js?v=ac48360925';
 import { choosePicture, uploadImage, fileSize, readImageSize } from '/assets/js/picker.js?v=f337b82d38';
+import { ask, sure } from '/assets/js/dialog.js?v=107f7a8978';
 import { problems as platformProblems } from '/assets/js/platforms.js?v=4b5476660c';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -82,8 +83,11 @@ function say(message, tone = '') {
 
 function showGate() { gate.hidden = false; app.hidden = true; }
 
-const confirmDiscard = () =>
-  !dirty || confirm('You have unsaved changes. Leave without saving?');
+const confirmDiscard = async () =>
+  !dirty || await sure('Leave without saving?', {
+    body: 'This article has changes that have not been saved.',
+    yes: 'Leave', danger: true,
+  });
 
 const pickImage = () => choosePicture({ api });
 
@@ -603,7 +607,9 @@ $$('[data-tab]').forEach((tab) =>
     refreshArticle();
   })
 );
-$('[data-back]').addEventListener('click', () => { if (confirmDiscard()) { dirty = false; location.hash = '#/journal'; } });
+$('[data-back]').addEventListener('click', async () => {
+  if (await confirmDiscard()) { dirty = false; location.hash = '#/journal'; }
+});
 $('[data-board-back]').addEventListener('click', () => { location.hash = '#/social'; });
 
 const articleValues = () => ({
@@ -642,7 +648,10 @@ $('[data-publish]').addEventListener('click', async () => {
     const a = (dirty || !current?.slug) ? await saveArticle({ quiet: true }) : current;
     if (!a) return;
     if (!a.description) { say('Add a description first — it is the search result.', 'err'); return; }
-    if (!confirm(`Publish "${a.title}"?\n\nIt goes live at /journal/${a.slug} and into the sitemap.`)) return;
+    if (!await sure(`Publish "${a.title}"?`, {
+      body: `It goes live at /journal/${a.slug} and into the sitemap.`,
+      yes: 'Publish',
+    })) return;
     await api(`/articles/${encodeURIComponent(a.slug)}/publish`, { method: 'POST' });
     const { article } = await api(`/articles/${encodeURIComponent(a.slug)}`);
     ({ articles } = await api('/articles'));
@@ -653,7 +662,9 @@ $('[data-publish]').addEventListener('click', async () => {
 });
 
 $('[data-unpublish]').addEventListener('click', async () => {
-  if (!confirm('Take this off the site? The URL will stop working.')) return;
+  if (!await sure('Take this off the site?', {
+    body: 'The URL will stop working.', yes: 'Take it down',
+  })) return;
   try {
     await api(`/articles/${encodeURIComponent(current.slug)}/unpublish`, { method: 'POST' });
     const { article } = await api(`/articles/${encodeURIComponent(current.slug)}`);
@@ -665,7 +676,9 @@ $('[data-unpublish]').addEventListener('click', async () => {
 });
 
 $('[data-delete]').addEventListener('click', async () => {
-  if (!confirm(`Delete "${current.title}" permanently? This cannot be undone.`)) return;
+  if (!await sure(`Delete "${current.title}"?`, {
+    body: 'Permanently. This cannot be undone.', yes: 'Delete', danger: true,
+  })) return;
   try {
     await api(`/articles/${encodeURIComponent(current.slug)}`, { method: 'DELETE' });
     clearDraft(`article:${current.slug}`);
@@ -710,7 +723,9 @@ $('[data-history-toggle]').addEventListener('click', async () => {
     $('[data-history-list]'),
     `/articles/${encodeURIComponent(current.slug)}/history`,
     async (r) => {
-      if (!confirm(`Put back the version from ${fmtWhen(r.created_at)}?\n\nWhat is there now is kept, so this can be undone.`)) return;
+      if (!await sure(`Put back the version from ${fmtWhen(r.created_at)}?`, {
+        body: 'What is there now is kept, so this can be undone.', yes: 'Restore',
+      })) return;
       try {
         await api(`/articles/${encodeURIComponent(current.slug)}/restore`, {
           method: 'POST', body: JSON.stringify({ id: r.id }),
@@ -1049,7 +1064,7 @@ $('[data-entry-hide]').addEventListener('click', () => setEntryStatus('draft'));
 $('[data-entry-show]').addEventListener('click', () => setEntryStatus('published'));
 
 $('[data-entry-delete]').addEventListener('click', async () => {
-  if (!confirm('Delete this permanently?')) return;
+  if (!await sure('Delete this permanently?', { yes: 'Delete', danger: true })) return;
   try {
     await api(`/content/${entryCtx.collection}/${encodeURIComponent(entryCtx.slug)}`, { method: 'DELETE' });
     clearDraft(entryDraftId());
@@ -1065,7 +1080,7 @@ $('[data-entry-history-toggle]').addEventListener('click', async () => {
   if (panel.hidden || !entryCtx?.slug) return;
   const base = `/content/${entryCtx.collection}/${encodeURIComponent(entryCtx.slug)}`;
   await loadHistory($('[data-entry-history-list]'), `${base}/history`, async (r) => {
-    if (!confirm(`Put back the version from ${fmtWhen(r.created_at)}?`)) return;
+    if (!await sure(`Put back the version from ${fmtWhen(r.created_at)}?`, { yes: 'Restore' })) return;
     try {
       await api(`${base}/restore`, { method: 'POST', body: JSON.stringify({ id: r.id }) });
       await viewEntry(entryCtx.collection, entryCtx.slug);
@@ -1196,7 +1211,10 @@ $('[data-media]').addEventListener('click', async (e) => {
     return;
   }
   if (e.target.closest('[data-remove]')) {
-    if (!confirm('Delete this picture?\n\nAnywhere already using it will show a broken image.')) return;
+    if (!await sure('Delete this picture?', {
+      body: 'Anywhere already using it will show a broken image.',
+      yes: 'Delete', danger: true,
+    })) return;
     try {
       await api(`/media/${key}`, { method: 'DELETE' });
       mediaItems = mediaItems.filter((m) => m.key !== key);
@@ -1313,7 +1331,10 @@ async function viewBoard() {
  * added; a plan filed by Spark is the same shape.
  */
 async function startByHand() {
-  const title = prompt('What is this one called?');
+  const title = await ask('What is this one called?', {
+    value: '', placeholder: 'The eleven second booking page',
+    yes: 'Start it',
+  });
   if (!title || !title.trim()) return;
   try {
     const out = await api('/carousels', {
@@ -1570,8 +1591,8 @@ const wordsUnsaved = () => {
 /** Only the moves the API will actually accept, so nothing offered fails. */
 function paintCarouselActions(host) {
   const c = carousel;
-  const move = async (status, ask) => {
-    if (ask && !confirm(ask)) return;
+  const move = async (status, warn) => {
+    if (warn && !await sure(warn.title, warn)) return;
     try {
       // A caption typed and not saved is still only in the box. Approving
       // would refuse on a caption the screen is plainly showing, which
@@ -1626,7 +1647,10 @@ function paintCarouselActions(host) {
     acts.push(['Unschedule', () => move('approved')]);
   }
   if (c.status !== 'posted' && c.status !== 'rejected') {
-    acts.push(['Kill it', () => move('rejected', 'Kill this carousel? Spark will stop proposing it.')]);
+    acts.push(['Kill it', () => move('rejected', {
+      title: 'Kill this carousel?', body: 'Spark will stop proposing it.',
+      yes: 'Kill it', danger: true,
+    })]);
   }
   if (c.status === 'rejected') acts.push(['Put it back', () => move('planned')]);
 
@@ -1731,7 +1755,10 @@ async function putPicture(position, file) {
  */
 async function askAgain(position) {
   const s = carousel.slides.find((x) => x.position === position);
-  const note = prompt(`What is wrong with slide ${position + 1}?`, s?.note || '');
+  const note = await ask(`What is wrong with slide ${position + 1}?`, {
+    value: s?.note || '', label: 'The note Spark gets',
+    placeholder: 'The type runs off the edge', yes: 'Ask again',
+  });
   if (note === null) return;
   try {
     await api(
@@ -1744,9 +1771,16 @@ async function askAgain(position) {
 }
 
 async function schedule() {
-  const slot = prompt('Which slot, 1 to 5?', String(carousel.slot || 1));
+  const slot = await ask('Which slot?', {
+    value: String(carousel.slot || 1), label: '1 to 5', yes: 'Next',
+  });
   if (slot === null) return;
-  const at = prompt('When? YYYY-MM-DDTHH:MM:SSZ, or leave blank.', carousel.scheduled_for || '');
+  const at = await ask('When should it go?', {
+    value: carousel.scheduled_for || '',
+    label: 'Leave it blank to make it due now',
+    placeholder: 'YYYY-MM-DDTHH:MM:SSZ',
+    yes: 'Schedule it',
+  });
   if (at === null) return;
   try {
     await api(`/carousels/${encodeURIComponent(carousel.slug)}/schedule`, {
@@ -2022,11 +2056,32 @@ async function route() {
   }
 }
 
-window.addEventListener('hashchange', () => {
-  // leaving a half-written article should ask, and stay put if refused
-  if (!confirmDiscard()) { history.forward(); return; }
+/*
+ * Leaving a half-written article should ask, and stay put if refused.
+ *
+ * The old guard called history.forward(), which undoes a Back — not the
+ * link click that causes this most of the time. And now that the question
+ * is a promise rather than a blocking confirm(), the address has already
+ * changed by the time it is asked: so put it back first, ask, and only
+ * then go. `restoring` is how that put-back is told apart from a real
+ * navigation, since setting the hash fires this handler again.
+ */
+let restoring = false;
+
+window.addEventListener('hashchange', async (event) => {
+  if (restoring) { restoring = false; return; }
+  if (!dirty) { route(); return; }
+
+  const leaving = location.hash;
+  const staying = new URL(event.oldURL).hash || '#/';
+  if (staying !== leaving) {
+    restoring = true;
+    location.hash = staying;
+  }
+
+  if (!await confirmDiscard()) return;
   dirty = false;
-  route();
+  location.hash = leaving;
 });
 
 window.addEventListener('beforeunload', (e) => {

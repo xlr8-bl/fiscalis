@@ -19,6 +19,33 @@ body.st-body {
   font-family: var(--_typography---font--primary-family, sans-serif);
   min-height: 100svh;
 }
+
+/* ------------------------------------------------------------- contrast --
+ * Measured, not eyeballed. Against the page (#080807):
+ *
+ *   beige-100  16.30:1   body text
+ *   black-50    6.24:1   secondary text
+ *   black-100   3.44:1   was tertiary text — fails for anything body-sized
+ *   black-200   2.40:1   was placeholders — effectively invisible
+ *
+ * And the surfaces were worse than the text: the field background and the
+ * page differed by 1.08:1, which is not a step, it is a rounding error. A
+ * form you cannot see the edges of reads as no design at all.
+ *
+ * So: one lift for the dim text, a surface ladder you can actually see,
+ * and a line at 3.44:1 — the old tertiary text colour, which was too dark
+ * to read and is exactly right as a border.
+ */
+.st-body,
+.st-gate {
+  --st-panel: #1a1917;      /* cards, wells, the picker           */
+  --st-field: #232120;      /* inputs, 1.25:1 — the border does the work */
+  --st-line:  #6b645c;      /* 3.44:1 on the page, 2.75:1 on a field */
+  --st-line-soft: #393632;  /* separations inside a panel          */
+  --st-dim:   #938f8a;      /* 6.24:1  secondary                   */
+  --st-faint: #847d73;      /* 4.93:1  labels, counts, placeholders */
+}
+
 .st-body [hidden] { display: none !important; }
 
 /* the display heading that opens every section on the site */
@@ -69,7 +96,7 @@ body.st-body {
 }
 .st-brand { width: 7.5rem; color: var(--swatch--beige-100, #e8e8e3); display: block; flex: none; }
 .st-bar .st-say { margin-left: auto; text-align: right; }
-.st-who { color: var(--swatch--black-100, #6b645c); flex: none; }
+.st-who { color: var(--st-faint, #847d73); flex: none; }
 
 /* two bars that become a cross — no icon font, no library */
 .st-menu-btn {
@@ -172,7 +199,7 @@ body.st-body {
   gap: 1.5rem;
   flex-wrap: wrap;
 }
-.st-crumb { margin: 0 0 .7rem; color: var(--swatch--black-100, #6b645c); }
+.st-crumb { margin: 0 0 .7rem; color: var(--st-faint, #847d73); }
 .st-crumb .st-link { color: var(--swatch--black-50, #938f8a); }
 .st-crumb .st-link:hover { color: var(--swatch--beige-100, #e8e8e3); }
 .st-lede {
@@ -199,7 +226,7 @@ body.st-body {
   font-size: clamp(1.15rem, 1.8vw, 1.5rem);
   letter-spacing: -.015em;
 }
-.st-group__count { color: var(--swatch--black-100, #6b645c); font-weight: 400; }
+.st-group__count { color: var(--st-faint, #847d73); font-weight: 400; }
 .st-group > .st-note { margin: -.8rem 0 1.8rem; max-width: 44ch; }
 
 .st-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-flow: column; gap: 1.5rem; }
@@ -265,7 +292,7 @@ body.st-body {
   letter-spacing: -.025em;
 }
 .st-title:focus { outline: none; }
-.st-title::placeholder { color: var(--swatch--black-200, #524d47); }
+.st-title::placeholder { color: var(--st-faint, #847d73); }
 
 .st-meta {
   margin: 1rem 0 clamp(2rem, 5vh, 3rem);
@@ -281,7 +308,7 @@ body.st-body {
 .st-pair { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1.2rem, 3vw, 2.5rem); }
 
 .st-label { display: block; margin-bottom: .35rem; color: var(--swatch--beige-100, #e8e8e3); }
-.st-note { margin: .5rem 0 0; color: var(--swatch--black-100, #6b645c); }
+.st-note { margin: .5rem 0 0; color: var(--st-faint, #847d73); }
 .st-note b { color: var(--swatch--black-50, #938f8a); font-weight: 500; }
 .st-note[data-tone="warn"] { color: var(--swatch--beige-400, #bfbfb1); }
 
@@ -291,23 +318,26 @@ body.st-body {
   box-sizing: border-box;
   margin-top: .55rem;
   padding: .75rem .85rem;
-  background: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 4%, transparent);
+  /* a fill you can see, and an edge at 3.44:1 against the page. The old
+     1% tint left the field and the page differing by 1.08:1 — the form
+     read as floating text with no boxes at all. */
+  background: var(--st-field, #232120);
+  border: 1px solid var(--st-line, #6b645c);
+  border-radius: 2px;
   color: var(--swatch--beige-100, #e8e8e3);
-  border: 0;
-  border-radius: var(--radius--small, .15rem);
-  font-family: inherit;
-  font-size: 1rem;
-  line-height: 1.5;
-  transition: background 220ms ease, box-shadow 220ms ease;
+  font: inherit;
+  transition: border-color 260ms ease, background-color 260ms ease;
 }
+.st-input:focus { outline: none; }
+.st-input:focus-visible,
 .st-input:focus {
-  outline: none;
-  background: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 8%, transparent);
-  box-shadow: inset 0 -1px 0 0 var(--swatch--beige-100, #e8e8e3);
+  border-color: var(--swatch--beige-100, #e8e8e3);
+  background: var(--st-panel, #1a1917);
+  box-shadow: 0 0 0 1px var(--swatch--beige-100, #e8e8e3);
 }
 .st-input:disabled { opacity: .45; cursor: not-allowed; }
 .st-input--area { resize: vertical; }
-.st-input::placeholder { color: var(--swatch--black-100, #6b645c); }
+.st-input::placeholder { color: var(--st-faint, #847d73); }
 
 .st-writing {
   min-height: 30rem;
@@ -558,7 +588,7 @@ body.st-body {
   margin: 0 0 2.2rem;
 }
 .st-search { margin-top: 0; width: min(22rem, 100%); flex: 1 1 14rem; }
-.st-toggle__n { color: var(--swatch--black-100, #6b645c); font-variant-numeric: tabular-nums; }
+.st-toggle__n { color: var(--st-faint, #847d73); font-variant-numeric: tabular-nums; }
 .st-toggle__btn.is-on .st-toggle__n { color: var(--swatch--black-50, #938f8a); }
 
 /* --- a row that can be acted on ----------------------------------- */
@@ -733,7 +763,8 @@ body.st-body {
   aspect-ratio: 4 / 5;
   display: grid;
   place-items: center;
-  background: var(--swatch--card-bg, #14130f);
+  background: var(--st-panel, #1a1917);
+  border: 1px solid var(--st-line-soft, #393632);
   overflow: hidden;
 }
 .st-slide__frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -758,10 +789,20 @@ body.st-body {
   margin: 0 0 clamp(1.8rem, 4vh, 2.6rem);
   display: flex;
   flex-wrap: wrap;
-  gap: .4rem 2.6rem;
+  gap: 1rem 2.6rem;
+  /* it is the summary of the screen, so it gets a surface. Separation by
+     space alone stopped working once there were five facts on one line. */
+  padding: 1rem 1.15rem;
+  background: var(--st-panel, #1a1917);
+  border: 1px solid var(--st-line-soft, #393632);
+  border-radius: 2px;
 }
 .st-facts > div { display: flex; flex-flow: column; gap: .1rem; }
-.st-facts dt { color: var(--swatch--black-100, #6b645c); font-size: .82rem; }
+.st-facts dt {
+  color: var(--st-faint, #847d73);
+  font-size: .82rem;
+  letter-spacing: .01em;
+}
 .st-facts dd { margin: 0; color: var(--swatch--beige-100, #e8e8e3); }
 
 .st-acts { display: flex; flex-wrap: wrap; gap: 1.4rem; margin-bottom: clamp(1.8rem, 4vh, 2.6rem); }
@@ -783,7 +824,7 @@ body.st-body {
 /* one platform's numbers, under the totals */
 .st-h3 {
   margin: 1.4rem 0 .4rem;
-  color: var(--swatch--black-100, #6b645c);
+  color: var(--st-faint, #847d73);
   font-size: .82rem;
   font-weight: 500;
   text-transform: lowercase;
@@ -792,3 +833,110 @@ body.st-body {
 /* the topic sits above the caption's own label, so without this the two
    read as one run-on line */
 .st-note--topic { margin-bottom: clamp(1.8rem, 4vh, 2.6rem); }
+
+/* ==================================================================
+   Asking a question, in the studio's own language.
+
+   Replaces prompt() and confirm(). Those are the browser's chrome — a
+   grey slab with the origin printed on it, a system font, and the OS's
+   button order — and on a phone they read as a warning from the browser
+   rather than a question from the page.
+
+   A native <dialog>, so the focus trap, the top layer, Escape and the
+   backdrop are the browser's problem rather than ours.
+   ================================================================== */
+.st-ask {
+  width: min(28rem, 92vw);
+  padding: clamp(1.3rem, 4vw, 1.9rem);
+  border: 1px solid var(--st-line, #6b645c);
+  border-radius: 2px;
+  background: var(--st-panel, #1a1917);
+  color: var(--swatch--beige-100, #e8e8e3);
+  font-family: var(--_typography---font--primary-family, sans-serif);
+}
+.st-ask::backdrop { background: color-mix(in srgb, #000 72%, transparent); }
+.st-ask__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -.01em;
+}
+.st-ask .st-note { margin-top: .6rem; }
+.st-ask .st-field { margin-top: 1.2rem; }
+.st-ask__acts {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1.4rem;
+  margin-top: 1.6rem;
+}
+
+/* The one filled control in the studio, and it earns it: in a modal the
+   affirmative action has to be findable without reading, which two text
+   links side by side are not. */
+.st-btn {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  padding: .62rem 1.15rem;
+  border-radius: 2px;
+  background: var(--swatch--beige-100, #e8e8e3);
+  color: var(--swatch--black-400, #080807);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 260ms ease;
+}
+.st-btn:hover { opacity: .86; }
+.st-btn:focus-visible { outline: 2px solid var(--swatch--beige-100, #e8e8e3); outline-offset: .25rem; }
+/* destructive keeps the fill — a wrecking action that looks like a link
+   is a wrecking action people press by mistake */
+.st-btn.is-danger { background: var(--swatch--beige-400, #bfbfb1); }
+
+@media (max-width: 480px) {
+  .st-ask__acts { gap: 1rem; }
+  .st-btn { padding: .7rem 1.1rem; }
+}
+
+/* ==================================================================
+   Vertical rhythm.
+
+   Separation here is by space rather than by rules, which is the site's
+   way and worth keeping — but it only works if the space is actually
+   there. A .st-note carries no bottom margin and a .st-field carries no
+   top one, so a paragraph followed by a field had the label sitting on
+   the last line of the prose above it. Every form in the studio read as
+   one run-on block.
+
+   These are adjacency rules rather than changes to the base margins, so
+   nothing that was already spaced correctly moves.
+   ================================================================== */
+.st-note + .st-field,
+.st-note + .st-acts,
+.st-note + .st-check,
+.st-note + .st-h2,
+p + .st-field,
+p + .st-acts,
+p + .st-check { margin-top: 1.5rem; }
+
+/* a section heading that is not the first thing on the screen opens a
+   new section, and needs to look like it */
+.st-h2:not(:first-child) { margin-top: clamp(2.2rem, 5vh, 3.4rem); }
+.st-h3:not(:first-child) { margin-top: 1.8rem; }
+
+/* the note explaining a field belongs to it, not to the next one */
+.st-field + .st-note { margin-top: -1.4rem; margin-bottom: clamp(1.8rem, 4vh, 2.6rem); }
+.st-check + .st-note { margin-top: .1rem; }
+
+/* the lede, at the size the list view already decided on.
+   The display heading is the site's language and stays; four lines of
+   grey at h4 under it is not a lede, it is a paragraph wearing a hat. */
+.st-lede {
+  font-family: var(--_typography---font--primary-family, sans-serif);
+  font-size: 1.02rem;
+  line-height: 1.55;
+  letter-spacing: 0;
+  font-weight: 400;
+  max-width: 56ch;
+}

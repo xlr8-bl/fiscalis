@@ -47,11 +47,56 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
 
 const problems = [];
 const IGNORE = /401 \(Unauthorized\)/;   // /me before sign-in, by design
-/* A prompt gets whatever the step queued for it, and OK otherwise. One
-   handler, because a second one racing the first throws "already
-   handled" rather than answering. */
-const answers = [];
-page.on('dialog', (d) => d.accept(answers.length ? answers.shift() : ''));
+/*
+ * The studio asks its questions in its own <dialog> rather than through
+ * prompt() and confirm(), so driving it is a matter of filling a field
+ * and pressing a button — the same thing a person does.
+ *
+ * A native handler stays registered as a safety net: if a prompt() ever
+ * creeps back in, the run should not hang on it, it should fail on the
+ * assertion that no native dialog appeared.
+ */
+let natives = 0;
+page.on('dialog', (d) => {
+  // beforeunload is the browser's own unload prompt and cannot be replaced
+  // by a page — only prompt/confirm/alert are the ones this got rid of
+  if (d.type() !== 'beforeunload') natives += 1;
+  d.accept();
+});
+
+/**
+ * Go to a screen, answering the leave-without-saving question if the one
+ * being left has unsaved changes. A person meets the same dialog; the
+ * suite is not allowed a private door around it.
+ */
+async function go(hash) {
+  await page.evaluate((h) => { location.hash = h; }, hash);
+  const asked = await page
+    .waitForSelector('.st-ask[open]', { timeout: 1200 })
+    .catch(() => null);
+  if (asked) {
+    await page.click('.st-ask [data-yes]');
+    await page.waitForFunction(() => !document.querySelector('.st-ask[open]'), null, { timeout: 8000 });
+  }
+}
+
+/** Answer the studio's dialog: text for a field, or nothing to confirm. */
+async function answer(text = null) {
+  await page.waitForSelector('.st-ask[open]', { timeout: 8000 });
+  // One <dialog> node, reused. So "it closed" cannot be waited for as "no
+  // open dialog" — a second question reopens the same element and that
+  // wait never resolves. What settles is the question: gone, or different.
+  const asked = await page.textContent('.st-ask [data-title]');
+  if (text !== null) await page.fill('.st-ask [data-input]', text);
+  await page.click('.st-ask [data-yes]');
+  await page.waitForFunction(
+    (was) => {
+      const d = document.querySelector('.st-ask');
+      return !d || !d.open || d.querySelector('[data-title]').textContent !== was;
+    },
+    asked, { timeout: 8000 }
+  );
+}
 page.on('console', (m) => {
   if (m.type() === 'error' && !IGNORE.test(m.text())) problems.push('console: ' + m.text());
 });
@@ -214,7 +259,7 @@ await step('history panel opens', async () => {
 await page.screenshot({ path: shot('05-history'), fullPage: false });
 
 await step('collection list has reorder controls', async () => {
-  await page.evaluate(() => { location.hash = '#/site/services'; });
+  await go('#/site/services');
   await page.waitForSelector('[data-view="list"]:not([hidden])');
   await page.waitForTimeout(300);
   const up = await page.$$('[data-act="up"]');
@@ -236,7 +281,7 @@ await step('an entry form builds, with a toolbar and a picker', async () => {
 await page.screenshot({ path: shot('07-entry'), fullPage: true });
 
 await step('media field offers a picker', async () => {
-  await page.evaluate(() => { location.hash = '#/site/projects'; });
+  await go('#/site/projects');
   await page.waitForSelector('[data-view="list"]:not([hidden])');
   await page.waitForTimeout(300);
   await page.click('[data-list-body] .st-row');
@@ -256,7 +301,7 @@ await step('picker closes', async () => {
 });
 
 await step('settings form', async () => {
-  await page.evaluate(() => { location.hash = '#/settings/Hero'; });
+  await go('#/settings/Hero');
   await page.waitForSelector('[data-view="entry"]:not([hidden])');
   await page.waitForTimeout(300);
   const inputs = await page.$$('[data-entry-form] [data-field]');
@@ -265,7 +310,7 @@ await step('settings form', async () => {
 await page.screenshot({ path: shot('09-settings'), fullPage: true });
 
 await step('media library', async () => {
-  await page.evaluate(() => { location.hash = '#/media'; });
+  await go('#/media');
   await page.waitForSelector('[data-view="media"]:not([hidden])');
   await page.waitForTimeout(300);
 });
@@ -278,7 +323,7 @@ await page.screenshot({ path: shot('10-media'), fullPage: true });
 
 let picKey = null;
 await step('a picture goes in through the library', async () => {
-  await page.evaluate(() => { location.hash = '#/media'; });
+  await go('#/media');
   await page.waitForSelector('[data-view="media"]:not([hidden])');
   const before = await page.evaluate(async () =>
     (await (await fetch('/api/studio/media', { credentials: 'same-origin' })).json())
@@ -324,7 +369,7 @@ await step('a description saves', async () => {
 
 let picSlug = null;
 await step('the picture button puts it in an article', async () => {
-  await page.evaluate(() => { location.hash = '#/journal/new'; });
+  await go('#/journal/new');
   await page.waitForSelector('[data-view="article"]:not([hidden])');
   await page.fill('[data-f="title"]', 'A picture test');
   await page.fill('[data-f="description"]', 'Proving an image survives the round trip.');
@@ -356,6 +401,7 @@ await step('it saves and publishes', async () => {
   picSlug = await page.inputValue('[data-f="slug"]');
   if (!picSlug) throw new Error('no slug after save');
   await page.click('[data-publish]');
+  await answer();          // publishing asks first, in the studio's own dialog
   await page.waitForTimeout(1500);
 });
 
@@ -372,7 +418,7 @@ await step('the public page renders a figure with width and height', async () =>
 /* ------------------------------------------------------- guards and drafts */
 
 await step('a required field blocks the save and says which', async () => {
-  await page.evaluate(() => { location.hash = '#/site/testimonials/new'; });
+  await go('#/site/testimonials/new');
   await page.waitForSelector('[data-view="entry"]:not([hidden])');
   await page.waitForTimeout(300);
   await page.click('[data-entry-save]');
@@ -384,7 +430,7 @@ await step('a required field blocks the save and says which', async () => {
 });
 
 await step('unsaved typing is offered back after a reload', async () => {
-  await page.evaluate(() => { location.hash = '#/journal/new'; });
+  await go('#/journal/new');
   await page.waitForSelector('[data-view="article"]:not([hidden])');
   await page.fill('[data-f="title"]', 'Half a thought');
   await page.waitForTimeout(1000);            // past the debounce
@@ -406,9 +452,9 @@ await step('unsaved typing is offered back after a reload', async () => {
 await page.screenshot({ path: shot('13-recover'), fullPage: false });
 
 await step('and discarding it clears the offer', async () => {
-  await page.evaluate(() => { location.hash = '#/'; });
+  await go('#/');
   await page.waitForSelector('[data-view="home"]:not([hidden])');
-  await page.evaluate(() => { location.hash = '#/journal/new'; });
+  await go('#/journal/new');
   await page.waitForSelector('[data-view="article"]:not([hidden])');
   const btn = await page.$('[data-discard]');
   if (btn) await btn.click();
@@ -424,10 +470,13 @@ await step('and discarding it clears the offer', async () => {
  * way through, by your own hand.
  */
 await step('a carousel can be started by hand', async () => {
-  answers.push('Eleven seconds');
   await page.goto(BASE + '/studio#/social', { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('[data-board-new]');
+  // the button is static markup; its handler is attached by viewBoard once
+  // the board has loaded, so waiting for the button is waiting for nothing.
+  // The tabs are rendered by that same pass, so they are the real signal.
+  await page.waitForSelector('[data-board-tabs] button', { timeout: 15000 });
   await page.click('[data-board-new]');
+  await answer('Eleven seconds');
   await page.waitForSelector('[data-view="carousel"]:not([hidden])', { timeout: 15000 });
   byHand.slug = decodeURIComponent(new URL(page.url()).hash.split('/').pop());
   if (!byHand.slug) throw new Error('no slug in the hash');
@@ -483,8 +532,9 @@ await step('and it can be approved without going through review', async () => {
 });
 
 await step('a slot puts it in the poster\'s way', async () => {
-  answers.push('1', '2020-01-01T00:00:00Z');
   await page.click('[data-car-acts] .st-link');
+  await answer('1');
+  await answer('2020-01-01T00:00:00Z');
   await page.waitForFunction(
     () => /Scheduled/.test(document.querySelector('.st-facts')?.textContent || ''), null, { timeout: 15000 }
   );
@@ -502,6 +552,11 @@ await step('a past-due carousel says so, and offers the run', async () => {
   if (!notes.some((t) => /Nothing posts on its own/.test(t))) {
     throw new Error(`said: ${notes.join(' | ') || 'nothing'}`);
   }
+});
+
+await step('no browser prompt or confirm was used anywhere', async () => {
+  // the whole point of the change: these screens ask their own questions
+  if (natives) throw new Error(`${natives} native dialog(s) appeared`);
 });
 
 await step('what this run made is cleaned up', async () => {
