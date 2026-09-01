@@ -293,11 +293,29 @@ An unaudited client **can** direct-post — the content is restricted to
 private viewing until the audit passes. So the automation runs end to end
 from day one; what the audit buys is the posts being public.
 
-That restriction is about the *app*, not the account: a public TikTok
-account still lists `PUBLIC_TO_EVERYONE` among its privacy options, and
-sending it from an unaudited client is refused anyway. Nothing in the API
-says which side of the audit an app is on, so the studio has a switch for
-it under Social → Accounts, off until the audit actually passes.
+**The unaudited rule has two halves**, and the second one is easy to miss
+because it is not about the post at all:
+
+> Unaudited API Clients can only post contents in `SELF_ONLY` viewership.
+>
+> All user accounts using the API client to post must be set to private
+> at the time of posting.
+
+So `SELF_ONLY` on the post is necessary and not sufficient — posting to a
+**public** account is refused however private the post claims to be, with
+`unaudited_client_can_only_post_to_private_accounts`. Set the TikTok
+account itself to private (Settings and privacy → Privacy → Private
+account) until the audit clears. `creator_info` gives the account away —
+only a public one is offered `PUBLIC_TO_EVERYONE` — so this is caught
+before the posting call is spent, and the result says which setting to go
+and change.
+
+There is also a cap of five users posting per 24 hours while unaudited,
+which one operator will not reach.
+
+Nothing in the API says which side of the audit an app is on, so the
+studio has a switch for it under Social → Accounts, off until the audit
+actually passes.
 
 ### The size to draw at
 

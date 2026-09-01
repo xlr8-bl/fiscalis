@@ -246,13 +246,40 @@ await step('an audited app posts at the level it was told to', async () => {
   is(sent[1].body.post_info.privacy_level, 'PUBLIC_TO_EVERYONE', 'privacy level');
 });
 
-await step('an unaudited app posts SELF_ONLY even when public is on offer', async () => {
-  const sent = stub([['creator_info/query', CREATOR], ['content/init', OK_INIT]]);
-  const out = await post({ audited: false });
-  // the account offers PUBLIC_TO_EVERYONE; the app is what is restricted
-  is(sent[1].body.post_info.privacy_level, 'SELF_ONLY', 'privacy level');
+await step('an unaudited app says the post is private, in the result', async () => {
+  const priv = { ...CREATOR, data: { ...CREATOR.data, privacy_level_options: PRIVATE_ACCOUNT } };
+  const out = await post({ audited: false, ...(stub([['creator_info/query', priv], ['content/init', OK_INIT]]), {}) });
   is(out.privacy, 'SELF_ONLY', 'reported back');
   if (!/only you can see it/.test(out.note)) throw new Error(out.note);
+});
+
+await step('an unaudited app will not post to a public account', async () => {
+  // "All user accounts using the API client to post must be set to
+  // private at the time of posting." SELF_ONLY on the post is not
+  // enough; TikTok answers unaudited_client_can_only_post_to_private_accounts
+  // and the code alone does not say what to go and change.
+  const sent = stub([['creator_info/query', CREATOR], ['content/init', OK_INIT]]);
+  const out = await post({ audited: false });
+  is(out.ok, false, 'ok');
+  if (!/private/i.test(out.error)) throw new Error(out.error);
+  if (!/Settings and privacy/.test(out.error)) throw new Error(`no fix named: ${out.error}`);
+  // and it never spent the posting call to find out
+  is(sent.length, 1, 'calls made');
+});
+
+await step('a private account is posted to, at SELF_ONLY', async () => {
+  const priv = { ...CREATOR, data: { ...CREATOR.data, privacy_level_options: PRIVATE_ACCOUNT } };
+  const sent = stub([['creator_info/query', priv], ['content/init', OK_INIT]]);
+  const out = await post({ audited: false });
+  is(out.ok, true, 'ok');
+  is(sent[1].body.post_info.privacy_level, 'SELF_ONLY', 'privacy level');
+});
+
+await step('an audited app is not held to the private-account rule', async () => {
+  const sent = stub([['creator_info/query', CREATOR], ['content/init', OK_INIT]]);
+  const out = await post({ audited: true });
+  is(out.ok, true, 'ok');
+  is(sent[1].body.post_info.privacy_level, 'PUBLIC_TO_EVERYONE', 'privacy level');
 });
 
 await step('a creator who turned comments off keeps them off', async () => {
