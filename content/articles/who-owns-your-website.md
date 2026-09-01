@@ -9,7 +9,7 @@ Somebody built your site. You paid the invoice. You assume you own it.
 
 Ownership of a website is four separate things, and it is entirely possible to
 own none of them while believing you own all four. People usually discover this
-at the worst moment — when they want to change developer, or when the developer
+at the worst moment, when they want to change developer, or when the developer
 stops answering.
 
 ## The four things
@@ -24,7 +24,7 @@ disappear, recovering it ranges from tedious to genuinely not possible.
 
 **Check it:** look up your domain on any WHOIS service (`who.is`, or your
 registrar's lookup). Many registrations are privacy-protected, which hides the
-name — in that case log into the registrar directly. If you cannot log in
+name, in which case log into the registrar directly. If you cannot log in
 because you have no account, that is your answer.
 
 **What you want:** the domain registered to you or your company, in an account
@@ -35,7 +35,7 @@ you can log into, with your card on it.
 Where does the site actually live as source? A GitHub account, a hosting panel,
 a page-builder account, or a folder on somebody's laptop.
 
-**Check it:** ask, plainly — "if I wanted to move to another developer next
+**Check it:** ask, plainly: "if I wanted to move to another developer next
 month, what exactly would you hand over?" A straightforward answer is a good
 sign. Vagueness is the finding.
 
@@ -86,8 +86,8 @@ Ask politely for a transfer. Domain transfers are a standard process: they
 unlock it and give you an authorisation code, you initiate at your own
 registrar. It takes a few days.
 
-If that goes nowhere, escalate calmly to the registrar — most have a dispute
-process — and be aware there are formal arbitration routes for domain disputes.
+If that goes nowhere, escalate calmly to the registrar. Most have a dispute
+process, and there are formal arbitration routes for domain disputes.
 They are slow and cost money, which is exactly why doing this check while the
 relationship is good is worth twenty minutes.
 

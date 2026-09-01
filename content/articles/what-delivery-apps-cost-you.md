@@ -34,7 +34,7 @@ they drift.
 your real peak is, which postcodes are worth expanding into. You get the
 platform's dashboard, which shows you what the platform wants you to see.
 
-**Your pricing gets pulled around.** Many agreements include price parity — you
+**Your pricing gets pulled around.** Many agreements include price parity, so you
 may not undercut the app on your own channel. So the mechanism that would move
 customers to a cheaper-for-you route is contractually closed.
 
@@ -53,7 +53,7 @@ Do not guess. Work these four numbers out.
 2. **Total commission per month.** Orders × value × rate.
 3. **What direct ordering would cost.** Card processing is roughly 1.5–2.5%. A
    hosted ordering system is typically a modest monthly fee, or a one-off build.
-   Add delivery if you are not doing it yourself — either your own driver or a
+   Add delivery if you are not doing it yourself, using either your own driver or a
    courier on a per-drop rate, which is usually far below platform commission.
 4. **What proportion would actually switch.** Be pessimistic. New customers who
    found you on the app will keep using the app. Regulars will switch if you
@@ -78,7 +78,7 @@ acquisition cost, which is what it is.
 **Own the repeat business.** Once someone has ordered, the job is to move the
 *second* order direct.
 
-- Put a card in every bag. Not a flyer — a card with a specific reason: a
+- Put a card in every bag. Not a flyer. A card with a specific reason: a
   discount that only works on your site, or a dish that is only available direct.
 - Make your own ordering genuinely easier than the app. If it is worse, nobody
   moves, and you will have proven the wrong thing.
@@ -96,4 +96,4 @@ The bar: menu loads in under two seconds on a phone, no account required to
 order, address entry that autocompletes, card payment through Apple Pay or
 Google Pay in one tap, and an honest time estimate. Anything less and your
 regulars will go back to the app, and you will conclude direct ordering does not
-work — when what did not work was that particular checkout.
+work, when what did not work was that particular checkout.

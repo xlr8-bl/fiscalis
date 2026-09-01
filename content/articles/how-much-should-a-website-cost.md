@@ -40,20 +40,20 @@ someone to call. A price with no ongoing arrangement means you own all of that.
 
 These are ranges, not quotes, and they move with your market.
 
-**Template, self-assembled — the cost of the subscription.** Squarespace, Wix,
+**Template, self-assembled: the cost of the subscription.** Squarespace, Wix,
 Shopify with an off-the-shelf theme. You do the work. This is genuinely the
 right answer for a business that is testing an idea or has no budget yet.
 
-**Template, professionally set up — low hundreds to low thousands.** Someone
+**Template, professionally set up: low hundreds to low thousands.** Someone
 picks a good theme, configures it properly, gets your content in, and makes it
 fast. You end up with something better than most DIY attempts for a fraction of
 a custom build.
 
-**Custom design, custom build — several thousand upward.** Somebody designs for
+**Custom design, custom build: several thousand upward.** Somebody designs for
 your business specifically and writes the site. Reasonable for a business where
 the website is a main route to customers.
 
-**Custom with real functionality — considerably more.** Bookings, payments,
+**Custom with real functionality: considerably more.** Bookings, payments,
 integrations, accounts. The cost is in the logic and the testing, not the
 pages.
 
@@ -66,7 +66,7 @@ Ask every quote the same five things. The answers separate them faster than the
 price does.
 
 1. **Who writes the content, and is it in this price?**
-2. **What happens if I need to change a price or add a page — do I do it, or do
+2. **What happens if I need to change a price or add a page? Do I do it, or do
    I call you, and what does calling you cost?**
 3. **Who owns the code and the domain when we are finished?**
 4. **What is the ongoing monthly cost, including hosting and any plugin or
@@ -88,7 +88,7 @@ between a project that lands and one that becomes a running sore.
 ## When the honest answer is "don't"
 
 If your customers find you entirely through word of mouth, or an established
-marketplace, or foot traffic, and your website is a formality — say so, and buy
+marketplace, or foot traffic, and your website is a formality, say so and buy
 the cheapest thing that looks respectable and loads fast.
 
 Not every business needs a custom site. Every business does need to know which

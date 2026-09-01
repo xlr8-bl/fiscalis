@@ -21,7 +21,7 @@ There are only a handful of real culprits, and they are almost always the same
 ones.
 
 **Images that were never resized.** Someone uploaded a photo straight off a
-phone camera — 4000 pixels wide, four megabytes — into a slot that displays it
+phone camera, 4000 pixels wide and four megabytes, into a slot that displays it
 at 400 pixels. The browser downloads all four megabytes, then throws away 90%
 of it. Five of those on a page is twenty megabytes of transfer for something
 that should have been under one.
@@ -63,13 +63,13 @@ of them in the first place.
 Stop testing on your own machine. Two free tools give you the truth:
 
 1. **PageSpeed Insights** (pagespeed.web.dev). Paste your URL. Read the *field
-   data* at the top, not the lab score underneath — field data is real visits
+   data* at the top, not the lab score underneath. Field data is real visits
    from real people on real phones. The lab score is a simulation.
 2. **WebPageTest** (webpagetest.org). Set the location near your customers, the
    device to a mid-range Android, and the connection to 4G. Then watch the
    filmstrip. You will see exactly what a visitor sees at each second.
 
-The number that matters most is **Largest Contentful Paint** — how long until
+The number that matters most is **Largest Contentful Paint**: how long until
 the biggest thing on screen appears. Under 2.5 seconds is good. Over 4 seconds
 is losing you money.
 

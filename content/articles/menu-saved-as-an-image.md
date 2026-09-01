@@ -20,7 +20,7 @@ near me" or "gluten free bakery", those words on your page are why you come up.
 
 When Google crawls a page with an image of a menu, it sees a rectangle. It can
 guess a little from the filename and the alt text, and that is all. Every dish
-name you offer — every one of them a phrase a real person might type — is
+name you offer, every one of them a phrase a real person might type, is
 invisible.
 
 You are competing for local searches with one hand tied, against competitors
@@ -41,7 +41,7 @@ reload. Many do not.
 
 ## Who is excluded completely
 
-Anyone using a screen reader gets nothing. Not a summarised version — nothing at
+Anyone using a screen reader gets nothing. Not a summarised version. Nothing at
 all. The same is true for anyone who needs larger text, higher contrast, or a
 translation into their own language.
 
@@ -57,7 +57,7 @@ It is genuinely an afternoon of work.
    dishes, the description underneath, the price alongside. This is ordinary
    web content.
 2. **Keep the design in CSS, not in the image.** The typography, the rules
-   between courses, the spacing — all of that can be styled. You do not have to
+   between courses, the spacing: all of that can be styled. You do not have to
    choose between looking good and being readable.
 3. **Add structured data.** `Menu` and `MenuItem` schema tell Google explicitly
    what each item is and what it costs. This is what powers rich results.

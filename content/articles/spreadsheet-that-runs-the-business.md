@@ -9,7 +9,7 @@ There is a spreadsheet. It holds the bookings, or the stock, or the customers,
 or the jobs. It has grown for years. One person understands the formulas, and
 increasingly not all of them.
 
-It works. That is not sarcasm — spreadsheets are extraordinary tools and most
+It works. That is not sarcasm. Spreadsheets are extraordinary tools and most
 businesses should use one for longer than they think.
 
 The problem is not that it is a spreadsheet. It is that nothing else in the
@@ -43,13 +43,13 @@ Do not let anyone rush you off a spreadsheet that is working. Keep it if:
 
 - One person maintains it and that is not a problem yet.
 - Volume is low enough that manual entry is not eating real time.
-- The rules change often — spreadsheets are far better than software at
+- The rules change often. Spreadsheets are far better than software at
   handling a process you are still figuring out.
 - It is backed up automatically and version history exists.
 
 That last point does most of the work. Moving the file to Google Sheets,
-OneDrive or Dropbox — where every change is versioned and it is not on one
-laptop — removes the two worst risks in about ten minutes, for free.
+OneDrive or Dropbox, where every change is versioned and it is not sitting on one
+laptop, removes the two worst risks in about ten minutes, for free.
 
 **If you do nothing else after reading this, do that.**
 
@@ -79,7 +79,7 @@ Better, in order:
    date pickers, protected formula ranges. An afternoon, and it kills a whole
    category of error.
 3. **Use an off-the-shelf tool for the specific job.** Booking systems,
-   inventory tools, simple CRMs — these exist, they are cheap, and they have
+   inventory tools, simple CRMs. These exist, they are cheap, and they have
    already solved your problem. Look here properly before commissioning
    anything.
 4. **Build something custom only for the part that is genuinely yours.** Most
@@ -92,7 +92,7 @@ Better, in order:
 
 If you do move to a system, the hard part is not the software. It is the years
 of accumulated data, in a format the new system does not expect, with
-inconsistencies nobody knew about — three spellings of the same customer, dates
+inconsistencies nobody knew about: three spellings of the same customer, dates
 in two formats, a column that means different things before and after 2023.
 
 Budget real time for that. Every migration I have seen that went badly went

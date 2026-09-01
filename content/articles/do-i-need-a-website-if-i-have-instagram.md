@@ -16,7 +16,7 @@ Reach you could not buy. A stranger discovers you because the algorithm decided
 to show them a video. No website does that. Anyone who tells you a website
 replaces social reach is selling you something.
 
-Proof. Comments, followers, tagged photos — social evidence that you exist and
+Proof. Comments, followers, tagged photos: social evidence that you exist and
 people like you. A website can display testimonials, but it cannot manufacture
 the same credibility.
 
@@ -51,7 +51,7 @@ discovery on purpose, by someone who has already decided to buy.
 **It shows up in search.** Someone typing what you sell, plus your town, into
 Google. That person has intent. Instagram will not put you in front of them.
 
-**It handles the transaction.** Bookings, payments, quotes, availability — a DM
+**It handles the transaction.** Bookings, payments, quotes, availability. A DM
 thread is a workable ordering system until you have more than a handful a week,
 at which point it becomes a job. Every message you answer manually is time you
 could bill for.
@@ -66,7 +66,7 @@ Skip the website, for now, if:
 - You are testing whether the business works at all. Prove demand first.
 - Your entire trade is walk-in or word of mouth, and nobody searches for what
   you do.
-- You genuinely have no budget. A bad website is worse than none — a slow,
+- You genuinely have no budget. A bad website is worse than none. A slow,
   ugly, out-of-date site actively costs you credibility. Do it properly or wait.
 - You sell exclusively through a marketplace that already handles discovery and
   payment, and you are happy with that arrangement.

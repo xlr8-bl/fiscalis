@@ -14,7 +14,8 @@ you are much larger.
 
 ## 1. How many people arrive, and from where
 
-Not "sessions" or "users" as a single blob — the **split by channel**. Search,
+Not "sessions" or "users" as a single blob. What you want is the **split by
+channel**: search,
 social, direct, referral.
 
 This one number tells you which of your efforts is working. If you have spent
@@ -25,14 +26,14 @@ Watch it monthly, not daily. Daily numbers are noise.
 
 ## 2. What percentage do the thing you want
 
-Pick the single action that matters — an enquiry, a booking, a call, a purchase
-— and track the percentage of visitors who complete it.
+Pick the single action that matters, whether that is an enquiry, a booking, a
+call or a purchase, and track the percentage of visitors who complete it.
 
 This is the only number that connects your website to your bank account. Traffic
 without conversion is a busier waiting room, not more customers.
 
 A useful reference: 1–3% is normal for a small business site. Under 0.5% means
-something is broken — often the form, sometimes the price, sometimes that the
+something is broken. Usually the form. Sometimes the price, sometimes that the
 page never says what you actually do.
 
 > Doubling your traffic is hard and expensive. Doubling your conversion rate is
@@ -40,7 +41,7 @@ page never says what you actually do.
 
 ## 3. Which pages people land on first
 
-Not your most-visited pages — your most common **entry** pages. These are where
+Not your most-visited pages. Your most common **entry** pages. These are where
 strangers meet you, and they are frequently not the homepage.
 
 If a particular article or service page brings a third of your search traffic,
@@ -50,7 +51,7 @@ neither, because they were written as an afterthought.
 
 ## 4. Where people give up
 
-If you have any multi-step flow — a form, a checkout, a booking — you need to
+If you have any multi-step flow, whether a form, a checkout or a booking, you need to
 know which step loses people.
 
 The pattern is almost always the same: one step is doing the damage. Asking for

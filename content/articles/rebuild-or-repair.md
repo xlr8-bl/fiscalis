@@ -22,7 +22,7 @@ is already costing you more than it looks. This is the single strongest
 argument for a rebuild, because it never gets better on its own.
 
 **2. Does it load in under three seconds on a phone, on mobile data?**
-Test it properly — private window, mobile data, not your office wifi. If it is
+Test it properly, in a private window on mobile data rather than your office wifi. If it is
 over five seconds and the cause is the platform rather than the images, no
 amount of patching fixes it.
 
@@ -32,7 +32,7 @@ author disappeared is a security incident waiting to happen. This one is not
 about appearance. It is about whether you get hacked this year.
 
 **4. Does it work properly on a phone?**
-Not "does it shrink" — does it actually work. Can you complete a purchase, fill
+Not "does it shrink". Does it actually work. Can you complete a purchase, fill
 a form, read the menu, tap the buttons without zooming. Over half your visitors
 are on phones. If the answer is no, that is not a cosmetic issue.
 
@@ -49,7 +49,7 @@ apology.
 ## Reading the score
 
 **5–6 yes.** Repair. You have a working site with specific problems. Fix them
-individually — the images, the copy, the one broken form. Spending on a rebuild
+individually: the images, the copy, the one broken form. Spending on a rebuild
 buys you novelty, not results.
 
 **3–4 yes.** It depends, and the deciding factor is question 1. If you can edit
@@ -86,7 +86,7 @@ That list is a fortnight of work and it will outperform a mediocre rebuild.
 - The platform is slow no matter what you remove.
 - It is not secure and cannot be made secure.
 - You need functionality the current stack cannot support.
-- You do not own it — the code, the domain, or the hosting is controlled by
+- You do not own it. The code, the domain, or the hosting is controlled by
   someone you no longer work with.
 
 That last one catches people out badly. Before anything else, confirm you

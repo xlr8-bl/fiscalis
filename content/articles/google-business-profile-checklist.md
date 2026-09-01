@@ -5,7 +5,7 @@ date: 2026-06-09
 tags: [local, search]
 ---
 
-If you serve customers in a place — a shop, a restaurant, a trade, a clinic —
+If you serve customers in a place, whether a shop, a restaurant, a trade or a clinic,
 your Google Business Profile is very likely doing more work than your website.
 
 It is what appears in the map pack, in the panel on the right of a search, and
@@ -29,7 +29,7 @@ there.
 ### The non-negotiables
 
 - **Exact business name.** What is actually on the door. Do not stuff keywords
-  into it — "Joe's Plumbing" not "Joe's Plumbing | Emergency Plumber London
+  into it. "Joe's Plumbing", not "Joe's Plumbing | Emergency Plumber London
   24/7". Keyword stuffing here risks suspension.
 - **Correct primary category.** This matters more than almost anything else.
   Search for competitors who rank well and see what they use. Add secondary
@@ -45,7 +45,7 @@ there.
 
 - **Photos, and keep adding them.** Listings with photos get substantially more
   clicks and direction requests. Interior, exterior, the team, the product, the
-  work. The exterior shot matters more than people expect — it is how someone
+  work. The exterior shot matters more than people expect, because it is how someone
   recognises the place when they arrive. Add a few every month.
 - **Services or products, itemised.** Each one is a chance to match a search.
   This section is nearly always left empty.
@@ -60,7 +60,7 @@ there.
 - **Reply to every review.** Every one, good and bad. A calm, specific reply to
   a bad review does more for you than the review costs. Prospective customers
   read the replies to judge how you handle problems.
-- **Ask for reviews properly.** Not "please leave a review" on a flyer — a
+- **Ask for reviews properly.** Not "please leave a review" on a flyer. A
   direct link, sent by text or email, at the moment someone is happy. Google
   gives you a short link in the dashboard for exactly this.
 - **Post occasionally.** Offers, news, new products. Modest effect on ranking,
@@ -72,7 +72,7 @@ there.
 ## Two things that quietly break rankings
 
 **Inconsistent details across the web.** Your name, address and phone number
-should be byte-identical everywhere they appear — your site, directories,
+should be byte-identical everywhere they appear: your site, directories,
 Facebook, old listings. "Street" in one place and "St" in another is a small
 signal of uncertainty, repeated across dozens of sites.
 
@@ -89,6 +89,6 @@ it after any site change.
 Changes take days to weeks to show up. Photos and reviews compound slowly.
 
 The single most reliable indicator you are winning: the "Discovery" number in
-your profile insights — how many people found you *without* searching your name.
+your profile insights, which counts the people who found you *without* searching your name.
 That is new customers. Watch it monthly. If it climbs, the listing is doing its
 job.

@@ -27,7 +27,7 @@ undramatic ways for it to stop:
 - **The host changed their mail policy.** Many now block direct mail from web
   servers to fight spam, which quietly kills any form not using a proper
   sending service.
-- **It is going to spam.** Not lost — just in a folder nobody opens.
+- **It is going to spam.** Not lost, just in a folder nobody opens.
 
 None of these produce an error the visitor sees. From their side, it worked.
 
@@ -41,7 +41,7 @@ Do this now, properly, not from memory.
 1. Open your site on your phone, on mobile data, not on the office wifi. Use a
    private window so you are not logged in as an admin.
 2. Fill the form in as a customer would, with a personal email address you
-   control — not a company one.
+   control, not a company one.
 3. Send it. Note the exact time.
 4. Check the destination inbox. Then check spam. Then check any shared mailbox
    or helpdesk it might route to.
@@ -56,7 +56,7 @@ but the reply-to header is wrong, so answering goes nowhere.
 Testing once tells you about today. The point is to know within a day, every
 time, forever.
 
-**Send through a real email service.** Resend, Postmark, SendGrid — any of them.
+**Send through a real email service.** Resend, Postmark, SendGrid: any of them.
 They authenticate properly, they retry, and crucially they show you a delivery
 log. You can look up whether a specific message was accepted, bounced, or
 deferred.
@@ -76,7 +76,7 @@ a six-month outage into a one-day one.
 ## What it costs to leave
 
 Work out roughly what one customer is worth to you over the time they stay. Then
-guess conservatively at how many enquiries a month the form used to bring — two,
+guess conservatively at how many enquiries a month the form used to bring. Two,
 five, ten.
 
 Multiply by six months.
