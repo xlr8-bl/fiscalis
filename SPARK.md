@@ -391,11 +391,50 @@ Preview, then retry the deployment:
 | `TIKTOK_CLIENT_KEY` | from the app's page at TikTok for Developers |
 | `TIKTOK_CLIENT_SECRET` | same page. This one is a secret |
 | `TIKTOK_SCOPES` | optional. `video.list`, once the Display API product is on the app |
-| `IG_USER_ID` | optional starting value; the studio can set it instead |
+| `IG_APP_ID` | optional; the studio is the easier place for it |
+| `IG_APP_SECRET` | optional; likewise |
+| `IG_SCOPES` | optional. `instagram_business_manage_insights`, for reach and saves |
+| `IG_USER_ID` | optional starting value; connecting sets it |
 | `IG_ACCESS_TOKEN` | optional starting value, long-lived |
 
 A platform with no credential is **skipped, not failed** — so Instagram
 can go live while TikTok waits on its audit.
+
+### Connecting Instagram
+
+Instagram Login, not Facebook Login. Meta is explicit that this setup
+"does not require a Facebook Page to be linked to the Instagram
+professional account" — which is why the site uses it, and why the
+approval screen is told not to offer the Facebook button.
+
+**On the app at developers.facebook.com:**
+
+1. Create an app, type **Business**, and add the **Instagram** product.
+2. Open **Instagram → API setup with Instagram login**. Everything below
+   is on that page.
+3. Step 1, **Generate access tokens**: connect your Instagram professional
+   account — business or creator. A personal account cannot be used.
+4. Step 3, **Set up Instagram business login → Business login settings**:
+   put `https://web3ashley.com/oauth/instagram/callback` in **valid OAuth
+   redirect URIs**. Meta matches the whole string, so a trailing slash is
+   a different URI.
+5. Copy the **Instagram app ID** and **Instagram app secret** — the ones
+   on this page, not the Meta app ID and secret above them. They are
+   different values and the wrong pair fails with nothing useful.
+
+**Then, in the studio:** Social → Accounts, paste those two, **Connect
+Instagram**. You approve, and it comes back with the account name and the
+granted permissions listed.
+
+**No App Review, for now.** Unapproved permissions can be granted to
+people who hold a role on the app, which as its admin you do — so
+`instagram_business_content_publish` works while the app is in
+development. Review is what a *different* person's account would need.
+
+Two tokens are involved and only one is worth having: the code buys an
+hour-long token, which is traded straight away for the 60-day one. That
+second exchange is done for you; stopping after the first leaves a token
+that looks fine until the afternoon it stops working.
 
 ### Connecting TikTok
 
@@ -496,8 +535,12 @@ that would post the wrong thing to a real audience.
 
 Nothing in the code. What is left is external and slower than the build:
 
-- **Meta App Review** for `instagram_business_content_publish`, and an
-  Instagram professional account on a linked Facebook Page.
+- **Meta App Review**, but only eventually: unapproved permissions can be
+  granted to accounts holding a role on the app, so posting works today as
+  its admin. Review is what another person's account would need.
+- **`instagram_business_manage_insights`**, if reach and saves are wanted
+  alongside the likes. Put it in `IG_SCOPES` and connect again — a scope
+  is granted at approval, so an existing token does not gain it.
 - **The TikTok audit.** Posting works unaudited; every post is
   `SELF_ONLY` until it passes — and a private post has no readable likes,
   so `performance` reports TikTok as *pending* with that reason. When it
@@ -508,7 +551,7 @@ Nothing in the code. What is left is external and slower than the build:
   Content Posting one does not. Add it, put `video.list` in
   `TIKTOK_SCOPES`, redeploy, and press Connect TikTok again — a scope is
   granted at approval, so an existing token does not gain it.
-- **`instagram_business_manage_insights`**, if reach, saves and views are
-  wanted alongside the likes. Without it the likes and comments still
-  come back.
-- **Facebook**, once its reference pages are readable again.
+- **Facebook** is out. It is no longer a default target, its multi-photo
+  shape was never verified, and a destination that is always skipped is
+  noise in every result. The poster still answers for it truthfully if an
+  old carousel names it.

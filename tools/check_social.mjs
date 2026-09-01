@@ -385,7 +385,7 @@ await step('a 4:5 JPEG passes every one of them', async () => {
   }
   await person(`/carousels/${slug.value}`, {
     method: 'PUT',
-    body: JSON.stringify({ targets: 'instagram,facebook,tiktok' }),
+    body: JSON.stringify({ targets: 'instagram,tiktok' }),
   });
   const { status, body } = await person(`/carousels/${slug.value}/status`, {
     method: 'POST',

@@ -90,7 +90,7 @@ async function runTool(name, args, env) {
           clean(args.caption, 2200),
           clean(args.hashtags, 8000),
           clean(Array.isArray(args.targets) ? args.targets.join(',') : args.targets)
-            || 'instagram,facebook,tiktok'
+            || 'instagram,tiktok'
         )
         .run();
       const row = await db.prepare('SELECT id FROM carousels WHERE slug = ?1').bind(slug).first();

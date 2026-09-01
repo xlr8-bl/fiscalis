@@ -1821,8 +1821,10 @@ async function viewAccounts() {
     `<dl class="st-facts">
        ${line('Instagram', ig.connected,
               ig.connected
-                ? (ig.expires_in_days === null ? 'Connected'
-                   : `Connected — ${ig.expires_in_days} days left, renews itself`)
+                ? [ig.username ? `@${ig.username}` : 'Connected',
+                   ig.expires_in_days === null ? 'renews itself'
+                     : `${ig.expires_in_days} days left, renews itself`,
+                  ].filter(Boolean).join(' — ')
                 : '')}
        ${line('TikTok', tt.connected,
               tt.connected
@@ -1835,17 +1837,37 @@ async function viewAccounts() {
      </dl>
 
      <h2 class="st-h2">Instagram</h2>
-     <p class="st-note u-text-style-main">A professional account. No Facebook Page needed
-       if you use Instagram Login.</p>
+     <p class="st-note u-text-style-main">A professional account — business or creator.
+       No Facebook Page is needed: this is Instagram Login, not Facebook Login.
+       ${ig.connected
+         ? 'The token lasts 60 days and refreshes itself on use.'
+         : 'Approving hands the token over; there is nothing to copy out of a dashboard.'}</p>
      <div class="st-field">
-       <label class="st-label u-text-style-main" for="ig-id">Instagram user ID</label>
-       <input class="st-input" id="ig-id" data-f="ig_user_id" value="${escapeAttr(ig.user_id || '')}">
+       <label class="st-label u-text-style-main" for="ig-app">Instagram app ID</label>
+       <input class="st-input" id="ig-app" data-f="ig_app_id" inputmode="numeric"
+              placeholder="${ig.can_connect
+                ? `set in ${ig.app_from}, ending ${escapeAttr(ig.app_id_ends)}`
+                : 'All digits, from API setup with Instagram login'}">
      </div>
      <div class="st-field">
-       <label class="st-label u-text-style-main" for="ig-tok">Long-lived access token</label>
-       <textarea class="st-input st-input--area" id="ig-tok" rows="3" data-f="ig_token"
-                 placeholder="${ig.connected ? 'Connected — paste a new one only to replace it' : 'Paste it here'}"></textarea>
+       <label class="st-label u-text-style-main" for="ig-sec">Instagram app secret</label>
+       <input class="st-input" id="ig-sec" data-f="ig_app_secret"
+              placeholder="${ig.can_connect ? 'Set — paste a new one only to replace it' : 'From the same panel'}">
      </div>
+     ${ig.can_connect
+       ? `<div class="st-acts">
+            <a class="st-link" href="/oauth/instagram/start">${
+              ig.connected ? 'Connect Instagram again' : 'Connect Instagram'}</a>
+            <a class="st-link" href="/oauth/instagram/start?check=1">Check the setup</a>
+          </div>`
+       : `<p class="st-note u-text-style-main">Both come from the app's page at
+          developers.facebook.com, under Instagram, API setup with Instagram login —
+          the <em>Instagram</em> app ID, not the Meta app ID above it.</p>`}
+     ${ig.connected && !ig.scopes.includes('instagram_business_content_publish')
+       ? `<p class="st-note u-text-style-main">This token does not carry
+          <code>instagram_business_content_publish</code>, so it cannot post. Add the
+          permission and connect again.</p>`
+       : ''}
 
      <h2 class="st-h2">TikTok</h2>
      <p class="st-note u-text-style-main">TikTok has no token to copy out of a dashboard —

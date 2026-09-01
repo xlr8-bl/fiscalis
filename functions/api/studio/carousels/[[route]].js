@@ -195,6 +195,11 @@ export async function onRequest({ request, env, params }) {
         const fields = {
           'ig.user_id': body.ig_user_id,
           'ig.token': body.ig_token,
+          // which Meta app to act as. Same reasoning as TikTok's: it gets
+          // changed while it is being set up, and a value in the
+          // deployment costs a build every time.
+          'ig.app_id': body.ig_app_id,
+          'ig.app_secret': body.ig_app_secret,
           'tiktok.token': body.tiktok_token,
           'tiktok.refresh_token': body.tiktok_refresh_token,
           // which TikTok client to act as. Kept here rather than in the
@@ -341,7 +346,7 @@ export async function onRequest({ request, env, params }) {
         clean(input.hashtags, MAX_TEXT),
         'planned',
         clean(Array.isArray(input.targets) ? input.targets.join(',') : input.targets)
-          || 'instagram,facebook,tiktok',
+          || 'instagram,tiktok',
         asJson(input.qc),
         who.name
       )
