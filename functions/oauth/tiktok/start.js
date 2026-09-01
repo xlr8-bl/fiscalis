@@ -14,12 +14,70 @@
 
 import { identify } from '../../../lib/auth.js';
 import { mintToken } from '../../../lib/oauth.js';
-import { authorizeUrl, redirectUri, scopes } from '../../../lib/tiktok.js';
-import { page } from '../../../lib/plainpage.js';
+import {
+  authorizeUrl, redirectUri, scopes, clientKey, clientSecret,
+} from '../../../lib/tiktok.js';
+import { page, esc } from '../../../lib/plainpage.js';
 
 const STATE_TTL = 600;   // ten minutes is longer than any real approval
 
 const problem = (title, body) => page(title, `<h1>${title}</h1>${body}`, 503);
+
+/**
+ * What TikTok is about to be sent, shown rather than guessed at.
+ *
+ * "Something went wrong — correct the following: client_key" is the
+ * error for a key TikTok does not recognise, and it says nothing about
+ * *which* key arrived. From a phone the value is invisible: it is in a
+ * Cloudflare field, it renders as dots, and re-pasting it three times
+ * proves nothing. So this prints enough of it to compare against the
+ * dashboard by eye, and names the two things that are wrong when the
+ * characters match.
+ *
+ * Never the whole key, and never the secret. A length, an end, and
+ * whether anything invisible came along with it is all that is needed
+ * to tell two keys apart.
+ */
+function report(env, origin) {
+  const key = clientKey(env);
+  const raw = String(env.TIKTOK_CLIENT_KEY || '');
+  const secret = clientSecret(env);
+  const ends = key.length > 8 ? `${key.slice(0, 4)}…${key.slice(-4)}` : key;
+
+  const notes = [];
+  if (raw !== raw.trim()) {
+    notes.push('The stored key had whitespace around it. That is stripped before it is sent, '
+               + 'but it usually means the paste picked up a newline — worth fixing at the source.');
+  }
+  if (/^(sbaw|sb)/i.test(key)) {
+    notes.push('This key looks like a sandbox key. A sandbox and the live app are different '
+               + 'clients: the demo has to run against whichever one this key belongs to.');
+  }
+  if (key.length < 10) notes.push('That is shorter than any client key TikTok issues.');
+  if (secret && key === secret) notes.push('The key and the secret are the same value. One of them is wrong.');
+
+  return page('What this site sends TikTok', `
+    <h1>What this site sends TikTok</h1>
+    <p>Compare these against the app's own page. TikTok's "correct the following:
+      <code>client_key</code>" means it did not recognise the key below — not that
+      it is missing.</p>
+    <ul>
+      <li>client_key: <code>${esc(ends)}</code> &nbsp; (${key.length} characters)</li>
+      <li>client_secret: ${secret ? `set, ${secret.length} characters` : '<strong>not set</strong>'}</li>
+      <li>redirect_uri: <code>${esc(redirectUri(origin))}</code></li>
+      <li>scope: <code>${esc(scopes(env).join(','))}</code></li>
+      <li>this deployment: <code>${esc(origin)}</code></li>
+    </ul>
+    ${notes.length ? `<p class="err">${notes.map(esc).join('<br>')}</p>` : ''}
+    <p>If the key matches the dashboard character for character, the two remaining
+      causes are that the key belongs to a different client than the one being
+      authorised — a sandbox and the live app each have their own — or that this
+      deployment is older than the variable. A Pages deployment carries the
+      variables it was built with, so a retry of the deployment is what picks up
+      a change.</p>
+    <p><a href="/oauth/tiktok/start">Try connecting</a> &nbsp;·&nbsp;
+       <a href="/studio#/social/accounts">Back to the studio</a></p>`);
+}
 
 export async function onRequestGet({ request, env }) {
   const who = await identify(request, env);
@@ -44,6 +102,7 @@ export async function onRequestGet({ request, env }) {
   }
 
   const origin = new URL(request.url).origin;
+  if (new URL(request.url).searchParams.has('check')) return report(env, origin);
   const state = await mintToken(
     { ...env, __origin: origin },
     { subject: who.name || 'studio', scope: 'tiktok', kind: 'tiktok-state', ttl: STATE_TTL }

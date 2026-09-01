@@ -61,6 +61,23 @@ await step('scopes are comma separated, which is TikTok and nobody else', () => 
   is(url.searchParams.get('redirect_uri'), tiktok.redirectUri(ORIGIN), 'redirect_uri');
 });
 
+await step('a key pasted with a newline on it does not go out with one', () => {
+  // this is not hypothetical: a value pasted into a dashboard field can
+  // carry a trailing newline, it renders as dots so nothing looks wrong,
+  // and percent-encoded into the URL it becomes %0A — which TikTok
+  // answers with "correct the following: client_key" and no further clue
+  const dirty = { ...ENV, TIKTOK_CLIENT_KEY: '  awx1234567890abc\n', TIKTOK_CLIENT_SECRET: ' s3cret ' };
+  is(tiktok.clientKey(dirty), 'awx1234567890abc', 'the key');
+  is(tiktok.clientSecret(dirty), 's3cret', 'the secret');
+  const url = tiktok.authorizeUrl(dirty, { origin: ORIGIN, state: 'st' });
+  if (/%0A|%20/.test(url)) throw new Error(`the URL still carries it: ${url}`);
+  is(new URL(url).searchParams.get('client_key'), 'awx1234567890abc', 'what TikTok receives');
+});
+
+await step('a missing key is empty rather than the string "undefined"', () => {
+  is(tiktok.clientKey({}), '', 'the key');
+});
+
 await step('video.list is asked for only when the app actually has it', () => {
   is(tiktok.scopes(ENV).includes('video.list'), false, 'by default');
   const withList = tiktok.scopes({ ...ENV, TIKTOK_SCOPES: 'video.list' });

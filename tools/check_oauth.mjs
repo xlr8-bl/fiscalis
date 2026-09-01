@@ -352,6 +352,46 @@ await step('the static agent token still works, for scripts', async () => {
 });
 
 /*
+ * The TikTok connect flow's own diagnostic.
+ *
+ * "Something went wrong — correct the following: client_key" is TikTok's
+ * answer to a key it does not recognise, and it says nothing about which
+ * key arrived. From a phone the stored value is invisible, so re-pasting
+ * it proves nothing. This screen prints enough to compare by eye — and
+ * the thing worth asserting is what it refuses to print.
+ */
+await step('the TikTok check screen needs a session', async () => {
+  const res = await fetch(`${BASE}/oauth/tiktok/start?check=1`, { redirect: 'manual' });
+  is(res.status, 302, 'status');
+  if (!(res.headers.get('location') || '').includes('/studio')) {
+    throw new Error(res.headers.get('location'));
+  }
+});
+
+await step('it shows the key\'s ends and length, never the key or the secret', async () => {
+  const login = await fetch(`${BASE}/api/studio/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'studio', password: PW }),
+  });
+  const cookie = (login.headers.get('set-cookie') || '').split(';')[0];
+  const res = await fetch(`${BASE}/oauth/tiktok/start?check=1`, { headers: { cookie } });
+  is(res.status, 200, 'status');
+  const html = await res.text();
+
+  const key = process.env.TIKTOK_CLIENT_KEY || 'awx1234567890abc';
+  const secret = process.env.TIKTOK_CLIENT_SECRET || 'ttsecretvalue123';
+  if (html.includes(key)) throw new Error('the whole client key is on the page');
+  if (html.includes(secret)) throw new Error('the client secret is on the page');
+
+  // and it still says enough to tell two keys apart
+  if (!html.includes(key.slice(0, 4))) throw new Error('does not show the start of the key');
+  if (!html.includes(key.slice(-4))) throw new Error('does not show the end of the key');
+  if (!new RegExp(`${key.length} characters`).test(html)) throw new Error('does not give the length');
+  if (!html.includes('/oauth/tiktok/callback')) throw new Error('does not show the redirect URI');
+});
+
+/*
  * A deployment whose database predates oauth_codes throws inside the
  * approval, which surfaces as a Cloudflare 1101 with nothing in it. The
  * password was right, so from the outside the approval simply vanishes.
