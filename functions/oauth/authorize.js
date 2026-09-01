@@ -149,14 +149,47 @@ export async function onRequest({ request, env }) {
     return form('That password does not match.');
   }
 
-  const code = await issueCode(env.DB, {
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    code_challenge: challenge,
-    method,
-    resource,
-    scope,
-    subject: who,
-  });
-  return back({ code });
+  /*
+   * Everything from here can only fail on the database, and a throw at
+   * this point is the worst possible moment for it: the password was
+   * right, so from the outside the approval simply vanishes into a
+   * Cloudflare error page with no way to tell what went wrong.
+   *
+   * The overwhelmingly likely cause is a deployment whose database
+   * predates the oauth_codes table, so that case is named outright
+   * rather than left as "an error occurred".
+   */
+  if (!env.DB) {
+    return page('No database', `<h1>No database</h1>
+      <p>This deployment has no D1 database bound, so there is nowhere to
+      keep the authorization code. Add the binding and retry the
+      deployment.</p>`, 503);
+  }
+
+  try {
+    const code = await issueCode(env.DB, {
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      code_challenge: challenge,
+      method,
+      resource,
+      scope,
+      subject: who,
+    });
+    return back({ code });
+  } catch (e) {
+    const message = String(e?.message || e);
+    if (/no such table/i.test(message)) {
+      return page('One step missing', `<h1>One step missing</h1>
+        <p>The password was right. This database does not have the table that
+        holds authorization codes yet — it was added with the sign-in flow
+        you are using now.</p>
+        <p>Open <code>/studio</code>, press <b>Set up the database</b>, then
+        come back and try connecting again. Setup is safe to run as many
+        times as you like.</p>`, 503);
+    }
+    return page('Could not finish', `<h1>Could not finish</h1>
+      <p>The password was right, but the authorization code could not be
+      stored.</p><p><code>${esc(message)}</code></p>`, 500);
+  }
 }

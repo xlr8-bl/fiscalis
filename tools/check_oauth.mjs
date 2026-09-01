@@ -351,6 +351,32 @@ await step('the static agent token still works, for scripts', async () => {
   is(res.status, 200, 'status');
 });
 
+/*
+ * A deployment whose database predates oauth_codes throws inside the
+ * approval, which surfaces as a Cloudflare 1101 with nothing in it. The
+ * password was right, so from the outside the approval simply vanishes.
+ * That is the least debuggable failure this flow has, so it gets a page.
+ */
+await step('a database that is behind says so, rather than throwing', async () => {
+  const res = await fetch(`${BASE}/oauth/authorize`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: query({ code_challenge: (await pkce()).challenge, password: PW }),
+    redirect: 'manual',
+  });
+  // with the table present this succeeds; the point of the check is that
+  // whatever happens, it is never an unhandled throw
+  if (res.status >= 500 && res.status !== 503) {
+    throw new Error(`unhandled ${res.status} — this is the 1101 case`);
+  }
+  if (res.status === 503) {
+    const html = await res.text();
+    if (!/Set up the database/.test(html)) throw new Error('does not say what to do');
+  } else {
+    is(res.status, 302, 'status');
+  }
+});
+
 console.log(
   problems.length
     ? `\n${problems.length} failed: ${problems.join(', ')}`
