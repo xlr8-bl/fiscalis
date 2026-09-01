@@ -15,8 +15,9 @@
 import { identify } from '../../../lib/auth.js';
 import { mintToken } from '../../../lib/oauth.js';
 import {
-  authorizeUrl, redirectUri, scopes, clientKey, clientSecret, testCredentials,
+  authorizeUrl, redirectUri, scopes, credentials, testCredentials,
 } from '../../../lib/tiktok.js';
+import { getSetting } from '../../../lib/tokens.js';
 import { page, esc } from '../../../lib/plainpage.js';
 
 const STATE_TTL = 600;   // ten minutes is longer than any real approval
@@ -38,10 +39,9 @@ const problem = (title, body) => page(title, `<h1>${title}</h1>${body}`, 503);
  * whether anything invisible came along with it is all that is needed
  * to tell two keys apart.
  */
-function report(env, origin, tested = null) {
-  const key = clientKey(env);
-  const raw = String(env.TIKTOK_CLIENT_KEY || '');
-  const secret = clientSecret(env);
+function report(app, env, origin, tested = null) {
+  const { key, secret, source } = app;
+  const raw = source === 'environment' ? String(env.TIKTOK_CLIENT_KEY || '') : key;
   const ends = key.length > 8 ? `${key.slice(0, 4)}…${key.slice(-4)}` : key;
 
   const notes = [];
@@ -63,6 +63,7 @@ function report(env, origin, tested = null) {
     <ul>
       <li>client_key: <code>${esc(ends)}</code> &nbsp; (${key.length} characters)</li>
       <li>client_secret: ${secret ? `set, ${secret.length} characters` : '<strong>not set</strong>'}</li>
+      <li>set in: <code>${esc(source === 'studio' ? 'the studio' : 'the deployment')}</code></li>
       <li>redirect_uri: <code>${esc(redirectUri(origin))}</code></li>
       <li>scope: <code>${esc(scopes(env).join(','))}</code></li>
       <li>this deployment: <code>${esc(origin)}</code></li>
@@ -114,7 +115,8 @@ export async function onRequestPost({ request, env }) {
     return Response.redirect(new URL('/studio', request.url).toString(), 302);
   }
   const origin = new URL(request.url).origin;
-  return report(env, origin, await testCredentials(env));
+  const app = await credentials(env.DB, env, { getSetting });
+  return report(app, env, origin, await testCredentials(env, { key: app.key, secret: app.secret }));
 }
 
 export async function onRequestGet({ request, env }) {
@@ -123,15 +125,20 @@ export async function onRequestGet({ request, env }) {
     return Response.redirect(new URL('/studio', request.url).toString(), 302);
   }
 
-  if (!env.TIKTOK_CLIENT_KEY || !env.TIKTOK_CLIENT_SECRET) {
+  const app = await credentials(env.DB, env, { getSetting });
+  if (!app.key || !app.secret) {
     return problem('TikTok is not set up yet', `
-      <p>This deployment has no <code>TIKTOK_CLIENT_KEY</code> and
-      <code>TIKTOK_CLIENT_SECRET</code>. They are on the app's page at
-      TikTok for Developers, under Manage apps.</p>
-      <p>Add both in the Cloudflare Pages project under Settings, Variables
-      and Secrets — under <strong>both</strong> Production and Preview — and
-      retry the deployment. A deployment carries the variables it was built
-      with, so adding them is not enough on its own.</p>`);
+      <p>There is no TikTok client key and secret. They are on the app's page
+      at TikTok for Developers, under Manage apps — and a sandbox has its own
+      pair, separate from the live app's.</p>
+      <p>The quickest place to put them is the studio, under Social, Accounts:
+      stored there they can be swapped without a deployment, which matters
+      because the approval path runs against a sandbox first and the live app
+      afterwards.</p>
+      <p>They can also be <code>TIKTOK_CLIENT_KEY</code> and
+      <code>TIKTOK_CLIENT_SECRET</code> in the Pages project, under
+      <strong>both</strong> Production and Preview, followed by a retry of the
+      deployment — a deployment carries the variables it was built with.</p>`);
   }
   if (!env.SESSION_SECRET) {
     return problem('TikTok cannot be connected yet', `
@@ -140,7 +147,7 @@ export async function onRequestGet({ request, env }) {
   }
 
   const origin = new URL(request.url).origin;
-  if (new URL(request.url).searchParams.has('check')) return report(env, origin);
+  if (new URL(request.url).searchParams.has('check')) return report(app, env, origin);
   const state = await mintToken(
     { ...env, __origin: origin },
     { subject: who.name || 'studio', scope: 'tiktok', kind: 'tiktok-state', ttl: STATE_TTL }
@@ -149,7 +156,7 @@ export async function onRequestGet({ request, env }) {
   return new Response(null, {
     status: 302,
     headers: {
-      location: authorizeUrl(env, { origin, state }),
+      location: authorizeUrl(env, { origin, state, key: app.key }),
       'cache-control': 'no-store',
       // what was asked for, so a scope refused at the other end can be
       // told apart from one that was never requested

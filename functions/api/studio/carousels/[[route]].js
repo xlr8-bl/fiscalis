@@ -197,6 +197,12 @@ export async function onRequest({ request, env, params }) {
           'ig.token': body.ig_token,
           'tiktok.token': body.tiktok_token,
           'tiktok.refresh_token': body.tiktok_refresh_token,
+          // which TikTok client to act as. Kept here rather than in the
+          // deployment because the approval path runs against a sandbox
+          // first and the live app after, and a swap should not cost a
+          // dashboard edit and a deployment each time.
+          'tiktok.client_key': body.tiktok_client_key,
+          'tiktok.client_secret': body.tiktok_client_secret,
         };
         const saved = [];
         // a boolean, not a token: it is the only field here that is

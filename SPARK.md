@@ -370,7 +370,19 @@ TikTok has no token to copy out of a dashboard. It hands one over at the
 end of an approval, so the site hosts both ends of that round trip and
 the studio has a button for it.
 
-**On the app's page at TikTok for Developers:**
+**The order matters, because of a loop.** You cannot tick Web or register
+a redirect URI on an app that has not been submitted, and you cannot
+submit without a demo video of the integration working. Sandbox mode is
+the way out, and is what TikTok points at: "a restricted environment that
+allows you to try out integrations without having to submit your app for
+review". A sandbox is a separate client with its own credentials,
+products, scopes, redirect URIs and target users, configured
+independently of the live app.
+
+So: build and record against a sandbox, then import that configuration
+into a production Draft and submit it with the video.
+
+**In a sandbox** (Manage apps → toggle to Sandbox → Create Sandbox):
 
 1. Add both products: **Login Kit** (the prerequisite — it is what grants
    `user.info.basic`) and **Content Posting API** (`video.publish`). Turn
@@ -384,8 +396,17 @@ the studio has a button for it.
    the slides from the site with `PULL_FROM_URL`, and it refuses to fetch
    from a domain the app has not proved it owns — `url_ownership_unverified`,
    HTTP 403. Verifying the domain covers every path and subdomain under it.
-4. Copy the **client key** and **client secret** into the Pages project as
-   above, and redeploy.
+4. Add your own TikTok under **Target users** — up to 10, and it can take
+   an hour to appear.
+5. Copy that sandbox's **client key** and **client secret** into the studio
+   under Social → Accounts. They live there rather than in the deployment
+   precisely because of this: the approval path runs against a sandbox
+   first and the live app afterwards, and stored in the studio a swap is a
+   paste rather than a dashboard edit and a build.
+
+Sandbox mode excludes the Content Posting API for public videos, so the
+demo posts will be `SELF_ONLY` — which is what an unaudited client is
+limited to anyway, and what this code already does.
 
 **Then, in the studio:** Social → Accounts → **Connect TikTok**. It sends
 you to TikTok, you approve, and it comes back with the tokens stored and

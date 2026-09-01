@@ -1666,6 +1666,24 @@ async function viewAccounts() {
        ${tt.connected
          ? 'The access token lasts a day and renews itself; the refresh token lasts a year.'
          : ''}</p>
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="tt-key">Client key</label>
+       <input class="st-input" id="tt-key" data-f="tiktok_client_key"
+              placeholder="${tt.can_connect
+                ? `set in ${tt.client_from}, ending ${escapeAttr(tt.client_key_ends)}`
+                : 'From the app\u2019s Credentials panel'}">
+     </div>
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="tt-sec">Client secret</label>
+       <input class="st-input" id="tt-sec" data-f="tiktok_client_secret"
+              placeholder="${tt.can_connect ? 'Set — paste a new one only to replace it' : 'From the same panel'}">
+     </div>
+     <p class="st-note u-text-style-main">A sandbox and the live app are separate
+       clients with separate credentials. Setting them here rather than in the
+       deployment is what lets you swap between the two without waiting for a
+       build — which the approval path needs, since the demo is recorded against
+       a sandbox and the real posting runs against the live app.</p>
+
      ${tt.can_connect
        ? `<div class="st-acts">
             <a class="st-link" href="/oauth/tiktok/start">${

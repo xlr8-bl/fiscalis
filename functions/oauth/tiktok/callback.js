@@ -13,8 +13,8 @@
 
 import { identify } from '../../../lib/auth.js';
 import { readToken } from '../../../lib/oauth.js';
-import { exchange, creatorInfo, redirectUri } from '../../../lib/tiktok.js';
-import { putSetting } from '../../../lib/tokens.js';
+import { exchange, creatorInfo, redirectUri, credentials } from '../../../lib/tiktok.js';
+import { putSetting, getSetting } from '../../../lib/tokens.js';
 import { page, esc } from '../../../lib/plainpage.js';
 
 const back = '<p><a href="/studio#/social/accounts">Back to the studio</a></p>';
@@ -57,7 +57,8 @@ export async function onRequestGet({ request, env }) {
   const code = url.searchParams.get('code');
   if (!code) return failed('No code came back', '<p>TikTok sent no authorization code.</p>', 400);
 
-  const out = await exchange(env, { origin, code });
+  const app = await credentials(env.DB, env, { getSetting });
+  const out = await exchange(env, { origin, code, key: app.key, secret: app.secret });
   if (out.error) {
     // the two that actually happen, named, because the message TikTok
     // returns for both is the same unhelpful one

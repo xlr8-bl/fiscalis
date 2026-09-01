@@ -86,6 +86,47 @@ await step('video.list is asked for only when the app actually has it', () => {
   is(tiktok.scopes({ ...ENV, TIKTOK_SCOPES: 'video.publish, video.list' }).length, 3, 'no duplicates');
 });
 
+/* ------------------------------------------------ which client to act as */
+
+const fakeSettings = (rows) => ({
+  db: {},
+  getSetting: async (_db, key) => rows[key] ?? null,
+});
+
+await step('with nothing stored, the deployment is the client', async () => {
+  const f = fakeSettings({});
+  const out = await tiktok.credentials(f.db, ENV, { getSetting: f.getSetting });
+  is(out.key, 'awx123', 'key');
+  is(out.source, 'environment', 'source');
+});
+
+await step('a pair set in the studio wins, so a swap costs no deployment', async () => {
+  const f = fakeSettings({ 'tiktok.client_key': 'sbaw999', 'tiktok.client_secret': 'sbsecret' });
+  const out = await tiktok.credentials(f.db, ENV, { getSetting: f.getSetting });
+  is(out.key, 'sbaw999', 'key');
+  is(out.secret, 'sbsecret', 'secret');
+  is(out.source, 'studio', 'source');
+  // and it is what the authorize URL carries
+  is(new URL(tiktok.authorizeUrl(ENV, { origin: ORIGIN, state: 's', key: out.key }))
+       .searchParams.get('client_key'), 'sbaw999', 'client_key sent');
+});
+
+await step('half a pair is not a client — it falls back rather than mixing', async () => {
+  // a key from the sandbox with the live app's secret is the worst of both,
+  // and it would fail with an error about the secret, not the half-set pair
+  const f = fakeSettings({ 'tiktok.client_key': 'sbaw999' });
+  const out = await tiktok.credentials(f.db, ENV, { getSetting: f.getSetting });
+  is(out.key, 'awx123', 'key');
+  is(out.source, 'environment', 'source');
+});
+
+await step('a stored pair is trimmed too', async () => {
+  const f = fakeSettings({ 'tiktok.client_key': ' sbaw999\n', 'tiktok.client_secret': 'sbsecret ' });
+  const out = await tiktok.credentials(f.db, ENV, { getSetting: f.getSetting });
+  is(out.key, 'sbaw999', 'key');
+  is(out.secret, 'sbsecret', 'secret');
+});
+
 /* --------------------------------------------------- are the keys real */
 
 await step('a valid pair comes back as valid', async () => {
