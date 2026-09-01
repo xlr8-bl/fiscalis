@@ -199,6 +199,13 @@ export async function onRequest({ request, env, params }) {
           'tiktok.refresh_token': body.tiktok_refresh_token,
         };
         const saved = [];
+        // a boolean, not a token: it is the only field here that is
+        // meaningful when it is turned *off*, so it is handled apart
+        // from the "skip anything blank" rule below
+        if (typeof body.tiktok_audited === 'boolean') {
+          await putSetting(env.DB, 'tiktok.audited', body.tiktok_audited ? '1' : '0');
+          saved.push('tiktok.audited');
+        }
         for (const [key, value] of Object.entries(fields)) {
           if (typeof value !== 'string' || !value.trim()) continue;
           await putSetting(env.DB, key, value.trim());

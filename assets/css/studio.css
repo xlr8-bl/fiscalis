@@ -771,6 +771,15 @@ body.st-body {
   font-size: 1.05rem;
   font-weight: 500;
 }
+/* a switch, not a field — the one place a setting is a yes or a no */
+.st-check {
+  display: flex; align-items: center; gap: .7rem;
+  margin: 0 0 .8rem;
+  color: var(--swatch--beige-100, #e8e8e3);
+  cursor: pointer;
+}
+.st-check input { width: 1.1rem; height: 1.1rem; accent-color: #e8e8e3; }
+
 /* one platform's numbers, under the totals */
 .st-h3 {
   margin: 1.4rem 0 .4rem;

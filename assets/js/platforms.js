@@ -55,8 +55,22 @@ export const TIKTOK = {
   maxTitle: 90,
   // "maximum length for photo posts is 4000 in UTF-16 runes"
   maxCaption: 4000,
-  // Formats, file size and resolution are not stated on the photo-post
-  // reference, so nothing is checked for them here.
+  /*
+   * These three are not on the photo-post reference at all. They are on
+   * the Media Transfer Guide, which is the page that actually describes
+   * what PULL_FROM_URL will fetch:
+   *
+   *   https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide
+   *
+   * "WebP and JPEG" — so PNG is out, which Instagram already forces, and
+   * "maximum 1080p" and "maximum of 20MB for each image".
+   *
+   * The 1080 is the one that bites: the pipeline draws 4K masters,
+   * Instagram happily downscales them, and TikTok does not.
+   */
+  formats: ['image/jpeg', 'image/webp'],
+  maxBytes: 20 * 1024 * 1024,
+  maxWidth: 1080,
 };
 
 export const PLATFORMS = { instagram: INSTAGRAM, tiktok: TIKTOK };
@@ -130,6 +144,23 @@ export function problems(c) {
     if (runes(caption) > tt.maxCaption) {
       out.push(`TikTok caps the description at ${tt.maxCaption} characters; this is ${runes(caption)}.`);
     }
+
+    slides.forEach((s) => {
+      const no = s.position + 1;
+      if (!s.media_key) return;
+      if (s.content_type && !tt.formats.includes(s.content_type)) {
+        out.push(`Slide ${no} is ${s.content_type}. TikTok takes JPEG and WebP only.`);
+      }
+      if (s.bytes && s.bytes > tt.maxBytes) {
+        out.push(`Slide ${no} is ${(s.bytes / 1048576).toFixed(1)}MB. TikTok's limit is 20MB.`);
+      }
+      if (s.width && s.width > tt.maxWidth) {
+        out.push(
+          `Slide ${no} is ${s.width}px wide. TikTok caps photos at ${tt.maxWidth}p — ` +
+          `redraw it at ${tt.maxWidth}×1350, or drop TikTok from where this goes.`
+        );
+      }
+    });
   }
 
   return out;

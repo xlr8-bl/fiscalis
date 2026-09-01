@@ -20,7 +20,7 @@
 import { renderMarkdown, countWords, readingMinutes } from '/assets/js/markdown.js?v=55a3dc7d00';
 import { attachEditor, attachAll } from '/assets/js/editor.js?v=ac48360925';
 import { choosePicture, uploadImage, fileSize } from '/assets/js/picker.js?v=f337b82d38';
-import { problems as platformProblems } from '/assets/js/platforms.js?v=407e53cb9c';
+import { problems as platformProblems } from '/assets/js/platforms.js?v=4b5476660c';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -1639,8 +1639,11 @@ async function viewAccounts() {
                 : '')}
        ${line('TikTok', tt.connected,
               tt.connected
-                ? (tt.can_renew ? 'Connected — renews itself'
-                   : 'Connected, but cannot renew: add TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET')
+                ? [tt.username ? `@${tt.username}` : 'Connected',
+                   tt.can_renew ? 'renews itself'
+                     : 'cannot renew: add TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET',
+                   tt.audited ? null : 'not audited, so posts are private',
+                  ].filter(Boolean).join(' — ')
                 : '')}
      </dl>
 
@@ -1658,18 +1661,33 @@ async function viewAccounts() {
      </div>
 
      <h2 class="st-h2">TikTok</h2>
-     <p class="st-note u-text-style-main">The access token lasts a day, so the refresh
-       token is the one that matters — it lasts a year.</p>
-     <div class="st-field">
-       <label class="st-label u-text-style-main" for="tt-tok">Access token</label>
-       <textarea class="st-input st-input--area" id="tt-tok" rows="2" data-f="tiktok_token"
-                 placeholder="${tt.connected ? 'Connected' : 'Paste it here'}"></textarea>
-     </div>
-     <div class="st-field">
-       <label class="st-label u-text-style-main" for="tt-ref">Refresh token</label>
-       <textarea class="st-input st-input--area" id="tt-ref" rows="2" data-f="tiktok_refresh_token"
-                 placeholder="${tt.connected ? 'Connected' : 'Paste it here'}"></textarea>
-     </div>
+     <p class="st-note u-text-style-main">TikTok has no token to copy out of a dashboard —
+       it hands one over at the end of an approval. This does that round trip for you.
+       ${tt.connected
+         ? 'The access token lasts a day and renews itself; the refresh token lasts a year.'
+         : ''}</p>
+     ${tt.can_connect
+       ? `<div class="st-acts">
+            <a class="st-link" href="/oauth/tiktok/start">${
+              tt.connected ? 'Connect TikTok again' : 'Connect TikTok'}</a>
+          </div>`
+       : `<p class="st-note u-text-style-main">Add <code>TIKTOK_CLIENT_KEY</code> and
+          <code>TIKTOK_CLIENT_SECRET</code> to the Pages project first, under both
+          Production and Preview, and retry the deployment.</p>`}
+     ${tt.connected && !tt.scopes.includes('video.publish')
+       ? `<p class="st-note u-text-style-main">This token does not carry
+          <code>video.publish</code>, so it cannot post. Add the Content Posting API
+          product to the app and connect again.</p>`
+       : ''}
+     ${tt.connected ? `
+       <label class="st-check">
+         <input type="checkbox" data-acc-audited ${tt.audited ? 'checked' : ''}>
+         <span>TikTok has audited this app</span>
+       </label>
+       <p class="st-note u-text-style-main">Leave this off until the audit actually
+         passes. An unaudited app may only post at <code>SELF_ONLY</code> — TikTok
+         refuses anything else outright — so posts go out where only you can see them,
+         and the board says so against each one.</p>` : ''}
 
      <div class="st-acts">
        <button class="st-link" type="button" data-acc-save>Save</button>
@@ -1680,6 +1698,10 @@ async function viewAccounts() {
   $('[data-acc-save]', host).addEventListener('click', async () => {
     const body = {};
     $$('[data-f]', host).forEach((el) => { if (el.value.trim()) body[el.dataset.f] = el.value.trim(); });
+    // the checkbox is a state rather than a value, so it is sent whenever
+    // it disagrees with what is stored — including when it is turned off
+    const audit = $('[data-acc-audited]', host);
+    if (audit && audit.checked !== tt.audited) body.tiktok_audited = audit.checked;
     if (!Object.keys(body).length) { say('Nothing to save.'); return; }
     try {
       const out = await api('/carousels/-/accounts', { method: 'PUT', body: JSON.stringify(body) });

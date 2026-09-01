@@ -176,8 +176,8 @@ await step('Spark delivers the three images', async () => {
   for (const pos of [0, 1, 2]) {
     const form = new FormData();
     form.set('file', new File([PNG], `slide-${pos}.png`, { type: 'image/png' }));
-    form.set('width', '2160');
-    form.set('height', '2700');
+    form.set('width', '1080');
+    form.set('height', '1350');
     form.set('qc', JSON.stringify({ likeness: 'ok', legible: true }));
     const { status } = await spark(`/carousels/${slug.value}/slides/${pos}`, {
       method: 'PUT',
@@ -254,8 +254,8 @@ await step('a half-drawn batch cannot be approved', async () => {
 await step('Spark redraws it and hands it back', async () => {
   const form = new FormData();
   form.set('file', new File([PNG], 'slide-1.png', { type: 'image/png' }));
-  form.set('width', '2160');
-  form.set('height', '2700');
+  form.set('width', '1080');
+  form.set('height', '1350');
   await spark(`/carousels/${slug.value}/slides/1`, { method: 'PUT', body: form });
   const { status } = await spark(`/carousels/${slug.value}/status`, {
     method: 'POST',
@@ -373,8 +373,11 @@ await step('a 4:5 JPEG passes every one of them', async () => {
   for (const pos of [0, 1, 2]) {
     const form = new FormData();
     form.set('file', new File([PNG], `s${pos}.jpg`, { type: 'image/jpeg' }));
-    form.set('width', '2160');    // 4K wide; Instagram scales to 1440 itself
-    form.set('height', '2700');   // 4:5, the tallest a feed carousel takes
+    // 1080 wide because TikTok caps photos at 1080p and does not resize,
+    // and 4:5 because that is the tallest a feed carousel takes. One file
+    // that both platforms accept.
+    form.set('width', '1080');
+    form.set('height', '1350');
     const { status } = await spark(`/carousels/${slug.value}/slides/${pos}`, {
       method: 'PUT', body: form,
     });
@@ -396,6 +399,31 @@ await step('a 4:5 JPEG passes every one of them', async () => {
   await person(`/carousels/${slug.value}/status`, {
     method: 'POST', body: JSON.stringify({ status: 'review' }),
   });
+});
+
+await step('a 4K master is refused while TikTok is one of the targets', async () => {
+  // Instagram downscales a 4K file happily. TikTok caps photos at 1080p
+  // and does not, so a master that reads as "better" is the one that
+  // silently fails at the slot.
+  const form = new FormData();
+  form.set('file', new File([PNG], 's0.jpg', { type: 'image/jpeg' }));
+  form.set('width', '2160');
+  form.set('height', '2700');
+  await spark(`/carousels/${slug.value}/slides/0`, { method: 'PUT', body: form });
+  const { status, body } = await person(`/carousels/${slug.value}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status: 'approved' }),
+  });
+  is(status, 400, 'status');
+  const said = (body.problems || []).join(' ');
+  if (!/1080p/.test(said)) throw new Error(`does not name the cap: ${said}`);
+
+  // put it back, or every step after this one fails on a slide this one left
+  const good = new FormData();
+  good.set('file', new File([PNG], 's0.jpg', { type: 'image/jpeg' }));
+  good.set('width', '1080');
+  good.set('height', '1350');
+  await spark(`/carousels/${slug.value}/slides/0`, { method: 'PUT', body: good });
 });
 
 await step('off-voice copy cannot be approved either', async () => {
@@ -493,8 +521,8 @@ await step('a slot clash is refused with the name of what has it', async () => {
   for (const pos of [0, 1]) {
     const form = new FormData();
     form.set('file', new File([PNG], `s${pos}.jpg`, { type: 'image/jpeg' }));
-    form.set('width', '2160');
-    form.set('height', '2700');
+    form.set('width', '1080');
+    form.set('height', '1350');
     await spark(`/carousels/${rival.body.slug}/slides/${pos}`, { method: 'PUT', body: form });
   }
   await person(`/carousels/${rival.body.slug}/status`, {

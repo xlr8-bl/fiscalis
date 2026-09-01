@@ -255,11 +255,10 @@ fails at the moment it was due to go out, with nobody watching.
 | account | Professional (Business or Creator) on a linked Facebook Page |
 | media | pulled by Meta **from a public URL** — no direct upload |
 
-Two things follow for a 4K pipeline. Instagram downscales to 1440 wide
-anyway, so the 4K master is for the archive, not for the post — what the
-8MB cap actually bites is a 4K JPEG. And **9:16 is a Reel or a Story, not
-a feed carousel**; if "4K vertical" means 9:16 it will be refused. Generate
-at 4:5.
+**9:16 is a Reel or a Story, not a feed carousel**; if "4K vertical" means
+9:16 it will be refused. And Instagram downscales to 1440 wide anyway, so
+the 4K master is for the archive, not the post — see the size to draw at,
+below.
 
 **TikTok** ([photo post reference][tt-photo], [getting started][tt-start])
 
@@ -268,16 +267,34 @@ at 4:5.
 | photos | up to 35 |
 | title | 90 UTF-16 runes |
 | description | 4000 UTF-16 runes |
-| media | publicly accessible URLs, verified by the app |
+| format | **JPEG or WebP.** Not PNG ([media transfer guide][tt-media]) |
+| resolution | **maximum 1080p**, and TikTok does not resize |
+| file size | 20 MB per image |
+| media | HTTPS URLs, no redirects, **on a domain the app has verified** |
 | scope | `video.publish`, approved and user-authorised |
-| modes | `DIRECT_POST`, or `MEDIA_UPLOAD` to hand off to TikTok's editor |
+| privacy | an unaudited client may only post `SELF_ONLY` |
 
 An unaudited client **can** direct-post — the content is restricted to
-private viewing until the audit passes. So the automation can run end to
-end from day one; what the audit buys is the posts being public.
+private viewing until the audit passes. So the automation runs end to end
+from day one; what the audit buys is the posts being public.
 
-Format, file size and resolution are not stated on TikTok's photo-post
-reference, so nothing is checked for them.
+That restriction is about the *app*, not the account: a public TikTok
+account still lists `PUBLIC_TO_EVERYONE` among its privacy options, and
+sending it from an unaudited client is refused anyway. Nothing in the API
+says which side of the audit an app is on, so the studio has a switch for
+it under Social → Accounts, off until the audit actually passes.
+
+### The size to draw at
+
+**1080 × 1350, JPEG.** One file that both platforms take:
+
+- TikTok caps photos at 1080p and does not resize, so anything wider is
+  refused outright.
+- Instagram takes JPEG only, downscales anything over 1440 wide, and 4:5
+  is the tallest ratio a feed carousel accepts.
+
+`brief` hands this back under `slides.size`, and approval refuses a slide
+that is over it rather than letting the batch fail at its slot.
 
 **Facebook Pages** is deliberately unchecked. Its photo limits were not
 verified, and a guessed limit that silently passes reads as checked when
@@ -292,6 +309,7 @@ and is the cheaper option if the likeness holds.
 [ig-pub]: https://developers.facebook.com/docs/instagram-platform/content-publishing
 [tt-photo]: https://developers.tiktok.com/doc/content-posting-api-reference-photo-post
 [tt-start]: https://developers.tiktok.com/doc/content-posting-api-get-started
+[tt-media]: https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide
 [gem]: https://ai.google.dev/gemini-api/docs/image-generation
 
 ## Posting
@@ -325,16 +343,62 @@ drift.
 
 ### Credentials
 
-These go in the **Pages** project, with the rest — dashboard, no terminal:
+Neither platform issues a token you can set once and forget: Instagram's
+lasts 60 days and TikTok's access token lasts 24 hours. A Cloudflare
+Worker cannot rewrite its own secret, so a token kept in a secret is one
+that dies on its own schedule with nobody watching. **The tokens live in
+`settings`**, where they can be refreshed on use; the environment holds
+only the app's own identity.
+
+In the **Pages** project — dashboard, no terminal, both Production and
+Preview, then retry the deployment:
 
 | | |
 |---|---|
-| `IG_USER_ID` | the Instagram professional account's ID |
-| `IG_ACCESS_TOKEN` | long-lived, with `instagram_business_content_publish` |
-| `TIKTOK_ACCESS_TOKEN` | a user token with `video.publish` |
+| `TIKTOK_CLIENT_KEY` | from the app's page at TikTok for Developers |
+| `TIKTOK_CLIENT_SECRET` | same page. This one is a secret |
+| `TIKTOK_SCOPES` | optional. `video.list`, once the Display API product is on the app |
+| `IG_USER_ID` | optional starting value; the studio can set it instead |
+| `IG_ACCESS_TOKEN` | optional starting value, long-lived |
 
 A platform with no credential is **skipped, not failed** — so Instagram
 can go live while TikTok waits on its audit.
+
+### Connecting TikTok
+
+TikTok has no token to copy out of a dashboard. It hands one over at the
+end of an approval, so the site hosts both ends of that round trip and
+the studio has a button for it.
+
+**On the app's page at TikTok for Developers:**
+
+1. Add both products: **Login Kit** (the prerequisite — it is what grants
+   `user.info.basic`) and **Content Posting API** (`video.publish`). Turn
+   on **Direct Post** under the Content Posting configuration; without it
+   the app can only hand content off to TikTok's editor.
+2. **Redirect URI**: `https://web3ashley.com/oauth/tiktok/callback` —
+   exactly. HTTPS, no query string, no trailing slash. It is matched
+   character for character.
+3. **URL properties** → add `web3ashley.com` and verify it, by DNS record
+   or by the signature file. This is the one people miss: TikTok fetches
+   the slides from the site with `PULL_FROM_URL`, and it refuses to fetch
+   from a domain the app has not proved it owns — `url_ownership_unverified`,
+   HTTP 403. Verifying the domain covers every path and subdomain under it.
+4. Copy the **client key** and **client secret** into the Pages project as
+   above, and redeploy.
+
+**Then, in the studio:** Social → Accounts → **Connect TikTok**. It sends
+you to TikTok, you approve, and it comes back with the tokens stored and
+the account name shown. Nothing to paste.
+
+The access token is renewed on use and the refresh token — which lasts a
+year, and which TikTok *replaces* on every refresh — is written back each
+time. That last part is why this is not a secret: not writing it back is a
+pipeline that works today and stops tomorrow.
+
+Leave **TikTok has audited this app** switched off until the audit really
+passes. Until then every post goes out `SELF_ONLY`, the result says so,
+and the alternative is TikTok refusing the post outright.
 
 ### What it will and will not do
 
@@ -360,11 +424,16 @@ Nothing in the code. What is left is external and slower than the build:
 
 - **Meta App Review** for `instagram_business_content_publish`, and an
   Instagram professional account on a linked Facebook Page.
-- **The TikTok audit.** Posting works unaudited; the content is
-  restricted to private viewing until it passes — and a private post has
-  no readable likes, so `performance` will report TikTok as *pending*
-  with that reason until the audit clears. Add the `video.list` scope to
-  the app at the same time, or the numbers stay unreadable after it does.
+- **The TikTok audit.** Posting works unaudited; every post is
+  `SELF_ONLY` until it passes — and a private post has no readable likes,
+  so `performance` reports TikTok as *pending* with that reason. When it
+  clears, turn on the switch in Social → Accounts; nothing in the API
+  announces it.
+- **The Display API product**, if the TikTok numbers are wanted. Reading
+  likes and views needs `video.list`, which that product grants and the
+  Content Posting one does not. Add it, put `video.list` in
+  `TIKTOK_SCOPES`, redeploy, and press Connect TikTok again — a scope is
+  granted at approval, so an existing token does not gain it.
 - **`instagram_business_manage_insights`**, if reach, saves and views are
   wanted alongside the likes. Without it the likes and comments still
   come back.

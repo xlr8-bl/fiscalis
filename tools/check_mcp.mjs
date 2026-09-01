@@ -326,14 +326,16 @@ await step('deliver_slide takes base64 and reports what is left', async () => {
     const out = structured(await call('deliver_slide', {
       carousel: slug, position: pos,
       image_base64: JPEG_B64, mime: 'image/jpeg',
-      width: 2160, height: 2700,
+      // 1080x1350: TikTok caps photos at 1080p and does not resize, and
+      // 4:5 is the tallest an Instagram feed carousel takes
+      width: 1080, height: 1350,
       qc: { likeness: 'ok', legible: true },
     }));
     is(out.ok, true, `slide ${pos}`);
     if (!out.url.includes('/media/carousels/')) throw new Error(`bad url: ${out.url}`);
   }
   const out = structured(await call('deliver_slide', {
-    carousel: slug, position: 1, image_base64: JPEG_B64, width: 2160, height: 2700,
+    carousel: slug, position: 1, image_base64: JPEG_B64, width: 1080, height: 1350,
   }));
   is(out.attempts, 2, 'a redraw counts as another take');
   is(out.slides_left, 1, 'slides left');
@@ -343,7 +345,7 @@ await step('deliver_slide can fetch a URL instead', async () => {
   const out = structured(await call('deliver_slide', {
     carousel: slug, position: 2,
     image_url: `${BASE}/assets/stock/stock-18.jpg`,
-    width: 2160, height: 2700,
+    width: 1080, height: 1350,
   }));
   is(out.ok, true, 'ok');
   is(out.slides_left, 0, 'slides left');
