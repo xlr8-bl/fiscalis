@@ -12,53 +12,43 @@ None of this is public. No site route renders any of it.
 
 ## Connecting it to Spark
 
-Spark does not call REST endpoints. It connects to a third-party app by
-**MCP server URL**, which you paste into the Gemini web app — so the
-doorway is `/mcp`, and everything in this document sits behind it.
+Spark does not call REST endpoints, and it does not take a pasted token.
+Its "custom connected app" panel asks for an **OAuth client ID and
+secret**, because the MCP authorization spec is OAuth 2.1: a server MUST
+publish Protected Resource Metadata (RFC 9728), and its authorization
+server MUST do OAuth 2.1 with PKCE. So the site hosts one.
 
-1. Set `AGENT_TOKEN` in the Pages project, under **both** Production and
-   Preview, then retry the deployment — a deployment carries the variables
-   it was built with.
-2. In the Gemini **web** app (this cannot be done from mobile), open
-   Connected Apps and add a custom app.
-3. URL: `https://web3ashley.com/mcp`
-4. This server does not do Dynamic Client Registration, so open **Advanced
-   features → Show more** and give it the agent token as a bearer
-   credential. That panel exists for exactly this case.
+    /.well-known/oauth-protected-resource    where to authorize
+    /.well-known/oauth-authorization-server  what it supports
+    /oauth/authorize                         you approve, once
+    /oauth/token                             code + verifier -> token
 
-Once connected there, it works in Spark on both web and mobile. Google's
-requirements: a personal Google account (not Workspace), "Keep Activity"
-on, 18+, US.
+**Set these three secrets**, under both Production and Preview, then retry
+the deployment:
 
-Google also warns that it does not control or secure third-party MCP
-servers, and that you are responsible for the one you connect. That is the
-reason the tool list below stops where it does.
-
-### What the server exposes
-
-Seven tools, and deliberately nothing else:
-
-| tool | what it does |
+| | what to put |
 |---|---|
-| `brief` | pillars, brand kit URLs, recent topics, slide limits |
-| `plan_carousel` | file one plan with its slides |
-| `queue` | slides needing a first draw or a redraw, with your notes |
-| `deliver_slide` | put a picture on one slide, by URL or base64 |
-| `hand_over` | move a carousel to review |
-| `list_carousels` | the board |
-| `send_digest` | send the day's mail |
+| `MCP_CLIENT_ID` | anything, e.g. `gemini-spark`. It is a name, not a secret |
+| `MCP_CLIENT_SECRET` | a long random string. This one is a secret |
+| `MCP_REDIRECT_URIS` | the redirect URI Gemini gives you, exactly |
 
-There is no approve, no schedule, no post and no delete — not hidden, not
-permission-gated, **absent**. `check_mcp.mjs` asserts that no tool name
-contains any of those words, and separately that the underlying API
-refuses them to this credential.
+**Then, in the Gemini web app:**
 
-The endpoint is **dual-era**. The MCP spec now has two: modern
-(`2026-07-28`), where every request carries its own version in `_meta` and
-there is no handshake, and legacy (`2025-11-25` and earlier), which opens
-with `initialize`. Spark's help page says "standard MCP specifications"
-without naming a revision, so guessing wrong means it simply will not
-connect. Both are served; the branch is chosen by how the client opens.
+1. Custom app link: `https://web3ashley.com/mcp`
+2. Advanced Settings → **Client ID**: whatever you set `MCP_CLIENT_ID` to
+3. **Client secret**: whatever you set `MCP_CLIENT_SECRET` to
+4. Press **Copy redirect URI** *first*, put it in `MCP_REDIRECT_URIS`, and
+   redeploy — the redirect is matched exactly, so a near miss is refused
+5. Next. A page on this site asks for the studio password, says what the
+   token will and will not be able to do, and sends Gemini back with a code
+
+The password is the approval. There is one account holder and one thing
+being granted, so a consent screen enumerating scopes would be ceremony
+over a single yes.
+
+`AGENT_TOKEN` still works for curl and the check suites. It is a
+deployment-wide secret rather than a granted one, which is why it is
+second in the order the endpoint checks.
 
 ## The two credentials
 

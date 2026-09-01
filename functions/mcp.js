@@ -24,6 +24,7 @@ import {
   INTERNAL_ERROR, HEADER_MISMATCH, UNSUPPORTED_VERSION,
 } from '../lib/mcp.js';
 import { timingSafeEqual } from '../lib/auth.js';
+import { readToken, resourceUri, SCOPE } from '../lib/oauth.js';
 import { SITE } from '../lib/templates.js';
 import {
   brief, agentQueue, getCarousel, listCarousels, setSlides,
@@ -296,8 +297,8 @@ export async function onRequest({ request, env }) {
 
   // DNS rebinding: an Origin at all means a browser sent this, and no
   // browser page has business here
-  const origin = request.headers.get('origin');
-  if (origin && new URL(origin).origin !== new URL(SITE).origin) {
+  const browserOrigin = request.headers.get('origin');
+  if (browserOrigin && new URL(browserOrigin).origin !== new URL(SITE).origin) {
     return json(rpcError(null, INVALID_REQUEST, 'Origin not allowed.'), 403);
   }
 
@@ -311,12 +312,47 @@ export async function onRequest({ request, env }) {
                 { allow: 'POST' });
   }
 
-  // One credential, checked before anything is parsed.
+  /*
+   * Two ways in, checked before anything is parsed.
+   *
+   * An OAuth access token is the real one — it is what Gemini Spark will
+   * present, because the MCP authorization spec is OAuth 2.1 and Spark's
+   * connected-app panel asks for a client ID and secret rather than
+   * offering a place to paste a static token.
+   *
+   * AGENT_TOKEN still works, for curl and for the check suites. It is a
+   * deployment-wide secret rather than a granted one, so it is second.
+   *
+   * A 401 must point at the Protected Resource Metadata document (RFC
+   * 9728) or a client has no way to discover where to authorize. That
+   * header is how the whole flow starts.
+   */
+  const origin = new URL(request.url).origin;
+  const challenge =
+    `Bearer realm="web3ashley-studio", ` +
+    `resource_metadata="${origin}/.well-known/oauth-protected-resource", ` +
+    `scope="${SCOPE}"`;
+
   const auth = request.headers.get('authorization') || '';
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  if (!env.AGENT_TOKEN || !bearer || !timingSafeEqual(bearer, env.AGENT_TOKEN)) {
-    return json(rpcError(null, INVALID_REQUEST, 'A bearer token is required.'), 401, {
-      'www-authenticate': 'Bearer realm="web3ashley-studio"',
+  if (!bearer) {
+    return json(rpcError(null, INVALID_REQUEST, 'Authorization is required.'), 401, {
+      'www-authenticate': challenge,
+    });
+  }
+
+  const granted = await readToken(env, bearer, { resource: resourceUri(origin) });
+  const isStatic = env.AGENT_TOKEN && timingSafeEqual(bearer, env.AGENT_TOKEN);
+  if (!granted && !isStatic) {
+    return json(
+      rpcError(null, INVALID_REQUEST, 'That token is not valid for this server.'),
+      401,
+      { 'www-authenticate': `${challenge}, error="invalid_token"` }
+    );
+  }
+  if (granted && !String(granted.scope || '').split(/\s+/).includes(SCOPE)) {
+    return json(rpcError(null, INVALID_REQUEST, 'That token does not carry the required scope.'), 403, {
+      'www-authenticate': `${challenge}, error="insufficient_scope"`,
     });
   }
 

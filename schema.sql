@@ -231,6 +231,38 @@ CREATE INDEX IF NOT EXISTS idx_slides_state
 
 
 -- ==================================================================
+-- OAuth authorization codes.
+--
+-- Gemini Spark connects over MCP, and the MCP authorization spec is
+-- OAuth 2.1 — a static bearer token is not a path the client offers.
+-- An authorization code has to be single use, and a signed stateless
+-- code can be replayed inside its own lifetime, so they are rows that
+-- get deleted the moment they are exchanged.
+--
+-- Short lived by design. Anything older than its expiry is swept on the
+-- next exchange rather than by a job.
+-- ==================================================================
+CREATE TABLE IF NOT EXISTS oauth_codes (
+  code           TEXT PRIMARY KEY,
+  client_id      TEXT NOT NULL,
+  redirect_uri   TEXT NOT NULL,
+  -- PKCE, which OAuth 2.1 requires rather than merely allows
+  code_challenge TEXT NOT NULL,
+  method         TEXT NOT NULL DEFAULT 'S256',
+  -- RFC 8707: the token is bound to the resource it was asked for, so a
+  -- token minted for this server cannot be replayed at another
+  resource       TEXT NOT NULL DEFAULT '',
+  scope          TEXT NOT NULL DEFAULT '',
+  subject        TEXT NOT NULL DEFAULT '',
+  expires_at     INTEGER NOT NULL,
+  created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_codes_expiry
+  ON oauth_codes (expires_at);
+
+
+-- ==================================================================
 -- Columns added after the first release.
 --
 -- A database created from the CREATE statements above already has
