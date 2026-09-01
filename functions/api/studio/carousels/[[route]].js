@@ -44,6 +44,7 @@ import { problems as platformProblems, INSTAGRAM } from '../../../../assets/js/p
 import { problems as brandProblems } from '../../../../assets/js/brand.js';
 import { send as sendMail } from '../../../../lib/mail.js';
 import { gather, compose } from '../../../../lib/digest.js';
+import { runDue } from '../../../../lib/publish.js';
 
 const MAX_FIELD = 400;
 const MAX_TEXT = 8_000;
@@ -123,6 +124,22 @@ export async function onRequest({ request, env, params }) {
         });
         return json({ ...out, count: mail.count, subject: mail.subject }, out.sent ? 200 : 502);
       }
+    }
+
+    /*
+     * Post whatever is past its slot. Pages Functions have no cron, so
+     * the *when* comes from outside — Spark's own scheduled tasks, or
+     * the optional poster Worker. Both land here.
+     *
+     * The agent may call this. That sounds like a hole and is not: it
+     * posts only carousels in `scheduled`, and a carousel reaches that
+     * state only because a person approved it and gave it a slot. The
+     * capability being withheld was never "cause a post to happen" — it
+     * was "put something in front of an audience that nobody approved",
+     * and that stays impossible.
+     */
+    if (what === 'post' && method === 'POST') {
+      return json(await runDue({ ...env, SITE }));
     }
 
     if (what === 'pillars') {

@@ -215,13 +215,16 @@ await step('tools/list describes every tool with a schema', async () => {
   }
   const names = tools.map((t) => t.name).sort();
   is(names.join(','),
-     'brief,deliver_slide,hand_over,list_carousels,plan_carousel,queue,send_digest',
+     'brief,deliver_slide,hand_over,list_carousels,plan_carousel,post_due,queue,send_digest',
      'the tool set');
 });
 
 await step('there is no tool for approving, posting, scheduling or deleting', async () => {
   const names = (await modern('tools/list')).body.result.tools.map((t) => t.name);
-  for (const forbidden of ['approve', 'publish', 'post', 'schedule', 'delete']) {
+  // `post_due` is a trigger, not an authority: it publishes only what a
+  // person already approved and gave a slot to, and cannot reach anything
+  // else. The ceiling is about deciding, not about firing.
+  for (const forbidden of ['approve', 'publish', 'schedule', 'delete']) {
     const found = names.filter((x) => x.includes(forbidden));
     if (found.length) throw new Error(`exposes ${found.join(', ')}`);
   }

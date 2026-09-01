@@ -96,10 +96,10 @@ const slides = (n, id = 1) =>
  * module before it runs. Importing the real file first means a rename
  * there breaks this rather than being silently missed.
  */
-const platformsUrl = new URL('../poster/platforms.js', import.meta.url).href;
+const platformsUrl = new URL('../lib/publishers.js', import.meta.url).href;
 const real = await import(platformsUrl);
 if (!real.POSTERS.instagram || !real.POSTERS.tiktok || !real.POSTERS.facebook) {
-  console.error('poster/platforms.js does not export the three posters');
+  console.error('lib/publishers.js does not export the three posters');
   process.exit(1);
 }
 
@@ -115,23 +115,13 @@ const setPosters = (map) => {
   Object.assign(real.POSTERS, map);
 };
 
-const worker = (await import(new URL('../poster/index.js', import.meta.url).href)).default;
+const worker = (await import(new URL('../lib/publish.js', import.meta.url).href));
 
 const ENV = (db, over = {}) => ({
   DB: db, SITE: 'https://web3ashley.com', ...over,
 });
 
-const runOnce = async (state, over = {}) => {
-  const out = { ran: 0 };
-  const env = ENV(fakeDb(state), over);
-  const res = await worker.fetch(
-    new Request('https://poster/run', {
-      method: 'POST', headers: { authorization: 'Bearer t' },
-    }),
-    { ...env, AGENT_TOKEN: 't' }
-  );
-  return res.json();
-};
+const runOnce = (state, over = {}) => worker.runDue(ENV(fakeDb(state), over));
 
 /* ------------------------------------------------------------------ run */
 
@@ -250,12 +240,15 @@ await step('a carousel with too few pictures is put back, not posted', async () 
   if (!/slide/i.test(JSON.parse(state.carousels[0].results).error)) throw new Error('no reason');
 });
 
-await step('/run needs the token', async () => {
-  const res = await worker.fetch(
-    new Request('https://poster/run', { method: 'POST' }),
-    ENV(fakeDb({ carousels: [], slides: [] }), { AGENT_TOKEN: 't' })
-  );
-  is(res.status, 401, 'status');
+await step('the optional cron Worker is a shell over the same code', async () => {
+  const shell = readFileSync(join(ROOT, 'poster/index.js'), 'utf8');
+  if (!/from '\.\.\/lib\/publish\.js'/.test(shell)) {
+    throw new Error('the Worker does not import the shared run — two copies would drift');
+  }
+  const w = (await import(new URL('../poster/index.js', import.meta.url).href)).default;
+  const res = await w.fetch(new Request('https://poster/run', { method: 'POST' }),
+                            { AGENT_TOKEN: 't' });
+  is(res.status, 401, '/run without the token');
 });
 
 await step('the real Facebook poster refuses rather than guessing', async () => {

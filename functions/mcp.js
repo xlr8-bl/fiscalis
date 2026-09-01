@@ -33,6 +33,7 @@ import {
 import { problems as brandProblems } from '../assets/js/brand.js';
 import { send as sendMail } from '../lib/mail.js';
 import { gather, compose } from '../lib/digest.js';
+import { runDue } from '../lib/publish.js';
 
 const MAX_IMAGE = 25 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -234,6 +235,16 @@ async function runTool(name, args, env) {
         slug: carousel.slug,
         status: 'review',
         next: 'a person reviews it. send_digest once the day\'s batch is all handed over.',
+      });
+    }
+
+    case 'post_due': {
+      const out = await runDue({ ...env, SITE });
+      return toolResult({
+        ...out,
+        note: out.ran
+          ? 'Anything that failed is back in Approved with the reason against it.'
+          : 'Nothing was due.',
       });
     }
 

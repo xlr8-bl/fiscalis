@@ -218,54 +218,63 @@ and is the cheaper option if the likeness holds.
 
 ## Posting
 
-`poster/` is a second Worker, deployed separately, bound to the same D1
-and the same R2 as the site. It exists apart from the site because Pages
-Functions have no cron triggers and Workers do.
+Pages Functions have no cron, so the *when* has to come from outside. The
+*what* is one implementation in `lib/publish.js`, and there are two ways
+to poke it.
+
+**Spark's own schedule — no terminal needed.** Spark schedules recurring
+tasks itself. Give it five, one per slot:
+
+> Every day at 8am, call post_due on Web3ashley Studio.
+
+That is the whole scheduler. It needs no second deployment and no
+commands, which matters when the studio is run from a phone.
+
+`post_due` looks like a hole in the ceiling and is not. It publishes only
+carousels in `scheduled`, and a carousel reaches that state only because
+a person approved it and gave it a slot. The capability being withheld
+was never "cause a post to happen" — it was "put something in front of an
+audience that nobody approved", and that stays impossible.
+
+**Or the optional Worker**, if you would rather the schedule did not
+depend on Spark being awake:
 
     npx wrangler deploy --config poster/wrangler.toml
 
-Five cron lines, in UTC. It does not care what time it is — it posts
-whatever is due, so a missed firing catches up rather than skipping.
+Same code, real cron triggers, five lines in UTC. It is a shell over
+`lib/publish.js`, and a check asserts it stays one so the two cannot
+drift.
 
-**Secrets**, set with `npx wrangler secret put NAME --config poster/wrangler.toml`:
+### Credentials
+
+These go in the **Pages** project, with the rest — dashboard, no terminal:
 
 | | |
 |---|---|
 | `IG_USER_ID` | the Instagram professional account's ID |
 | `IG_ACCESS_TOKEN` | long-lived, with `instagram_business_content_publish` |
 | `TIKTOK_ACCESS_TOKEN` | a user token with `video.publish` |
-| `AGENT_TOKEN` | the same one the site uses, to reach `/run` by hand |
-| `RESEND_API_KEY` | so a failure reaches you |
 
 A platform with no credential is **skipped, not failed** — so Instagram
-can go live while TikTok is still waiting on its audit.
+can go live while TikTok waits on its audit.
 
 ### What it will and will not do
 
-It reads carousels in `scheduled` and nothing else. There is no path in
-it that can reach something still in review.
-
-It claims a row with a conditional `UPDATE` before making a single API
-call, so two overlapping firings cannot both post the same carousel.
+It reads carousels in `scheduled` and nothing else. It claims a row with
+a conditional `UPDATE` before making a single API call, so two overlapping
+pokes cannot both post it.
 
 A carousel that reached nobody goes back to **Approved** with the reason
-written against it, and you get a mail. One that reached *somewhere*
-stays posted with the failures recorded beside it — a live Instagram
-carousel cannot be unsent, so marking it unposted would be a lie in the
-database.
-
-You can run it by hand rather than waiting for a slot:
-
-    curl -X POST https://web3ashley-poster.<subdomain>.workers.dev/run \
-      -H "Authorization: Bearer $AGENT_TOKEN"
+against it, and you get a mail. One that reached *somewhere* stays posted
+with the failures recorded beside it — a live Instagram carousel cannot
+be unsent, so marking it unposted would be a lie in the database.
 
 ### Facebook is deliberately not implemented
 
 Its multi-photo shape is not on the Pages API guide and the reference
 pages were erroring when this was written, so there was nothing to read
 it off. It returns "skipped" every time rather than guessing at a call
-that would post the wrong thing to a real audience. Instagram and TikTok
-were both read off their own references; see `poster/platforms.js`.
+that would post the wrong thing to a real audience.
 
 ## Still to do
 
