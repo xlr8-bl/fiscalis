@@ -1869,15 +1869,33 @@ async function viewAccounts() {
      </dl>
 
      <h2 class="st-h2">Drawing the slides</h2>
-     <p class="st-note u-text-style-main">The site draws them itself, with Nano Banana
-       Pro and your brand kit, so Spark never has to carry pictures back and forth.
-       The key is from Google AI Studio.</p>
+     <p class="st-note u-text-style-main">The site draws them itself, with your brand kit,
+       so Spark never has to carry pictures back and forth. The key is from Google AI
+       Studio. There is no free tier on any of these models and a Google AI subscription
+       does not cover them, so every slide costs what it says below.</p>
      <div class="st-field">
        <label class="st-label u-text-style-main" for="gem-key">Gemini API key</label>
        <input class="st-input" id="gem-key" data-f="gemini_api_key"
               placeholder="${state.drawing?.ready
                 ? `set in ${state.drawing.source}` : 'AIza…'}">
      </div>
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="gem-model">Model</label>
+       <select class="st-input" id="gem-model" data-f="gemini_model">
+         ${(state.drawing?.choices || []).map((m) => `
+           <option value="${escapeAttr(m.id)}"${m.id === state.drawing?.model ? ' selected' : ''}
+             >${escapeHtml(m.name)} — $${m.per_image.toFixed(3)} a slide, about $${
+               (m.per_image * 5).toFixed(2)} a carousel</option>`).join('')}
+         ${(state.drawing?.choices || []).some((m) => m.id === state.drawing?.model)
+           ? ''
+           : `<option value="${escapeAttr(state.drawing?.model || '')}" selected
+               >${escapeHtml(state.drawing?.model || '')} (set by hand)</option>`}
+       </select>
+     </div>
+     <p class="st-note u-text-style-main">Five a day at five slides is about $${
+       ((state.drawing?.per_image ?? 0) * 25 * 30).toFixed(0)} a month on this one.
+       Redraws cost again, so the cheaper model only saves money while its spelling
+       holds up. Look at a carousel before you decide.</p>
 
      <h2 class="st-h2">Instagram</h2>
      <p class="st-note u-text-style-main">A professional account — business or creator.
@@ -1968,7 +1986,17 @@ async function viewAccounts() {
 
   $('[data-acc-save]', host).addEventListener('click', async () => {
     const body = {};
-    $$('[data-f]', host).forEach((el) => { if (el.value.trim()) body[el.dataset.f] = el.value.trim(); });
+    $$('[data-f]', host).forEach((el) => {
+      // a select always has a value, so sweeping it in would re-save the
+      // same model on every press. It is a choice, not a field to fill,
+      // and it is sent below only when it actually changed.
+      if (el.tagName === 'SELECT') return;
+      if (el.value.trim()) body[el.dataset.f] = el.value.trim();
+    });
+    const picked = $('#gem-model', host);
+    if (picked && picked.value && picked.value !== state.drawing?.model) {
+      body.gemini_model = picked.value;
+    }
     // the checkbox is a state rather than a value, so it is sent whenever
     // it disagrees with what is stored — including when it is turned off
     const audit = $('[data-acc-audited]', host);

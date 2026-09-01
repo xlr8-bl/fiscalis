@@ -49,7 +49,7 @@ await step('it calls generateContent on the image model', async () => {
   is(out.mime, 'image/png', 'mime');
   is(out.bytes.length, PIXEL.length, 'bytes came back decoded');
   is(sent[0].url,
-     'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image:generateContent',
+     'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent',
      'endpoint');
 });
 
@@ -177,9 +177,76 @@ await step('with nothing stored the deployment is used', async () => {
 });
 
 await step('the model can be moved without a code change', async () => {
-  is(imagen.model(ENV), 'gemini-3-pro-image', 'the default');
-  is(imagen.model({ GEMINI_IMAGE_MODEL: 'gemini-3.1-flash-image' }),
-     'gemini-3.1-flash-image', 'overridden');
+  is(imagen.model(ENV), 'gemini-3.1-flash-image', 'the default');
+  is(imagen.model({ GEMINI_IMAGE_MODEL: 'gemini-3-pro-image' }),
+     'gemini-3-pro-image', 'overridden');
+});
+
+await step('a model chosen in the studio wins over the deployment', async () => {
+  const f = fake({ 'gemini.model': 'gemini-3-pro-image' });
+  const out = await imagen.imageModel(f.db, { GEMINI_IMAGE_MODEL: 'gemini-2.5-flash-image' },
+                                     { getSetting: f.getSetting });
+  is(out.model, 'gemini-3-pro-image', 'model');
+  is(out.source, 'studio', 'source');
+});
+
+await step('with nothing chosen it falls to the deployment, then the default', async () => {
+  const f = fake({});
+  is((await imagen.imageModel(f.db, { GEMINI_IMAGE_MODEL: 'gemini-3-pro-image' },
+                              { getSetting: f.getSetting })).source, 'environment', 'env');
+  const bare = await imagen.imageModel(f.db, {}, { getSetting: f.getSetting });
+  is(bare.model, 'gemini-3.1-flash-image', 'the default');
+  is(bare.source, 'default', 'source');
+});
+
+await step('a chosen model is the one actually called', async () => {
+  const sent = [];
+  await imagen.drawSlide(ENV, {
+    slide, model: 'gemini-3.1-flash-lite-image', fetcher: stub(OK, sent),
+  });
+  if (!sent[0].url.includes('gemini-3.1-flash-lite-image')) throw new Error(sent[0].url);
+  // and it says which one drew, so a carousel can report what it cost
+  const out = await imagen.drawSlide(ENV, { slide, model: 'gemini-3-pro-image', fetcher: stub(OK) });
+  is(out.model, 'gemini-3-pro-image', 'reported back');
+});
+
+/* -------------------------------------------------- what a slide costs
+
+   There is no free tier on any image model and the $300 Cloud trial
+   credit stopped covering the Gemini API in March 2026, so a run that
+   draws quietly is money spent without anyone deciding to spend it.
+   These numbers are off the pricing page and are shown before drawing
+   rather than discovered on a bill.
+     https://ai.google.dev/gemini-api/docs/pricing                    */
+
+await step('every offered model carries its price', () => {
+  if (imagen.MODELS.length < 2) throw new Error('nothing to choose between');
+  for (const m of imagen.MODELS) {
+    if (!m.id || !m.name) throw new Error(`${m.id}: unnamed`);
+    if (!(m.per_image > 0)) throw new Error(`${m.id}: no price`);
+  }
+  // the default has to be one a person can actually pick in the studio
+  if (!imagen.MODELS.some((m) => m.id === imagen.MODEL)) {
+    throw new Error(`the default ${imagen.MODEL} is not in the list`);
+  }
+});
+
+await step('the prices are the ones on the pricing page', () => {
+  const want = {
+    'gemini-3-pro-image': 0.134,
+    'gemini-3.1-flash-image': 0.067,
+    'gemini-3.1-flash-lite-image': 0.0336,
+  };
+  for (const [id, price] of Object.entries(want)) {
+    is(imagen.MODELS.find((m) => m.id === id)?.per_image, price, id);
+  }
+});
+
+await step('a carousel can be costed before it is drawn', () => {
+  is(imagen.costOf('gemini-3.1-flash-image', 5), 0.335, 'five slides');
+  // a model nobody has priced is null, not a guess of zero: a made-up
+  // number here is worse than saying it is not known
+  is(imagen.costOf('some-model-that-does-not-exist', 5), null, 'unknown');
 });
 
 /* ------------------------------------------------- what the size means */

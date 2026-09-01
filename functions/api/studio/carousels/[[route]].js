@@ -52,7 +52,7 @@ import { accountState, putSetting } from '../../../../lib/tokens.js';
 import { refreshStats, storedStats } from '../../../../lib/insights.js';
 import { progress } from '../../../../lib/progress.js';
 import { drawCarousel } from '../../../../lib/draw.js';
-import { apiKey } from '../../../../lib/imagen.js';
+import { apiKey, imageModel } from '../../../../lib/imagen.js';
 import { getSetting } from '../../../../lib/tokens.js';
 
 const MAX_FIELD = 400;
@@ -206,6 +206,11 @@ export async function onRequest({ request, env, params }) {
           // the generation layer's key. Same reasoning again: it is set
           // once, from a phone, and should not need a build.
           'gemini.api_key': body.gemini_api_key,
+          // which model draws. Kept here rather than in the deployment
+          // because it is a price decision as much as a quality one, and
+          // the only way to settle it is to draw a carousel on one, look
+          // at it, and switch. That loop should not cost a build.
+          'gemini.model': body.gemini_model,
           'tiktok.token': body.tiktok_token,
           'tiktok.refresh_token': body.tiktok_refresh_token,
           // which TikTok client to act as. Kept here rather than in the
@@ -512,8 +517,10 @@ export async function onRequest({ request, env, params }) {
     if (!key) {
       return json({ error: 'No Gemini API key is set. Add it under Social, Accounts.' }, 503);
     }
+    const { model } = await imageModel(env.DB, env, { getSetting });
     const out = await drawCarousel({ ...env, SITE }, slug, {
       key,
+      model,
       only: Array.isArray(body.positions) ? body.positions.map(Number) : null,
     });
     return json(out, out.error ? 400 : 200);

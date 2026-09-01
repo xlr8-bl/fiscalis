@@ -38,7 +38,7 @@ import { addReference } from '../lib/references.js';
 import { progress } from '../lib/progress.js';
 import { refreshStats } from '../lib/insights.js';
 import { drawCarousel } from '../lib/draw.js';
-import { apiKey } from '../lib/imagen.js';
+import { apiKey, imageModel } from '../lib/imagen.js';
 import { getSetting } from '../lib/tokens.js';
 
 const MAX_IMAGE = 25 * 1024 * 1024;
@@ -262,8 +262,10 @@ async function runTool(name, args, env) {
           + 'the studio under Social, Accounts.'
         );
       }
+      const { model } = await imageModel(db, env, { getSetting });
       const out = await drawCarousel({ ...env, SITE }, clean(args.carousel, 120), {
         key,
+        model,
         only: Array.isArray(args.positions) ? args.positions.map(Number) : null,
       });
       if (out.error) return toolFailed(out.error);

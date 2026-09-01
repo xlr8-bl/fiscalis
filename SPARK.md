@@ -280,25 +280,57 @@ key, and nothing else.
 
 1. Go to [Google AI Studio](https://aistudio.google.com/apikey) and
    create an API key. It starts `AIza`.
-2. Image generation is a paid model, so the key has to be attached to a
-   Google Cloud project with billing on. AI Studio offers to make one
-   while you create the key. A key without billing gets refused at the
-   first call, and the studio reports what Google said rather than
-   failing quietly.
+2. Billing has to be on. See below: this is not optional and there is no
+   way around it.
 3. Paste it at `/studio` → **Social** → **Accounts**, under *Drawing the
    slides*, and save. Accounts then shows **Drawing: Ready** with the
-   model name against it.
+   model name and what a slide costs.
 
 It lives in the database, not in the deployment, for the same reason the
 platform credentials do: it is set once from a phone and should not cost
 a build. `GEMINI_API_KEY` in the Pages project still works as a
 fallback; a key set in the studio wins over it.
 
-The model is `gemini-3-pro-image`, which is Nano Banana Pro. Slides are
-asked for at `1K` and `4:5`, which comes back 1024×1280: inside TikTok's
-1080 cap, past Instagram's 320 floor, and the right ratio for both, so
-nothing needs cropping afterwards. `GEMINI_IMAGE_MODEL` moves it to
-another model without a code change.
+### What it costs, and why there is no free option
+
+There is no free tier on any Gemini image model. Not a small one, none.
+And since March 2026 the $300 Google Cloud trial credit cannot be spent
+on the Gemini API either, so a new account gets no runway from it. A
+Google AI Pro or Ultra subscription buys the Gemini *app* and is a
+different product from the API; it contributes nothing here.
+
+So every slide is money. Per 1K image, off the
+[pricing page](https://ai.google.dev/gemini-api/docs/pricing), with the
+monthly figures at five slides a carousel over thirty days:
+
+| model | per slide | 1/day | 2/day | 5/day |
+|---|---|---|---|---|
+| `gemini-3-pro-image` (Nano Banana Pro) | $0.134 | $20 | $40 | $101 |
+| `gemini-3.1-flash-image` (Nano Banana 2) | $0.067 | $10 | $20 | $50 |
+| `gemini-3.1-flash-lite-image` (NB2 Lite) | $0.0336 | $5 | $10 | $25 |
+
+Redraws cost again, so add whatever share of slides gets sent back.
+
+**The default is Nano Banana 2**, the middle one. Pro is twice the price
+for a picture that gets two seconds on a phone, which is not where its
+advantage shows. Lite is half again cheaper and worth trying, but lite
+models fumble small type first and these slides have the copy set into
+them: a slide that comes back misspelled gets redrawn, and the saving
+goes backwards.
+
+That reasoning is a starting point, not a finding. Draw one carousel on
+each and look at them. The model is a dropdown in the studio next to the
+key, so switching costs a tap rather than a deployment, and `draw`
+reports which model drew and what the run cost.
+
+The volume dial matters more than the model dial. Five a day was an
+early assumption, not a requirement.
+
+Slides are asked for at `1K` and `4:5`, which comes back 1024×1280:
+inside TikTok's 1080 cap, past Instagram's 320 floor, and the right
+ratio for both, so nothing needs cropping afterwards.
+`GEMINI_IMAGE_MODEL` sets it from the deployment; the studio wins over
+it.
 
 The brand kit is sent with every slide as pictures rather than as
 adjectives, up to ten of them, because a likeness the model can see
@@ -597,9 +629,13 @@ that would post the wrong thing to a real audience.
 
 Nothing in the code. What is left is external and slower than the build:
 
-- **A Gemini API key with billing on**, or nothing draws. Accounts says
-  *Drawing: Ready* once it is in, and `draw` refuses with what is missing
-  rather than half-drawing a carousel.
+- **A Gemini API key with billing on**, or nothing draws. There is no
+  free tier and no trial credit that covers it. Accounts says *Drawing:
+  Ready* once it is in, and `draw` refuses with what is missing rather
+  than half-drawing a carousel.
+- **Which model, decided by looking.** The default is a reasoned guess
+  at the price-to-legibility trade, not a measurement. Draw the same
+  carousel on Pro and on Lite and pick.
 - **Meta App Review**, but only eventually: unapproved permissions can be
   granted to accounts holding a role on the app, so posting works today as
   its admin. Review is what another person's account would need.
