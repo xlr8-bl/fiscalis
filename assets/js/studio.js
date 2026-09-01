@@ -1465,6 +1465,13 @@ function paintCarousel() {
     input.addEventListener('change', () => putPicture(Number(input.dataset.slideFile), input.files[0]))
   );
 
+  // the approve button turns on as soon as there is something to approve,
+  // rather than after a save nobody was told to make
+  const acts = $('[data-car-acts]', host);
+  ['[data-car-caption]', '[data-car-tags]'].forEach((sel) =>
+    $(sel, host)?.addEventListener('input', () => paintCarouselActions(acts))
+  );
+
   $('[data-car-save]', host).addEventListener('click', async () => {
     try {
       await api(`/carousels/${encodeURIComponent(c.slug)}`, {
@@ -1546,12 +1553,32 @@ async function paintStats(host, slug, { refresh = false } = {}) {
   host.append(acts);
 }
 
+/** What is in the boxes right now, which is not always what is stored. */
+const typedWords = () => ({
+  caption: $('[data-car-caption]')?.value ?? carousel.caption,
+  hashtags: $('[data-car-tags]')?.value ?? carousel.hashtags,
+});
+
+const wordsUnsaved = () => {
+  const t = typedWords();
+  return t.caption !== carousel.caption || t.hashtags !== carousel.hashtags;
+};
+
 /** Only the moves the API will actually accept, so nothing offered fails. */
 function paintCarouselActions(host) {
   const c = carousel;
   const move = async (status, ask) => {
     if (ask && !confirm(ask)) return;
     try {
+      // A caption typed and not saved is still only in the box. Approving
+      // would refuse on a caption the screen is plainly showing, which
+      // reads as the studio calling you a liar — so the words go first.
+      if (wordsUnsaved()) {
+        await api(`/carousels/${encodeURIComponent(c.slug)}`, {
+          method: 'PUT',
+          body: JSON.stringify(typedWords()),
+        });
+      }
       await api(`/carousels/${encodeURIComponent(c.slug)}/status`, {
         method: 'POST',
         body: JSON.stringify({ status }),
@@ -1571,9 +1598,12 @@ function paintCarouselActions(host) {
       return `${unready.length} slide${unready.length > 1 ? 's are' : ' is'} not drawn yet` +
              `${unready.some((s) => s.state === 'redo') ? ' — Spark has the notes' : ''}.`;
     }
-    if (!c.caption.trim()) return 'Write a caption first.';
-    // and what the platforms themselves will refuse, from their own docs
-    return platformProblems(c)[0] || null;
+    if (!typedWords().caption.trim()) return 'Write a caption first.';
+    // and what the platforms themselves will refuse, from their own docs.
+    // Every one of them, not the first: fixing them one screen at a time
+    // when they are all about the same pictures is four round trips.
+    const said = platformProblems({ ...c, ...typedWords() });
+    return said.length ? said.join(' ') : null;
   })();
 
   // planned and generating are here for a carousel you made yourself:

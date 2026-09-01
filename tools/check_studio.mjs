@@ -431,8 +431,11 @@ await step('a carousel can be started by hand', async () => {
   await page.waitForSelector('[data-view="carousel"]:not([hidden])', { timeout: 15000 });
   byHand.slug = decodeURIComponent(new URL(page.url()).hash.split('/').pop());
   if (!byHand.slug) throw new Error('no slug in the hash');
-  const slides = await page.$$eval('.st-slide', (n) => n.length);
-  if (slides !== 2) throw new Error(`${slides} slides, expected the two-slide floor`);
+  // the view is shown before its fetch lands, so wait for the slides
+  // themselves rather than for the screen
+  await page.waitForFunction(
+    () => document.querySelectorAll('.st-slide').length === 2, null, { timeout: 15000 }
+  );
 });
 
 await step('a picture goes onto a slide, measured in the browser', async () => {
@@ -458,14 +461,21 @@ await step('a picture goes onto a slide, measured in the browser', async () => {
   if (!/2 of 2 drawn/.test(facts)) throw new Error(facts.replace(/\s+/g, ' '));
 });
 
+await step('a caption that is typed counts as written', async () => {
+  // it said "write a caption first" with the caption on the screen, which
+  // reads as the studio calling you a liar. The box is the truth now, and
+  // approving saves it on the way past.
+  await page.fill('[data-car-caption]', 'Eleven seconds. Most people are gone before it finishes.');
+  await page.waitForTimeout(300);
+  const note = await page.textContent('[data-car-acts] .st-note').catch(() => '');
+  if (/Write a caption/.test(note)) throw new Error(note.trim());
+  const acts = await page.$$eval('[data-car-acts] .st-link', (n) => n.map((x) => x.textContent.trim()));
+  if (!acts.includes('Approve it')) throw new Error(`offered: ${acts.join(', ')} — ${note.trim()}`);
+});
+
 await step('and it can be approved without going through review', async () => {
   // review is where the agent hands work over. Work you made yourself has
   // nobody to hand it to, so the studio approves straight out of making.
-  await page.fill('[data-car-caption]', 'Eleven seconds. Most people are gone before it finishes.');
-  await page.click('[data-car-save]');
-  await page.waitForTimeout(800);
-  const acts = await page.$$eval('[data-car-acts] .st-link', (n) => n.map((x) => x.textContent.trim()));
-  if (!acts.includes('Approve it')) throw new Error(`offered: ${acts.join(', ')}`);
   await page.click('[data-car-acts] .st-link');
   await page.waitForFunction(
     () => /Approved/.test(document.querySelector('.st-facts')?.textContent || ''), null, { timeout: 15000 }
