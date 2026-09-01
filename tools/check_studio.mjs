@@ -47,7 +47,11 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
 
 const problems = [];
 const IGNORE = /401 \(Unauthorized\)/;   // /me before sign-in, by design
-page.on('dialog', (d) => d.accept());
+/* A prompt gets whatever the step queued for it, and OK otherwise. One
+   handler, because a second one racing the first throws "already
+   handled" rather than answering. */
+const answers = [];
+page.on('dialog', (d) => d.accept(answers.length ? answers.shift() : ''));
 page.on('console', (m) => {
   if (m.type() === 'error' && !IGNORE.test(m.text())) problems.push('console: ' + m.text());
 });
@@ -57,6 +61,8 @@ page.on('requestfailed', (r) => {
   const why = r.failure()?.errorText || '';
   if (!/ERR_ABORTED/.test(why)) problems.push('requestfailed: ' + r.url() + ' ' + why);
 });
+
+const byHand = {};
 
 const step = async (name, fn) => {
   try { await fn(); console.log('  ok   ' + name); }
@@ -408,10 +414,80 @@ await step('and discarding it clears the offer', async () => {
   if (btn) await btn.click();
 });
 
+/*
+ * A post made by hand, end to end.
+ *
+ * Everything about the carousel pipeline assumed Spark would fill it,
+ * which left a person no way to put a single post out on their own — and
+ * a platform review wants to watch exactly that happen. It is also the
+ * thing you need before trusting a day of automation: one post, all the
+ * way through, by your own hand.
+ */
+await step('a carousel can be started by hand', async () => {
+  answers.push('Eleven seconds');
+  await page.goto(BASE + '/studio#/social', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-board-new]');
+  await page.click('[data-board-new]');
+  await page.waitForSelector('[data-view="carousel"]:not([hidden])', { timeout: 15000 });
+  byHand.slug = decodeURIComponent(new URL(page.url()).hash.split('/').pop());
+  if (!byHand.slug) throw new Error('no slug in the hash');
+  const slides = await page.$$eval('.st-slide', (n) => n.length);
+  if (slides !== 2) throw new Error(`${slides} slides, expected the two-slide floor`);
+});
+
+await step('a picture goes onto a slide, measured in the browser', async () => {
+  // a real JPEG at the size the brief asks for, drawn in the page
+  const jpeg = await page.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 1080; c.height = 1350;
+    const x = c.getContext('2d');
+    x.fillStyle = '#080807'; x.fillRect(0, 0, 1080, 1350);
+    x.fillStyle = '#e8e8e3'; x.font = '90px sans-serif'; x.fillText('11 SECONDS', 90, 700);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
+    return [...new Uint8Array(await blob.arrayBuffer())];
+  });
+  for (const pos of [0, 1]) {
+    await page.setInputFiles(`[data-slide-file="${pos}"]`, {
+      name: `slide-${pos}.jpg`, mimeType: 'image/jpeg', buffer: Buffer.from(jpeg),
+    });
+    await page.waitForFunction(
+      (i) => document.querySelectorAll('.st-slide img').length > i, pos, { timeout: 20000 }
+    );
+  }
+  const facts = await page.textContent('.st-facts');
+  if (!/2 of 2 drawn/.test(facts)) throw new Error(facts.replace(/\s+/g, ' '));
+});
+
+await step('and it can be approved without going through review', async () => {
+  // review is where the agent hands work over. Work you made yourself has
+  // nobody to hand it to, so the studio approves straight out of making.
+  await page.fill('[data-car-caption]', 'Eleven seconds. Most people are gone before it finishes.');
+  await page.click('[data-car-save]');
+  await page.waitForTimeout(800);
+  const acts = await page.$$eval('[data-car-acts] .st-link', (n) => n.map((x) => x.textContent.trim()));
+  if (!acts.includes('Approve it')) throw new Error(`offered: ${acts.join(', ')}`);
+  await page.click('[data-car-acts] .st-link');
+  await page.waitForFunction(
+    () => /Approved/.test(document.querySelector('.st-facts')?.textContent || ''), null, { timeout: 15000 }
+  );
+});
+
+await step('a slot puts it in the poster\'s way', async () => {
+  answers.push('1', '2020-01-01T00:00:00Z');
+  await page.click('[data-car-acts] .st-link');
+  await page.waitForFunction(
+    () => /Scheduled/.test(document.querySelector('.st-facts')?.textContent || ''), null, { timeout: 15000 }
+  );
+});
+
 await step('what this run made is cleaned up', async () => {
   if (picKey) {
     await page.evaluate((k) => fetch(`/api/studio/media/${k}`,
       { method: 'DELETE', credentials: 'same-origin' }), picKey);
+  }
+  if (byHand.slug) {
+    await page.evaluate((slug) => fetch(`/api/studio/carousels/${slug}`,
+      { method: 'DELETE', credentials: 'same-origin' }), byHand.slug);
   }
   if (!picSlug) return;
   const status = await page.evaluate(async (slug) => {

@@ -204,6 +204,21 @@ The same numbers appear in `/studio` under a posted carousel, as **How it
 did**, with a button that spends the API call. Opening the screen does
 not.
 
+## Posting one by hand
+
+Everything above assumes Spark fills the pipeline. It is worth being able
+to put one out yourself — before trusting a day of automation, and
+because a platform review wants to watch a post go all the way through on
+your own site.
+
+On the board, **Start one by hand** makes a two-slide carousel. Open it,
+**Add a picture** on each slide (the pixel size is measured in the
+browser, because that is what approval checks against), write the
+caption, and **Approve it** — straight from making, without passing
+through review, since review is where the agent hands work over and your
+own pictures have nobody to hand them to. Then **Give it a slot**, and
+**Post anything that is due** under Social → Accounts.
+
 ## Where it can go from where
 
     planned    -> generating, review, rejected

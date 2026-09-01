@@ -17,7 +17,7 @@ import { exchange, creatorInfo, redirectUri, credentials } from '../../../lib/ti
 import { putSetting, getSetting } from '../../../lib/tokens.js';
 import { page, esc } from '../../../lib/plainpage.js';
 
-const back = '<p><a href="/studio#/social/accounts">Back to the studio</a></p>';
+const back = '<p><a href="/studio#/kit/accounts">Back to the studio</a></p>';
 
 const failed = (title, body, status = 400) =>
   page(title, `<h1>${title}</h1>${body}${back}`, status);

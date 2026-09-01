@@ -19,7 +19,7 @@
  */
 import { renderMarkdown, countWords, readingMinutes } from '/assets/js/markdown.js?v=55a3dc7d00';
 import { attachEditor, attachAll } from '/assets/js/editor.js?v=ac48360925';
-import { choosePicture, uploadImage, fileSize } from '/assets/js/picker.js?v=f337b82d38';
+import { choosePicture, uploadImage, fileSize, readImageSize } from '/assets/js/picker.js?v=f337b82d38';
 import { problems as platformProblems } from '/assets/js/platforms.js?v=4b5476660c';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -1293,7 +1293,38 @@ async function viewBoard() {
   const search = $('[data-board-search]');
   search.value = boardCtx.query;
   search.oninput = () => { boardCtx.query = search.value; paintBoard(); };
+
+  $('[data-board-new]').onclick = startByHand;
   paintBoard();
+}
+
+/**
+ * A carousel made here rather than by Spark.
+ *
+ * Everything in this pipeline assumed the agent would fill it, which left
+ * no way to put one post out on your own — and the first thing anybody
+ * needs, before a day of automation is worth trusting, is to watch one
+ * post go all the way through by hand.
+ *
+ * Two slides, because two is the floor on both platforms. More can be
+ * added; a plan filed by Spark is the same shape.
+ */
+async function startByHand() {
+  const title = prompt('What is this one called?');
+  if (!title || !title.trim()) return;
+  try {
+    const out = await api('/carousels', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: title.trim(),
+        slides: [
+          { kind: 'hook', copy: '' },
+          { kind: 'cta', copy: '' },
+        ],
+      }),
+    });
+    location.hash = `#/social/${encodeURIComponent(out.slug)}`;
+  } catch (e) { say(e.message, 'err'); }
 }
 
 function paintBoard() {
@@ -1413,6 +1444,11 @@ function paintCarousel() {
        ${s.copy ? `<p class="st-slide__copy">${escapeHtml(s.copy)}</p>` : ''}
        ${s.note ? `<p class="st-slide__note u-text-style-main">Asked again: ${escapeHtml(s.note)}</p>` : ''}
        <div class="st-slide__acts">
+         <label class="st-link">
+           ${s.url ? 'Replace it' : 'Add a picture'}
+           <input type="file" accept="image/jpeg,image/webp,image/png" hidden
+                  data-slide-file="${s.position}">
+         </label>
          <button class="st-link" type="button" data-redo="${s.position}">${
            s.state === 'redo' ? 'Change the note' : 'Ask for this one again'
          }</button>
@@ -1423,6 +1459,10 @@ function paintCarousel() {
 
   $$('[data-redo]', host).forEach((b) =>
     b.addEventListener('click', () => askAgain(Number(b.dataset.redo)))
+  );
+
+  $$('[data-slide-file]', host).forEach((input) =>
+    input.addEventListener('change', () => putPicture(Number(input.dataset.slideFile), input.files[0]))
   );
 
   $('[data-car-save]', host).addEventListener('click', async () => {
@@ -1536,8 +1576,12 @@ function paintCarouselActions(host) {
     return platformProblems(c)[0] || null;
   })();
 
+  // planned and generating are here for a carousel you made yourself:
+  // review is where the agent hands work over, and there is nobody to
+  // hand your own pictures to
+  const readyToApprove = ['review', 'changes', 'planned', 'generating'];
   const acts = [];
-  if ((c.status === 'review' || c.status === 'changes') && !blocked) {
+  if (readyToApprove.includes(c.status) && !blocked) {
     acts.push(['Approve it', () => move('approved')]);
   }
   if (c.status === 'approved') {
@@ -1561,7 +1605,7 @@ function paintCarouselActions(host) {
     b.addEventListener('click', fn);
     host.append(b);
   });
-  if (blocked && (c.status === 'review' || c.status === 'changes')) {
+  if (blocked && readyToApprove.includes(c.status)) {
     const p = document.createElement('p');
     p.className = 'st-note u-text-style-main';
     p.textContent = `Not ready to approve. ${blocked}`;
@@ -1569,6 +1613,37 @@ function paintCarouselActions(host) {
   } else if (!acts.length) {
     host.innerHTML = '<p class="st-note u-text-style-main">Nothing left to do here.</p>';
   }
+}
+
+/**
+ * A picture onto one slide, from the phone.
+ *
+ * The pixel size is measured here rather than guessed at the other end,
+ * because it is what approval checks against — Instagram's ratio and
+ * TikTok's 1080p cap — and a slide with no size recorded passes both
+ * checks by being unknown, then fails at the moment it was due to post.
+ */
+async function putPicture(position, file) {
+  if (!file) return;
+  const c = carousel;
+  say('Uploading…');
+  try {
+    const { width, height } = await readImageSize(file);
+    const form = new FormData();
+    form.append('file', file);
+    form.append('width', String(width));
+    form.append('height', String(height));
+    const res = await fetch(
+      `/api/studio/carousels/${encodeURIComponent(c.slug)}/slides/${position}`,
+      { method: 'PUT', body: form, credentials: 'same-origin' }
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Upload failed (${res.status}).`);
+    }
+    await viewCarousel(c.slug);
+    say(`Slide ${position + 1}: ${width}×${height}.`);
+  } catch (e) { say(e.message, 'err'); }
 }
 
 /**

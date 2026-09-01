@@ -78,7 +78,7 @@ function report(app, env, origin, tested = null) {
         from "the app is not set up for the web", and those two have completely
         different fixes.</p>`}
     <p><a href="/oauth/tiktok/start">Try connecting</a> &nbsp;·&nbsp;
-       <a href="/studio#/social/accounts">Back to the studio</a></p>`);
+       <a href="/studio#/kit/accounts">Back to the studio</a></p>`);
 }
 
 /**
