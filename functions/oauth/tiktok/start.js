@@ -49,10 +49,9 @@ function report(env, origin, tested = null) {
     notes.push('The stored key had whitespace around it. That is stripped before it is sent, '
                + 'but it usually means the paste picked up a newline — worth fixing at the source.');
   }
-  if (/^(sbaw|sb)/i.test(key)) {
-    notes.push('This key looks like a sandbox key. A sandbox and the live app are different '
-               + 'clients: the demo has to run against whichever one this key belongs to.');
-  }
+  // No sandbox-key heuristic here. TikTok does not document a prefix that
+  // marks one, and a guess that says "this looks like a sandbox key" is
+  // worse than silence on the one screen whose whole job is to be trusted.
   if (key.length < 10) notes.push('That is shorter than any client key TikTok issues.');
   if (secret && key === secret) notes.push('The key and the secret are the same value. One of them is wrong.');
 
