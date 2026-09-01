@@ -66,8 +66,10 @@ export async function onRequestGet({ request, env }) {
       <p><code>${esc(out.error)}</code></p>
       <p>Two things cause this. The redirect URI registered on the app has to
       be exactly <code>${esc(redirectUri(origin))}</code> — a trailing slash is
-      a different URI. And <code>TIKTOK_CLIENT_SECRET</code> has to be the
-      current one; regenerating it in the dashboard invalidates the old.</p>`, 502);
+      a different URI. And the client secret has to be the current one for the
+      client that just approved this — regenerating it invalidates the old, and
+      a sandbox has its own. It came from
+      <strong>${esc(app.source === 'studio' ? 'the studio' : 'the deployment')}</strong>.</p>`, 502);
   }
 
   const t = out.token;

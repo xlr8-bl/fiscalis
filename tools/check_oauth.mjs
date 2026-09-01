@@ -352,6 +352,33 @@ await step('the static agent token still works, for scripts', async () => {
 });
 
 /*
+ * The session cookie's SameSite, asserted rather than assumed.
+ *
+ * Under `Strict` the browser withholds the cookie on every cross-site
+ * request, top-level navigations included — so the return from any
+ * external approval screen arrives with no session and the callback can
+ * only say "sign in first". That is exactly what happened coming back
+ * from TikTok, and it is silent: the page renders, it just cannot see
+ * who you are.
+ */
+await step('the session cookie survives a return from another site', async () => {
+  const res = await fetch(`${BASE}/api/studio/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'studio', password: PW }),
+  });
+  const set = res.headers.get('set-cookie') || '';
+  if (/samesite=strict/i.test(set)) {
+    throw new Error('SameSite=Strict — no OAuth return can carry the session');
+  }
+  if (!/samesite=lax/i.test(set)) throw new Error(`no SameSite=Lax: ${set}`);
+  // and the things Strict was bought for are still true
+  for (const want of [/HttpOnly/i, /Secure/i, /Path=\//i]) {
+    if (!want.test(set)) throw new Error(`missing ${want}: ${set}`);
+  }
+});
+
+/*
  * The TikTok connect flow's own diagnostic.
  *
  * "Something went wrong — correct the following: client_key" is TikTok's
