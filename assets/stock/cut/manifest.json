@@ -1,0 +1,44 @@
+[
+  {
+    "file": "figure-crouch-01.png",
+    "source": "figure-crouch.jpg",
+    "bbox": [
+      356,
+      775,
+      324,
+      510
+    ],
+    "area_share": 0.0409,
+    "keyability": 0.782,
+    "photographic": 0.713,
+    "aspect": 0.635
+  },
+  {
+    "file": "figure-laptop-01.png",
+    "source": "figure-laptop.jpg",
+    "bbox": [
+      250,
+      669,
+      703,
+      930
+    ],
+    "area_share": 0.271,
+    "keyability": 0.77,
+    "photographic": 0.783,
+    "aspect": 0.756
+  },
+  {
+    "file": "portrait-bw-01.png",
+    "source": "portrait-bw.jpg",
+    "bbox": [
+      1,
+      75,
+      1198,
+      724
+    ],
+    "area_share": 0.709,
+    "keyability": 0.598,
+    "photographic": 0.567,
+    "aspect": 1.655
+  }
+]
