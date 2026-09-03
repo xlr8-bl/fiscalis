@@ -181,10 +181,32 @@ export function grain(ctx, w, h, sigma = 0.031) {
 }
 
 /**
- * How much of a sheet is dark, 0..1 — the ink-coverage number the
- * extractor reports. Callers can assert on it, which is the point:
- * the reference median is 0.32 and anything under about 0.2 is a panel
- * that has not committed to anything.
+ * How much of a sheet a mark covers, 0..1, measured against the panel's
+ * own ground rather than against darkness.
+ *
+ * This replaces judging a panel by ink coverage. Ink coverage counts
+ * dark pixels, so on an amber or a red field it collapses however
+ * committed the panel is — an earlier note here claiming anything under
+ * 0.2 was uncommitted was wrong for exactly that reason. The reference
+ * median of 0.32 ink is only comparable between panels on like grounds.
+ */
+export function coverage(canvas, groundHex) {
+  const g = canvas.getContext('2d');
+  const px = g.getImageData(0, 0, canvas.width, canvas.height).data;
+  const gr = [1, 3, 5].map((i) => parseInt(groundHex.slice(i, i + 2), 16));
+  let off = 0;
+  for (let i = 0; i < px.length; i += 4) {
+    const d = Math.abs(px[i] - gr[0]) + Math.abs(px[i + 1] - gr[1])
+            + Math.abs(px[i + 2] - gr[2]);
+    if (d > 60) off++;                   // past the grain, a real mark
+  }
+  return off / (px.length / 4);
+}
+
+/**
+ * Dark pixels as a share of the sheet, the number the extractor
+ * reports. Use it to compare panels on like grounds; use coverage()
+ * to ask whether a panel has committed to anything.
  */
 export function inkCoverage(canvas) {
   const g = canvas.getContext('2d');

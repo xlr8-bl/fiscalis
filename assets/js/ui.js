@@ -147,3 +147,105 @@ export function chip(ctx, text, { x, y, colour = INK, on = PAPER, face, size = 2
   ctx.restore();
   return { x, y, w, h };
 }
+
+/**
+ * The map pack: the three-result block that sits above the ordinary
+ * search results. Drawn as solid bands, with one result picked out in
+ * the accent, because the argument is about which three you are in.
+ */
+export function mapPack(ctx, { x, y, w, h, face, ground = PAPER, on = INK,
+                               accent = RED, pick = 0 }) {
+  ctx.save();
+  ctx.fillStyle = ground;
+  ctx.fillRect(x, y, w, h);
+  // the map strip along the top
+  ctx.fillStyle = GREY;
+  ctx.fillRect(x, y, w, h * 0.34);
+  ctx.fillStyle = accent;
+  for (let i = 0; i < 3; i++) {
+    const px = x + w * (0.22 + i * 0.26), py = y + h * (0.12 + (i % 2) * 0.1);
+    ctx.beginPath();
+    ctx.arc(px, py, h * 0.036, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(px - h * 0.03, py + h * 0.02);
+    ctx.lineTo(px + h * 0.03, py + h * 0.02);
+    ctx.lineTo(px, py + h * 0.085);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // the three rows
+  const rowH = (h * 0.62) / 3;
+  for (let i = 0; i < 3; i++) {
+    const ry = y + h * 0.36 + i * rowH;
+    if (i === pick) { ctx.fillStyle = accent; ctx.fillRect(x, ry, w, rowH - 6); }
+    ctx.fillStyle = i === pick ? ground : on;
+    ctx.fillRect(x + 20, ry + rowH * 0.24, w * 0.46, rowH * 0.2);
+    ctx.globalAlpha = 0.45;
+    ctx.fillRect(x + 20, ry + rowH * 0.54, w * 0.3, rowH * 0.13);
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  return { x, y, w, h };
+}
+
+/**
+ * A spreadsheet, as a field of cells with a header band. `hot` marks
+ * one cell in the accent — the one the argument is about.
+ */
+export function grid(ctx, { x, y, w, h, cols = 6, rows = 12, face,
+                            ground = PAPER, line = GREY, on = INK,
+                            accent = RED, hot = null }) {
+  ctx.save();
+  const cw = w / cols, ch = h / rows;
+  ctx.fillStyle = ground;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = on;
+  ctx.fillRect(x, y, w, ch);                      // header band
+  for (let r = 1; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cx = x + c * cw, cy = y + r * ch;
+      ctx.fillStyle = (r + c) % 2 ? line : ground;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(cx + 2, cy + 2, cw - 4, ch - 4);
+      ctx.globalAlpha = 1;
+      if (hot && hot[0] === r && hot[1] === c) {
+        ctx.fillStyle = accent;
+        ctx.fillRect(cx + 2, cy + 2, cw - 4, ch - 4);
+      }
+    }
+  }
+  ctx.restore();
+  return { x, y, w, h };
+}
+
+/**
+ * An order slip. Deliberately narrow and tall, with a torn foot, since
+ * that shape alone says receipt before any of the type does.
+ */
+export function receipt(ctx, { x, y, w, h, face, ground = PAPER,
+                               on = INK, lines = 7 }) {
+  ctx.save();
+  ctx.fillStyle = ground;
+  ctx.fillRect(x, y, w, h - 14);
+  // the torn foot
+  ctx.beginPath();
+  ctx.moveTo(x, y + h - 14);
+  const teeth = 9;
+  for (let i = 0; i <= teeth; i++) {
+    ctx.lineTo(x + (w / teeth) * i, y + h - (i % 2 ? 0 : 14));
+  }
+  ctx.lineTo(x + w, y + h - 14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = on;
+  for (let i = 0; i < lines; i++) {
+    const ly = y + 40 + i * ((h - 90) / lines);
+    ctx.globalAlpha = i === 0 ? 1 : 0.55;
+    ctx.fillRect(x + 22, ly, w * (i === 0 ? 0.5 : 0.34 + ((i * 7) % 5) / 12), i === 0 ? 16 : 10);
+    ctx.fillRect(x + w - 22 - w * 0.18, ly, w * 0.18, i === 0 ? 16 : 10);
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  return { x, y, w, h };
+}
