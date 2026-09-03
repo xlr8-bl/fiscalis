@@ -320,12 +320,20 @@
 
 .press-crop { overflow: hidden; }
 
-/* ------------------------------------------------------------------
-   Where it lands.
+/* ==================================================================
+   Where it lands on the home page.
 
-   Restyling the exported template's own class names, so the markup is
-   only touched where a genuinely new element is needed.
-   ------------------------------------------------------------------ */
+   The page is a minified export, so nothing below adds an element to
+   it. Grain rides on ::after and slabs on ::before of the sections that
+   are already there, which means this whole pass is a stylesheet and
+   comes off by deleting one.
+
+   The two posters map onto the page rather than being picked per
+   section: every dark section is the first poster (red plate on a black
+   ground) and the one light section is the second (black on newsprint).
+   That is the system doing the deciding instead of taste doing it eight
+   times.
+   ================================================================== */
 
 .hero_home_wrap,
 .problems_home_wrap,
@@ -333,9 +341,146 @@
 .services_home_wrap,
 .works_home_wrap,
 .cta_home_wrap,
-.faq_home_content {
+.faq_home_wrap,
+.ash-statement {
   position: relative;
+  isolation: isolate;
 }
+
+/* Grain on every section. Sheet by sheet rather than one sheet over the
+   document: a fixed overlay travels with the viewport and reads as a
+   dirty screen, where grain that scrolls with the section reads as the
+   section having been printed. */
+.hero_home_wrap::after,
+.problems_home_wrap::after,
+.process_home_wrap::after,
+.services_home_wrap::after,
+.faq_home_wrap::after,
+.cta_home_wrap::after,
+.ash-statement::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: var(--press-grain);
+  background-size: 180px 180px;
+  mix-blend-mode: overlay;
+  opacity: 0.42;
+}
+
+/* The light section takes the other plate, so its grain has to subtract
+   rather than add or it silvers the sheet. */
+.works_home_wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: var(--press-grain);
+  background-size: 180px 180px;
+  mix-blend-mode: multiply;
+  opacity: 0.3;
+}
+
+/* Black on newsprint for the light section's pictures — the second
+   poster, on the one surface that is already printed that way. */
+.works_home_wrap .works_home_image { filter: url(#pressPlatePaper); }
+
+/* ------------------------------------------------------------------
+   Slabs, on three sections only.
+
+   The spine is a structural device and it stops being one the moment
+   every section has it: eight bars down a page is a ruled pad, not a
+   composition. It marks the opening, the argument and the close.
+   ------------------------------------------------------------------ */
+
+.hero_home_wrap::before,
+.ash-statement::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* In the margin, not through the words. The reference's bar clips the
+     left edge of the first letter, which reads as a plate slightly out
+     of register; at six percent it landed in the middle of "build" in
+     the approach heading, which just reads as broken. A margin the page
+     is printed against is the thing being borrowed, so it sits left of
+     everything and touches nothing. */
+  left: clamp(8px, 1.6vw, 22px);
+  width: clamp(7px, 0.9vw, 12px);
+  background-color: var(--press-accent);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* The closing section is a full-bleed photograph on the red plate and
+   is already the loudest thing on the page. A bar on top of it is a
+   second voice in the same sentence, so it does not get one. */
+
+/* ------------------------------------------------------------------
+   The accent, spent sparingly.
+
+   One colour is only loud while it is rare. These are the three places
+   it earns the volume: the closing arrow, the availability line, and
+   the word the approach section is turning on.
+   ------------------------------------------------------------------ */
+
+.cta_home_heading.is-arrow { color: var(--press-accent); }
+
+.footer_bottom_span.is-city { color: var(--press-accent); }
+
+/* ------------------------------------------------------------------
+   The specimen register, on copy that already is one.
+
+   The clock, the timezone and the availability line are figures about
+   the state of things, set small and to one side — which is what the
+   reference's bottom-left block is, minus the invented percentage.
+   Nothing here is written for the effect; it is the copy that was
+   already there, set in the face it should always have had.
+   ------------------------------------------------------------------ */
+
+.footer_bottom_span {
+  font-family: Mono, ui-monospace, monospace;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-size: clamp(0.66rem, 0.62rem + 0.2vw, 0.78rem);
+}
+
+/* The availability line and the clock are two readings that happen to
+   sit together; without a gap they run into one word. */
+.footer_bottom_location { display: inline-flex; gap: 0.9em; align-items: baseline; }
+
+/*
+ * The address block is deliberately not in this register.
+ *
+ * "Replies within one working day" is a sentence, and a sentence set in
+ * uppercase mono is both harder to read and taller — it wrapped to
+ * three lines and was clipped by a container sized for two. The
+ * specimen voice is for labels and figures. Prose stays prose.
+ */
+
+/* The barcode is furniture and the footer is where furniture goes. */
+.footer_bottom_brand { position: relative; }
+
+.footer_bottom_brand::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  width: clamp(120px, 16vw, 220px);
+  height: clamp(28px, 3.4vw, 44px);
+  margin-bottom: 0.9em;
+  opacity: 0.5;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--press-paper) 0 2px, transparent 2px 4px,
+    var(--press-paper) 4px 5px, transparent 5px 9px,
+    var(--press-paper) 9px 12px, transparent 12px 14px
+  );
+}
+
+@media (max-width: 720px) { .footer_bottom_brand::before { display: none; } }
 
 /* ------------------------------------------------------------------
    Guards.
@@ -418,3 +563,53 @@
 }
 
 .jr_index_spec { margin: 0 0 1.6em; }
+
+/* ------------------------------------------------------------------
+   The figures that were already there.
+
+   The works section and the problems slider already carry measured
+   numbers with a caption under each — 11s to load, 0 notifications
+   arriving, 30% of order value gone to the platform. That is the
+   reference's bottom-left block already written, and written honestly:
+   real figures about real work rather than an invented percentage.
+
+   It only ever needed setting as one. So the number takes the display
+   face in the accent, and the label beside it takes the specimen
+   register. Nothing is reworded.
+   ------------------------------------------------------------------ */
+
+.works_home_result_value,
+.problem_home_stat-num {
+  font-family: Display, Arial, sans-serif;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--press-accent);
+}
+
+/* The works section is the newsprint plate, and the red has to hold a
+   figure against cream at 3.53 — fine for something set this large,
+   and the reason the number is the only thing here that takes it. */
+.works_home_wrap .works_home_result_value { font-size: 1.55em; line-height: 1; }
+
+/* The index above each entry — "SS — 01/05" — is a specimen number in
+   everything but typeface. */
+.works_home_result_label,
+.problem_stats_index {
+  font-family: Mono, ui-monospace, monospace;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------
+   One thing that was already wrong.
+
+   The footer address block has been clipping its own first line: 64px
+   of content in a 59px box, which cuts the top off "GMT+1 · Working
+   worldwide". Measured with this stylesheet disabled and it clips
+   identically, so it predates any of this — but it is five pixels and
+   it is in shot, so it is corrected here rather than left because it
+   was not my mess.
+   ------------------------------------------------------------------ */
+
+.footer_middle_address { line-height: 1.5; padding-block: 0.15em; }
