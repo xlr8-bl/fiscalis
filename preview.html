@@ -8,28 +8,31 @@
 <style>
   :root { color-scheme: dark; }
   body { margin:0; background:#141311; color:#e8e8e3;
-         font:14px/1.5 ui-monospace,monospace; padding:28px 20px 80px; }
-  h1 { font-size:13px; letter-spacing:.12em; text-transform:uppercase; margin:0 0 24px; opacity:.6; }
-  .strip { display:flex; gap:14px; overflow-x:auto; padding-bottom:16px; }
-  figure { margin:0; flex:0 0 auto; }
-  canvas { width:320px; height:400px; display:block; background:#000; }
-  figcaption { opacity:.45; font-size:11px; padding-top:6px; letter-spacing:.08em; text-transform:uppercase; }
+         font:13px/1.5 ui-monospace,monospace; padding:26px 20px 70px; }
+  h1 { font-size:12px; letter-spacing:.14em; text-transform:uppercase; margin:0 0 14px; opacity:.5; }
+  #sheet { width:100%; display:block; margin-bottom:38px; }
+  .strip { display:flex; gap:10px; }
+  figure { margin:0; flex:1 1 0; }
+  .strip canvas { width:100%; display:block; background:#000; }
+  figcaption { opacity:.4; font-size:10px; padding-top:5px; letter-spacing:.1em; text-transform:uppercase; }
 </style>
 </head>
 <body>
-<h1>One carousel · five slides, five compositions</h1>
+<h1>One sheet</h1>
+<canvas id="sheet"></canvas>
+<h1>Cut into five</h1>
 <div class="strip" id="strip"></div>
 <script type="module">
-import { draw, SLIDES, NAMES } from './assets/js/deck.js';
-const names = NAMES;
-for (let i = 0; i < SLIDES.length; i++) {
+import { drawSheet, drawPanel, PANELS } from './assets/js/flow.js';
+await drawSheet(document.getElementById('sheet'));
+for (let i = 0; i < PANELS; i++) {
   const f = document.createElement('figure');
   const c = document.createElement('canvas');
   const cap = document.createElement('figcaption');
-  cap.textContent = `${i+1} · ${names[i]}`;
+  cap.textContent = `0${i+1}`;
   f.append(c, cap);
   document.getElementById('strip').append(f);
-  await draw(c, i);
+  await drawPanel(c, i);
 }
 </script>
 </body>
