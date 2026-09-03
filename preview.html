@@ -20,8 +20,8 @@
 <h1>One carousel · five slides, five compositions</h1>
 <div class="strip" id="strip"></div>
 <script type="module">
-import { draw, SLIDES } from './assets/js/carousel.js';
-const names = ['scale + air (5418)','fragments (5424)','knockout (5405)','stagger (5409)','editorial (5404)'];
+import { draw, SLIDES, NAMES } from './assets/js/deck.js';
+const names = NAMES;
 for (let i = 0; i < SLIDES.length; i++) {
   const f = document.createElement('figure');
   const c = document.createElement('canvas');
