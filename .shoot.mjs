@@ -1,0 +1,11 @@
+import { chromium } from 'playwright'; import fs from 'fs';
+const out='/tmp/claude-0/-home-user-fiscalis/46160189-3019-506a-9f5e-ee97ab68a213/scratchpad';
+const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome'});
+const p=await b.newPage({viewport:{width:1180,height:1100}});
+const errs=[]; p.on('pageerror',e=>errs.push(String(e)));
+await p.goto(process.argv[2]||'http://127.0.0.1:8899/preview-generate.html',{waitUntil:'networkidle'});
+await p.waitForTimeout(5000);
+console.log((await p.evaluate(()=>[...document.querySelectorAll('figcaption')].map(c=>c.textContent))).join('\n'));
+await p.screenshot({path:`${out}/gen.png`,fullPage:true});
+console.log('errors:',errs.length?errs:'none');
+await b.close();

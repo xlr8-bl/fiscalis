@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex">
+<title>Generator</title>
+<style>
+ :root{color-scheme:dark}
+ body{margin:0;background:#141311;color:#e8e8e3;font:12px system-ui;padding:22px}
+ h1{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;margin:0 0 12px}
+ .strip{display:flex;gap:10px;flex-wrap:wrap}
+ figure{margin:0;flex:0 0 250px}
+ canvas{width:100%;display:block;background:#000}
+ figcaption{opacity:.6;font-size:10px;padding-top:5px;line-height:1.35}
+ .bad{color:#ff7a5c}
+</style></head><body>
+<h1>Same content, eight seeds</h1><div class="strip" id="s"></div>
+<script type="module">
+import { renderCarousel } from './assets/js/generate.js';
+
+const panel = {
+  setup: 'They ordered eleven times.',
+  payoff: ['You never', 'got their', 'name.'],
+  body: ['The apps keep the customer. No name, no',
+         'email, no way to tell them you open Sundays.'],
+  rows: [{head:'Resize every image.',tail:'Biggest win, least work.'},
+         {head:'Delete unused scripts.',tail:'Ask what each has done for you.'},
+         {head:'Host your own fonts.',tail:'Often 90% smaller when subset.'}],
+  bars: [{label:'One unresized photo',value:4000,text:'4 MB'},
+         {label:'Marketing scripts',value:2400,text:'2.4 MB'},
+         {label:'Your actual content',value:200,text:'200 KB'}],
+  cells: [{head:'The domain',tail:'name'},{head:'The code',tail:'and files'},
+          {head:'The hosting',tail:'account'},{head:'The content',tail:'and logo'}],
+};
+const load = (src) => new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src;});
+const assets = {
+  scene: await load('/assets/stock/scene/counter.jpg'),
+  cutout: await load('/assets/stock/cut/figure-laptop-01.png'),
+};
+const strip = document.getElementById('s');
+const specs = [];
+for (let k=0;k<8;k++) specs.push({ slug:'delivery-'+k, seed: 1000+k*7919, panels:[panel], assets });
+for (const spec of specs) {
+  const f=document.createElement('figure'), c=document.createElement('canvas'), cap=document.createElement('figcaption');
+  f.append(c,cap); strip.append(f);
+  const [r] = await renderCarousel(spec, () => c);
+  if (!r.ok) { cap.className='bad'; cap.textContent=`${r.error}: ${r.detail}`; continue; }
+  cap.innerHTML = `<b>${r.device}</b> / ${r.ground} · jump ${r.ratio ?? '—'}x · cov ${r.covered}`
+    + (r.findings.length ? `<br><span class="bad">${r.findings.map(f=>f.check).join(', ')}</span>` : '<br>clean');
+}
+</script></body></html>
