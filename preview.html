@@ -4,126 +4,32 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Slide layouts — Web3Ashley</title>
-<!--
-  A look at the six carousel layouts, drawn by the real renderer.
-
-  Not a mockup: this page imports assets/js/slides.js and calls the same
-  drawSlide() the studio calls, so what is on screen is the file that
-  would post. If it looks wrong here it will look wrong on Instagram.
-
-  noindex because it is a working page, not a page of the site.
--->
+<title>Carousel — Web3Ashley</title>
 <style>
   :root { color-scheme: dark; }
-  body {
-    margin: 0; background: #141311; color: #e8e8e3;
-    font: 15px/1.5 ui-monospace, monospace; padding: 32px 20px 96px;
-  }
-  h1 { font-size: 15px; letter-spacing: .1em; text-transform: uppercase; margin: 0 0 6px; }
-  p.note { opacity: .6; max-width: 62ch; margin: 0 0 32px; }
-  .strip { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 20px; scroll-snap-type: x mandatory; }
-  .strip figure { margin: 0; flex: 0 0 auto; scroll-snap-align: start; }
-  .strip canvas {
-    width: 300px; height: 375px; display: block; border-radius: 2px;
-    background: #000;
-  }
-  figcaption { opacity: .5; font-size: 12px; padding-top: 8px; letter-spacing: .06em; text-transform: uppercase; }
-  h2 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; opacity: .55;
-       margin: 40px 0 12px; font-weight: 400; }
-  @media (max-width: 640px) { .strip canvas { width: 76vw; height: 95vw; } }
+  body { margin:0; background:#141311; color:#e8e8e3;
+         font:14px/1.5 ui-monospace,monospace; padding:28px 20px 80px; }
+  h1 { font-size:13px; letter-spacing:.12em; text-transform:uppercase; margin:0 0 24px; opacity:.6; }
+  .strip { display:flex; gap:14px; overflow-x:auto; padding-bottom:16px; }
+  figure { margin:0; flex:0 0 auto; }
+  canvas { width:320px; height:400px; display:block; background:#000; }
+  figcaption { opacity:.45; font-size:11px; padding-top:6px; letter-spacing:.08em; text-transform:uppercase; }
 </style>
 </head>
 <body>
-
-<h1>Carousel layouts</h1>
-<p class="note">Drawn by assets/js/slides.js — the same renderer the studio uses. Scroll
-  each strip sideways. Nothing here is generated; every slide is type, flat colour and a
-  photograph from the site's own library put through an ordered dither.</p>
-
-<h2>A carousel, as it would post</h2>
-<div class="strip" id="story"></div>
-
-<h2>The six layouts</h2>
-<div class="strip" id="layouts"></div>
-
-<h2>The grounds</h2>
-<div class="strip" id="grounds"></div>
-
+<h1>One carousel · five slides, five compositions</h1>
+<div class="strip" id="strip"></div>
 <script type="module">
-import { drawSlide, GROUNDS, groundFor, silhouette } from './assets/js/slides.js';
-
-const pic = (src) => new Promise((res) => {
-  const i = new Image();
-  i.onload = () => res(i);
-  i.onerror = () => res(null);
-  i.src = src;
-});
-
-const add = (host, slide, meta, caption) => {
-  const fig = document.createElement('figure');
+import { draw, SLIDES } from './assets/js/carousel.js';
+const names = ['scale + air (5418)','fragments (5424)','knockout (5405)','stagger (5409)','editorial (5404)'];
+for (let i = 0; i < SLIDES.length; i++) {
+  const f = document.createElement('figure');
   const c = document.createElement('canvas');
-  fig.append(c);
   const cap = document.createElement('figcaption');
-  cap.textContent = caption;
-  fig.append(cap);
-  host.append(fig);
-  return drawSlide(c, slide, meta);
-};
-
-const photo = await pic('/assets/stock/stock-13.jpg');   // a road, for plates
-const wide  = await pic('/assets/stock/stock-02.jpg');   // bare trees
-// Cut-outs, until real PNGs arrive: an object on a plain sweep, with
-// the sweep removed. stock-12 is a typewriter on white — the same kind
-// of retro object the references keep reaching for.
-const object = await pic('/assets/stock/stock-12.jpg');
-const cut  = object ? silhouette(object) : null;
-const palms = await pic('/assets/stock/stock-03.jpg');
-const cut2 = palms ? silhouette(palms, { tolerance: 120 }) : null;
-
-/* A carousel that would actually post: the eleven-second booking page. */
-const ground = groundFor('speed');
-const story = [
-  { layout: 'stack', ground, kicker: 'Speed · 01',
-    copy: 'your booking\npage takes\n{eleven seconds}\nto load' },
-  { layout: 'figure', ground: 'black', kicker: 'On a real phone, on real data',
-    figure: '11s', caption: 'To load, before anyone\nhas seen anything' },
-  { layout: 'editorial', ground: 'newsprint', image: photo, kicker: '02 / 05',
-    copy: 'what is actually\n{slow}',
-    items: ['unresized images', 'six trackers', 'a font before its words'] },
-  { layout: 'scatter', ground: 'ultramarine', image: cut, rotate: -7,
-    copy: 'most people\nare {gone}\nbefore it\nfinishes' },
-  { layout: 'cutout', ground: 'red', image: cut, badge: 'before / after',
-    copy: 'I find it\nand I {fix} it' },
-];
-for (const [i, s] of story.entries()) {
-  await add(document.getElementById('story'), s, { index: i, total: story.length },
-            `${i + 1} · ${s.layout}`);
-}
-
-/* Each composition once. */
-const each = [
-  { layout: 'stack', ground: 'red', texture: 'grid', kicker: 'Forms · 03',
-    copy: 'nobody is\nreading your\n{enquiry} form' },
-  { layout: 'cutout', ground: 'yellow', image: cut, badge: 'still true',
-    copy: 'a menu saved\nas a {photograph}' },
-  { layout: 'editorial', ground: 'newsprint', image: wide, kicker: 'issue 04',
-    copy: 'built custom,\nno {templates}',
-    items: ['no page builder', 'no theme', 'no plugin soup'] },
-  { layout: 'figure', ground: 'ultramarine', kicker: 'Since the notification broke',
-    figure: '0', caption: 'Enquiries that reached\na human being' },
-  { layout: 'scatter', ground: 'black', image: cut2,
-    copy: 'work hard\n{but}\nship it' },
-  { layout: 'statement', ground: 'newsprint', copy: 'tell me\nwhat is {broken}' },
-];
-for (const s of each) {
-  await add(document.getElementById('layouts'), s, { index: 0, total: 1 }, s.layout);
-}
-
-for (const name of Object.keys(GROUNDS)) {
-  await add(document.getElementById('grounds'),
-            { layout: 'stack', ground: name, copy: 'tell me\nwhat is\n{broken}' },
-            { index: 0, total: 1 }, name);
+  cap.textContent = `${i+1} · ${names[i]}`;
+  f.append(c, cap);
+  document.getElementById('strip').append(f);
+  await draw(c, i);
 }
 </script>
 </body>
