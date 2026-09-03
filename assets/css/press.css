@@ -1,0 +1,420 @@
+/* ==================================================================
+   press.css — the site as a two-colour print job.
+
+   The brief was a pair of screenprinted posters: a face crushed to
+   flat ink, one saturated red, display type run over the top at a size
+   that does not fit, small clinical type at the bottom, and the whole
+   thing sitting on paper that has been handled.
+
+   What actually makes those posters work is nine things, and none of
+   them is a colour scheme:
+
+     1  Two inks. A ground, an ink, and one accent. Never a third.
+     2  Photographs posterised to flat plates. No tonal range at all.
+     3  Display type oversized, cropped by the edge, over the image.
+     4  A slab holding the composition — not a rule, a block.
+     5  Secondary type in filled boxes, never outlined.
+     6  Microcopy in the register of a specimen label.
+     7  Data furniture: figures, delimiters, a barcode.
+     8  Paper grain, and ink that is fractionally off-plate.
+     9  One deliberate typographic discord.
+
+   The second poster is the same composition with the plates swapped:
+   newsprint ground, black ink, red accent. That is the tell that it is
+   a system rather than a look, so this file is built the same way. Two
+   plates, one set of components, and every surface picks a plate.
+
+   Nothing here is a hairline. The rules that were stripped out of the
+   exported template are not coming back in through this door; a slab
+   is a block of ink with a job, which is a different object from a 1px
+   divider drawn because a section ended.
+
+   Layered over site.css and statement.css, and mostly restyling class
+   names that already exist, so the markup is left alone where it can
+   be. Loaded last.
+   ================================================================== */
+
+:root {
+  /* The red is the one from the reference. Measured rather than
+     picked: 4.61 against the black ground and 3.53 against newsprint,
+     so it carries display type on either plate — and black text on a
+     red slab is 4.61, which is why the filled boxes can hold real
+     words instead of decoration. */
+  --press-accent: #ED2024;
+  --press-ink: #080807;
+  --press-paper: #e8e8e3;
+
+  /* Paper, as a filter rather than a photograph of paper. fractalNoise
+     at this frequency reads as fibre at arm's length and as grain up
+     close, which is what a cheap print does. Baked to a data URI so it
+     costs no request and no element. */
+  --press-grain:
+    url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)' opacity='0.42'/%3E%3C/svg%3E");
+}
+
+/* ------------------------------------------------------------------
+   The two plates.
+
+   A surface declares which one it is printed on and inherits the three
+   inks. Everything below reads them, so a section changes character by
+   changing one attribute rather than by being restyled.
+   ------------------------------------------------------------------ */
+
+[data-plate] {
+  --plate-ground: var(--press-ink);
+  --plate-ink: var(--press-paper);
+  --plate-accent: var(--press-accent);
+}
+
+[data-plate="paper"] {
+  --plate-ground: var(--press-paper);
+  --plate-ink: var(--press-ink);
+  --plate-accent: var(--press-accent);
+}
+
+/* Red ground, black ink: the first poster. Reserved for one section at
+   a time — it is the loudest thing here and stops working the moment
+   there are two of them on a screen. */
+[data-plate="red"] {
+  --plate-ground: var(--press-accent);
+  --plate-ink: var(--press-ink);
+  --plate-accent: var(--press-ink);
+}
+
+[data-plate] {
+  background-color: var(--plate-ground);
+  color: var(--plate-ink);
+}
+
+/* ------------------------------------------------------------------
+   Grain.
+
+   On the surface itself rather than a fixed overlay: a single sheet of
+   noise over a scrolling page reads as a dirty screen, where grain
+   that travels with the section reads as the section being printed.
+
+   `pointer-events: none` because it covers the content, and a texture
+   that eats clicks is a bug wearing a costume.
+   ------------------------------------------------------------------ */
+
+.press-grain { position: relative; isolation: isolate; }
+
+.press-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: var(--press-grain);
+  background-size: 180px 180px;
+  mix-blend-mode: overlay;
+  opacity: 0.5;
+}
+
+/* On paper the grain has to subtract rather than add, or it silvers the
+   sheet instead of dirtying it. */
+[data-plate="paper"].press-grain::after,
+[data-plate="red"].press-grain::after {
+  mix-blend-mode: multiply;
+  opacity: 0.38;
+}
+
+/* ------------------------------------------------------------------
+   Photography, as a printed plate.
+
+   The filter is in the document (see #pressPlate). CSS gets it to the
+   right pictures and handles the fallback: if filters are unavailable
+   the images stay as they were rather than disappearing, because a
+   missing treatment is a duller site and a broken one is no site.
+
+   The whole tonal decision lives in the filter, not here. Stretching
+   the range in CSS *and* in the filter crushes everything to the
+   shadow ink and gives a muddy maroon instead of a red field, which is
+   exactly what the first attempt did.
+   ------------------------------------------------------------------ */
+
+.hero_home_img,
+.works_home_image,
+.services_home_img,
+.services_home_service_image,
+.problems_home_headshot,
+.faq_home_headshot,
+.cta_home_visual,
+.press-plate img,
+.press-plate {
+  filter: url(#pressPlate);
+}
+
+/* Portraits of a person take the newsprint plate instead of the red
+   one. A face rendered in flat red is a poster about the face; these
+   are photographs of someone you might hire. */
+.services_home_headshot,
+.press-plate--paper img,
+.press-plate--paper {
+  filter: url(#pressPlatePaper);
+}
+
+@supports not (filter: url(#pressPlate)) {
+  .hero_home_img,
+  .works_home_image,
+  .services_home_img,
+  .services_home_service_image,
+  .problems_home_headshot,
+  .faq_home_headshot,
+  .cta_home_visual {
+    filter: grayscale(1) contrast(1.5);
+  }
+}
+
+/* ------------------------------------------------------------------
+   Slabs.
+
+   The vertical bar in the reference is doing structural work: it ties
+   three unrelated blocks into one composition and gives the eye a spine
+   to hang the type off. It is 12px of ink, not a border.
+   ------------------------------------------------------------------ */
+
+.press-slab {
+  position: absolute;
+  background-color: var(--plate-accent, var(--press-accent));
+  z-index: 3;
+  pointer-events: none;
+}
+
+.press-slab--v { top: 0; bottom: 0; width: clamp(8px, 1.1vw, 14px); }
+.press-slab--h { left: 0; right: 0; height: clamp(8px, 1.1vw, 14px); }
+
+/* Off-centre on purpose. A bar down the middle is a division; a bar at
+   a seventh is a margin the page is printed against. */
+.press-slab--spine { left: clamp(16px, 7vw, 104px); }
+
+/* ------------------------------------------------------------------
+   Type in a filled box.
+
+   The reference sets its secondary lines in solid rectangles so they
+   sit on the image rather than in front of it. Inline, with box-decoration
+   so a line that wraps breaks into two boxes the way it would on press,
+   instead of one box with a hole in it.
+   ------------------------------------------------------------------ */
+
+.press-box {
+  display: inline;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  background-color: var(--plate-ink, var(--press-paper));
+  color: var(--plate-ground, var(--press-ink));
+  padding: 0.12em 0.34em;
+  /* the type sits tight in the box, as set metal does */
+  line-height: 1.42;
+}
+
+.press-box--accent {
+  background-color: var(--press-accent);
+  /* black on the red, at 4.61 — the reason this can hold sentences */
+  color: var(--press-ink);
+}
+
+/* ------------------------------------------------------------------
+   The specimen register.
+
+   The best device in the reference, and the one that needs the most
+   care. Its own microcopy is invented — "DOPAMINE SPIKE: 187% ABOVE
+   BASELINE" is a number about nothing. The same typographic move with
+   a measured figure in it is the version that belongs on a site whose
+   argument is that the work is measurable, so this styles the voice
+   and the copy has to earn it.
+   ------------------------------------------------------------------ */
+
+.press-spec {
+  font-family: Mono, ui-monospace, monospace;
+  font-size: clamp(0.66rem, 0.62rem + 0.2vw, 0.78rem);
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--plate-ink, var(--press-paper));
+}
+
+.press-spec--dim { opacity: 0.62; }
+
+/* /// as a delimiter, drawn rather than typed, so the copy in the
+   database stays readable prose and the furniture stays in the CSS */
+.press-spec--marked::before,
+.press-spec--marked::after {
+  content: "///";
+  color: var(--press-accent);
+  padding: 0 0.6em;
+}
+
+/* A figure worth reading twice. */
+.press-figure {
+  font-family: Display, Arial, sans-serif;
+  font-weight: 800;
+  color: var(--press-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------
+   The barcode.
+
+   Repeating gradients rather than an image: it is a texture, it should
+   cost nothing, and at these widths nobody is scanning it. Marked
+   aria-hidden wherever it is used — it is furniture, and a screen
+   reader announcing a decorative barcode is noise.
+   ------------------------------------------------------------------ */
+
+.press-barcode {
+  height: clamp(34px, 4vw, 56px);
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--plate-ink, var(--press-paper)) 0 2px,
+    transparent 2px 4px,
+    var(--plate-ink, var(--press-paper)) 4px 5px,
+    transparent 5px 9px,
+    var(--plate-ink, var(--press-paper)) 9px 12px,
+    transparent 12px 14px
+  );
+}
+
+/* ------------------------------------------------------------------
+   Overprint.
+
+   Two plates that do not quite line up. A pseudo-element carrying the
+   same text, nudged and set in the accent under a multiply blend, so
+   the letterform gains a red fringe on one side exactly as a misfed
+   sheet does.
+
+   Needs the text in a data attribute; only worth it on the two or
+   three biggest words on the site.
+   ------------------------------------------------------------------ */
+
+.press-over { position: relative; }
+
+.press-over::before {
+  content: attr(data-over);
+  position: absolute;
+  inset: 0;
+  color: var(--press-accent);
+  mix-blend-mode: multiply;
+  transform: translate(-0.055em, 0.02em);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ------------------------------------------------------------------
+   Display type that does not fit.
+
+   The poster's headline is cut by the edge of the sheet, which is what
+   makes it read as a fragment of something bigger. Here the letters
+   are allowed past the container and the container does the cutting.
+   ------------------------------------------------------------------ */
+
+.press-huge {
+  font-family: Display, Arial, sans-serif;
+  font-weight: 800;
+  font-size: clamp(4rem, 17vw, 15rem);
+  line-height: 0.82;
+  letter-spacing: -0.035em;
+  text-transform: lowercase;
+  margin: 0;
+}
+
+.press-crop { overflow: hidden; }
+
+/* ------------------------------------------------------------------
+   Where it lands.
+
+   Restyling the exported template's own class names, so the markup is
+   only touched where a genuinely new element is needed.
+   ------------------------------------------------------------------ */
+
+.hero_home_wrap,
+.problems_home_wrap,
+.process_home_wrap,
+.services_home_wrap,
+.works_home_wrap,
+.cta_home_wrap,
+.faq_home_content {
+  position: relative;
+}
+
+/* ------------------------------------------------------------------
+   Guards.
+
+   The grain is a static texture and the overprint is a transform that
+   never animates, so neither is a motion problem. What does matter:
+   printing the page should print the words, and a filter chain on a
+   background image at print resolution is a way to waste someone's
+   toner and lose the picture.
+   ------------------------------------------------------------------ */
+
+@media print {
+  .press-grain::after,
+  .press-slab,
+  .press-barcode { display: none; }
+  .press-over::before { content: none; }
+  [data-plate] { background: #fff; color: #000; }
+  .hero_home_img,
+  .works_home_image,
+  .services_home_img,
+  .services_home_service_image,
+  .problems_home_headshot,
+  .faq_home_headshot,
+  .cta_home_visual { filter: grayscale(1); }
+}
+
+/* A viewer who has asked for less contrast is asking for the opposite
+   of everything above. Give them the photographs back. */
+@media (prefers-contrast: less) {
+  .hero_home_img,
+  .works_home_image,
+  .services_home_img,
+  .services_home_service_image,
+  .problems_home_headshot,
+  .faq_home_headshot,
+  .cta_home_visual,
+  .services_home_headshot { filter: none; }
+  .press-grain::after { opacity: 0.2; }
+}
+
+/* ------------------------------------------------------------------
+   The journal masthead.
+
+   The one place on the site where the poster's own composition is
+   reproduced rather than borrowed from: word oversized and cropped,
+   slab down the margin, specimen line underneath.
+
+   The slab lives inside the masthead rather than the page. Run down
+   the whole document it stops being a spine and becomes a bar drawn
+   through the middle of everything anyone is trying to read — which is
+   what the first attempt did to the article titles.
+   ------------------------------------------------------------------ */
+
+.jr_masthead {
+  position: relative;
+  isolation: isolate;
+  padding-block: clamp(24px, 5vw, 72px) clamp(32px, 6vw, 88px);
+}
+
+/* Behind the type, in front of nothing. In the reference the bar is
+   over the photograph and under the headline; with no photograph here,
+   under the headline is the whole job. */
+.jr_masthead .press-slab { z-index: 0; }
+.jr_masthead > *:not(.press-slab) { position: relative; z-index: 1; }
+
+/* Clear of the slab at every width, not just the wide one — the type
+   starting to the left of its own spine was the other half of the same
+   mistake. */
+.jr_masthead > .press-crop,
+.jr_index_spec,
+.jr_index_lede { padding-left: clamp(34px, 9vw, 132px); }
+
+.jr_display.press-huge {
+  /* the exported heading sets its own size and colour; this is the
+     press one, and it has to win without !important */
+  font-size: clamp(4.5rem, 19vw, 16rem);
+  line-height: 0.78;
+  color: var(--press-paper);
+  margin: 0 0 0.08em;
+}
+
+.jr_index_spec { margin: 0 0 1.6em; }
