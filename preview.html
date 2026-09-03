@@ -4,35 +4,31 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Carousel — Web3Ashley</title>
+<title>Panels — Web3Ashley</title>
 <style>
   :root { color-scheme: dark; }
   body { margin:0; background:#141311; color:#e8e8e3;
-         font:13px/1.5 ui-monospace,monospace; padding:26px 20px 70px; }
+         font:13px/1.5 system-ui,sans-serif; padding:26px 20px 70px; }
   h1 { font-size:12px; letter-spacing:.14em; text-transform:uppercase; margin:0 0 14px; opacity:.5; }
-  #sheet { width:100%; display:block; margin-bottom:38px; }
-  .strip { display:flex; gap:10px; }
-  figure { margin:0; flex:1 1 0; }
-  .strip canvas { width:100%; display:block; background:#000; }
-  figcaption { opacity:.4; font-size:10px; padding-top:5px; letter-spacing:.1em; text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:16px; }
+  figure { margin:0; }
+  canvas { width:100%; display:block; background:#000; }
+  figcaption { opacity:.45; font-size:11px; padding-top:5px; }
 </style>
 </head>
 <body>
-<h1>One sheet</h1>
-<canvas id="sheet"></canvas>
-<h1>Cut into five</h1>
-<div class="strip" id="strip"></div>
+<h1>Eight designs</h1>
+<div class="grid" id="grid"></div>
 <script type="module">
-import { drawSheet, drawPanel, PANELS } from './assets/js/flow.js';
-await drawSheet(document.getElementById('sheet'));
-for (let i = 0; i < PANELS; i++) {
+import { draw, DESIGNS } from './assets/js/decks.js';
+for (let i = 0; i < DESIGNS.length; i++) {
   const f = document.createElement('figure');
   const c = document.createElement('canvas');
   const cap = document.createElement('figcaption');
-  cap.textContent = `0${i+1}`;
+  cap.textContent = `${i + 1} — ${DESIGNS[i][0]}`;
   f.append(c, cap);
-  document.getElementById('strip').append(f);
-  await drawPanel(c, i);
+  document.getElementById('grid').append(f);
+  await draw(c, i);
 }
 </script>
 </body>

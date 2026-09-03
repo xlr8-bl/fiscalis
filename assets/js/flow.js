@@ -34,11 +34,11 @@ export const H = 1280;
 export const PANELS = 5;
 export const W = PANEL * PANELS;
 
-const PAPER = '#EFEDE7';
-const INK = '#111110';
-const RED = '#E63122';
-const YELLOW = '#F2B12C';
-const GREY = '#D9D7D1';
+export const PAPER = '#EFEDE7';
+export const INK = '#111110';
+export const RED = '#E63122';
+export const YELLOW = '#F2B12C';
+export const GREY = '#D9D7D1';
 
 const FACES = [
   ['Grot', '/assets/fonts/archivo-700.woff2', { weight: '700' }],
@@ -61,7 +61,7 @@ export function loadFaces() {
 
 /* ---------------------------------------------------------- treatment */
 
-function stipple(img, { w, h, contrast = 1.3, ox = 0, oy = 0 }) {
+export function stipple(img, { w, h, contrast = 1.3, ox = 0, oy = 0, ink = INK }) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const g = c.getContext('2d');
@@ -70,7 +70,7 @@ function stipple(img, { w, h, contrast = 1.3, ox = 0, oy = 0 }) {
   g.drawImage(img, (w - iw) / 2 + ox, (h - ih) / 2 + oy, iw, ih);
 
   const d = g.getImageData(0, 0, w, h), px = d.data;
-  const ink = [0x11, 0x11, 0x10];
+  const k = [1, 3, 5].map((i) => parseInt(ink.slice(i, i + 2), 16));
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
@@ -81,7 +81,7 @@ function stipple(img, { w, h, contrast = 1.3, ox = 0, oy = 0 }) {
       n = (n ^ (n >> 13)) * 1274126177;
       const t = ((n ^ (n >> 16)) >>> 0) / 4294967295;
       if (l > t) px[i + 3] = 0;
-      else { px[i] = ink[0]; px[i + 1] = ink[1]; px[i + 2] = ink[2]; px[i + 3] = 255; }
+      else { px[i] = k[0]; px[i + 1] = k[1]; px[i + 2] = k[2]; px[i + 3] = 255; }
     }
   }
   g.putImageData(d, 0, 0);
@@ -115,7 +115,7 @@ export function cutOut(img, { tolerance = 54 } = {}) {
  * the page about 450 tall and sitting wherever the photographer left
  * headroom. Cropping first means the number is the figure.
  */
-function trim(c) {
+export function trim(c) {
   const g = c.getContext('2d');
   const px = g.getImageData(0, 0, c.width, c.height).data;
   let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
@@ -424,7 +424,7 @@ function scene(ctx, A) {
 }
 
 /** Paper tooth over the whole sheet, so the cuts share one surface. */
-function tooth(ctx, amount = 0.05) {
+export function tooth(ctx, amount = 0.05, w = W, h = H) {
   const c = document.createElement('canvas');
   c.width = c.height = 140;
   const g = c.getContext('2d'), d = g.createImageData(140, 140);
@@ -437,7 +437,7 @@ function tooth(ctx, amount = 0.05) {
   ctx.globalAlpha = amount;
   ctx.globalCompositeOperation = 'multiply';
   ctx.fillStyle = ctx.createPattern(c, 'repeat');
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, w, h);
   ctx.restore();
 }
 
