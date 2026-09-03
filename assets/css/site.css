@@ -586,14 +586,6 @@ label {
   font-style:normal;
   font-display:swap;
 }
-@font-face {
-  font-family:Mono;
-  src:url(../fonts/geistmono.woff2)format("woff2");
-  font-weight:400;
-  font-style:normal;
-  font-display:swap;
-}
-
 /* --- tokens ---------------------------------------------------- */
 
 :root {
@@ -673,7 +665,7 @@ label {
   --column-width--8:8px;
   --_typography---font-size--h4:clamp(1.5*1rem,((1.5 - ((3 - 1.5)/(var(--site--viewport-max) - var(--site--viewport-min))*var(--site--viewport-min)))*1rem + ((3 - 1.5)/(var(--site--viewport-max) - var(--site--viewport-min)))*100vw),3*1rem);
   --column-width--7:7px;
-  --_typography---font--tertiary-family:Mono,Arial,sans-serif;
+  --_typography---font--tertiary-family:Primary,Arial,sans-serif;
   --column-width--3:3px;
   --column-width--4:4px;
   --column-width--6:6px;
@@ -2028,11 +2020,13 @@ figure {
 
 /* --- typography ------------------------------------------------ */
 
+/* Was a monospaced, uppercase micro-label. Both the face and the
+   treatment are gone: small labels are set in the site's own type, in
+   the case they were written in. The class name survives only because
+   layout rules hang off it. */
 .u-text-mono {
-  font-family:var(--_typography---font--tertiary-family);
   color:var(--swatch--black-50);
   font-size:var(--_typography---font-size--text-xsmall);
-  text-transform:uppercase;
 }
 
 /* --- sections -------------------------------------------------- */
@@ -3298,7 +3292,6 @@ figure {
 .process_home_content_index.u-text-mono {
   width:var(--column-width--3);
   margin-top:var(--column-margin--0);
-  font-family:var(--_typography---font--tertiary-family);
   justify-content:flex-start;
   align-items:center;
 }

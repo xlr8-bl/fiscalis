@@ -415,7 +415,7 @@ body.st-body {
   letter-spacing: -.02em;
 }
 .st-preview__prose code {
-  font-family: var(--_typography---font--tertiary-family, monospace);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: .88em;
   color: var(--swatch--beige-100, #e8e8e3);
 }
@@ -470,7 +470,7 @@ body.st-body {
   background: color-mix(in srgb, var(--swatch--beige-100, #e8e8e3) 4%, transparent);
 }
 .st-media__item code {
-  font-family: var(--_typography---font--tertiary-family, monospace);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: .72rem; color: var(--swatch--black-50, #938f8a);
   word-break: break-all;
 }
@@ -521,7 +521,7 @@ body.st-body {
 .st-steps li::marker { color: var(--swatch--black-100, #6b645c); }
 .st-steps b { color: var(--swatch--beige-100, #e8e8e3); font-weight: 500; }
 .st-steps code {
-  font-family: var(--_typography---font--tertiary-family, monospace);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: .85em;
   color: var(--swatch--beige-100, #e8e8e3);
 }

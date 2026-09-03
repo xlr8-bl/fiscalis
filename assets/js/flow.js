@@ -43,11 +43,9 @@ const GREY = '#D9D7D1';
 const FACES = [
   ['Grot', '/assets/fonts/archivo-700.woff2', { weight: '700' }],
   ['Black', '/assets/fonts/inter-900.woff2', { weight: '900' }],
-  ['Mono', '/assets/fonts/geistmono.woff2', {}],
 ];
 const GROT = '"Grot", Helvetica, Arial, sans-serif';
 const BLACK = '"Black", Helvetica, Arial, sans-serif';
-const MONO = '"Mono", ui-monospace, monospace';
 
 let faces = null;
 export function loadFaces() {
@@ -106,19 +104,50 @@ export function cutOut(img, { tolerance = 54 } = {}) {
       : Math.round(((far - tolerance) / (tolerance * 0.7)) * 255);
   }
   g.putImageData(d, 0, 0);
-  return c;
+  return trim(c);
+}
+
+/**
+ * Crop a cut-out to its own ink.
+ *
+ * Without this the box you place is the original photograph's box, most
+ * of which is now transparent, so a figure sized to 760 tall arrives on
+ * the page about 450 tall and sitting wherever the photographer left
+ * headroom. Cropping first means the number is the figure.
+ */
+function trim(c) {
+  const g = c.getContext('2d');
+  const px = g.getImageData(0, 0, c.width, c.height).data;
+  let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < c.height; y++) {
+    for (let x = 0; x < c.width; x++) {
+      if (px[(y * c.width + x) * 4 + 3] < 12) continue;
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) return c;
+  const o = document.createElement('canvas');
+  o.width = x1 - x0 + 1; o.height = y1 - y0 + 1;
+  o.getContext('2d').drawImage(c, x0, y0, o.width, o.height, 0, 0, o.width, o.height);
+  return o;
 }
 
 /* --------------------------------------------------------------- type */
 
-function meta(ctx, text, { x, y, size = 19, colour = INK, align = 'left', alpha = 0.75 }) {
+/**
+ * A section marker. Deliberately not a monospaced, letterspaced,
+ * uppercase micro-label — that treatment is the house style of every
+ * generated deck on the internet. It is set in the same face as the
+ * body, just heavier, and it says a whole sentence.
+ */
+function meta(ctx, text, { x, y, size = 26, colour = INK, align = 'left', alpha = 1 }) {
   ctx.save();
-  ctx.font = `${size}px ${MONO}`;
-  ctx.letterSpacing = '0.8px';
+  ctx.font = `700 ${size}px ${GROT}`;
   ctx.fillStyle = colour; ctx.globalAlpha = alpha; ctx.textAlign = align;
   ctx.fillText(text, x, y);
   ctx.restore();
-  ctx.textAlign = 'left'; ctx.letterSpacing = '0px';
+  ctx.textAlign = 'left';
 }
 
 function body(ctx, lines, { x, y, size = 21, colour = INK, leading = 1.45, family = GROT }) {
@@ -154,39 +183,45 @@ function scene(ctx, A) {
 
   /* ---- panel 0: the hook, and the only figure --------------------- */
   ctx.fillStyle = INK;
-  ctx.font = `900 96px ${BLACK}`;
+  ctx.font = `900 60px ${BLACK}`;
+  ctx.letterSpacing = '-2px';
+  ctx.fillText('Enquiries dried up.', 74, 212);
+  ctx.font = `900 82px ${BLACK}`;
   ctx.letterSpacing = '-3px';
-  ctx.fillText('Four', 74, 252);
-  ctx.fillText('numbers.', 74, 344);
+  ctx.fillStyle = RED;
+  ctx.fillText('It is not', 74, 306);
+  ctx.fillText('your design.', 74, 388);
   ctx.letterSpacing = '0px';
-  ctx.font = `700 30px ${GROT}`;
-  ctx.fillText('Everything else is noise.', 74, 404);
   body(ctx, [
-    'Your analytics shows fourteen charts.',
-    'Four of them change what you actually do.',
-    'These are the four. Swipe.',
-  ], { x: 74, y: 456, size: 21 });
+    'Three faults I find over and over. Every one of',
+    'them is invisible from the inside, and every one',
+    'is costing somebody money right now.',
+  ], { x: 74, y: 444, size: 21 });
 
   ctx.fillStyle = YELLOW;
   ctx.beginPath(); ctx.arc(872, 262, 33, 0, Math.PI * 2); ctx.fill();
 
   if (A.figure) {
-    // sized off the cut-out's own proportions rather than a guessed box:
-    // forcing a portrait into a square one cropped it to a head and left
-    // the rest of the panel empty
-    const fh = 760;
+    // the cut-out is trimmed to its ink, so this height is the figure's
+    // real height and it can be stood on the rule rather than floated
+    const fh = 640;
     const fw = Math.round(fh * (A.figure.width / A.figure.height));
-    const fx = 300, fy = H - fh - 130;
-    ctx.drawImage(stipple(A.figure, { w: fw, h: fh, contrast: 1.5 }), fx, fy);
+    const fx = 342, fy = 1148 - fh;
+    // the slab goes down first and the figure prints over it, which is
+    // the order a screenprint runs in and the reason it reads as one
+    // object instead of a rectangle parked on a photograph
     ctx.save();
-    ctx.translate(fx + fw * 0.30, fy + fh * 0.05); ctx.rotate(-0.022);
-    ctx.fillStyle = RED; ctx.fillRect(0, 0, 250, 148);
+    ctx.translate(fx + fw * 0.34, fy - 26); ctx.rotate(-0.022);
+    ctx.fillStyle = RED; ctx.fillRect(0, 0, 330, 210);
     ctx.restore();
+    ctx.drawImage(stipple(A.figure, { w: fw, h: fh, contrast: 1.5 }), fx, fy);
   }
 
   /* ---- the tile field, running under panels 1 and 2 --------------- */
   const gut = 12;
-  const tileTop = 470, tileH = 250;
+  // 470 + two 250 rows put the field's foot at 982, straight through the
+  // body copy that starts at 920. Same field, lifted and shortened.
+  const tileTop = 430, tileH = 220;
   /*
    * Narrower than it was. Cover-fitting a portrait into a field almost
    * two panels wide crops it to a horizontal band, and because the
@@ -194,13 +229,17 @@ function scene(ctx, A) {
    * the outer tiles came up empty and the grid read as broken rather
    * than as deliberately gappy.
    */
-  const fieldX = P + 150, fieldW = 1380;
+  // ends exactly on the cut at 2048. Spilling past it left two tiles
+  // alone on the next panel carrying no image, which reads as broken
+  // rather than as a field running under the edge
+  const fieldX = P + 150, fieldW = P * 2 - fieldX;
   const cols = 4, rows = 2;
   const cw = (fieldW - gut * (cols - 1)) / cols;
 
   if (A.face) {
     const whole = stipple(A.face, {
-      w: Math.round(fieldW), h: Math.round(rows * tileH + gut), contrast: 1.45, oy: 60,
+      w: Math.round(fieldW), h: Math.round(rows * tileH + gut),
+      contrast: 1.45, oy: 60,
     });
     const skip = new Set(['0,3', '1,0']);
     for (let r = 0; r < rows; r++) {
@@ -223,7 +262,7 @@ function scene(ctx, A) {
    * unexplained fragment; a swipe finishes it. This is the one thing
    * here that only works because it is a carousel.
    */
-  const word = 'ARRIVALS';
+  const word = 'INVISIBLE';
   const wordX = P + 40, wordW = P * 2 - 40;
   const size = spanSize(ctx, word, wordW, { cap: 420 });
   ctx.font = `900 ${size}px ${BLACK}`;
@@ -232,15 +271,41 @@ function scene(ctx, A) {
   ctx.fillText(word, wordX, 380);
   ctx.letterSpacing = '0px';
 
-  meta(ctx, '01 — WHERE THEY COME FROM', { x: P + 150, y: 452, size: 22, alpha: 1 });
+  // above the field, not on it: at 452 it printed across the top row
+  meta(ctx, 'One. Your menu is a photograph.', { x: P + 150, y: 414 });
   body(ctx, [
-    'Split by channel: search, social, direct, referral.',
-    'Not one blob called "users".',
+    'A picture of a menu is a picture. Google reads',
+    'nothing in it. Neither does a screen reader, nor',
+    'the person searching for the one dish you are',
+    'known for.',
     '',
-    'Six months on Instagram, social at 4% of arrivals',
-    'and search at 70%. That is an expensive thing to',
-    'find out late. Check it monthly, never daily.',
+    'Every word on it may as well not exist.',
   ], { x: P + 150, y: 920, size: 21 });   // clear of the rule at 1146
+
+  /*
+   * ---- panel 2: the counter-list ----------------------------------
+   *
+   * This panel was the tail of the spanning word and nothing else:
+   * two-thirds of it empty, and on its own it said nothing at all. It
+   * carries the second fault now.
+   */
+  const ix = P * 2 + 150;
+  meta(ctx, 'Two. Eleven seconds.', { x: ix, y: 560 });
+  ctx.fillStyle = INK;
+  ctx.font = `900 64px ${BLACK}`;
+  ctx.letterSpacing = '-2px';
+  ctx.fillText('Nobody waits', ix, 664);
+  ctx.fillText('eleven seconds.', ix, 732);
+  ctx.letterSpacing = '0px';
+  body(ctx, [
+    'That is how long a booking page I was sent took',
+    'to become usable on a phone.',
+    '',
+    'The booking system was fine. The page carrying',
+    'it was not, and every enquiry died in the wait —',
+    'silently, because nobody who leaves tells you',
+    'they left.',
+  ], { x: ix, y: 818, size: 19 });
 
   /* ---- panel 3: the grid, drawn, growing out of the tile field ---- */
   const gx = P * 3 + 52, gw = P - 104;
@@ -252,10 +317,26 @@ function scene(ctx, A) {
   }
   ctx.globalAlpha = 1;
 
-  const head = ['how many', 'do the', 'thing you', 'want?'];
-  let hy = 330;
+  /*
+   * Lines are sized to their own measure, so they are all different
+   * heights. Advancing by the line just drawn is wrong: where the next
+   * line is bigger, its cap starts above the previous baseline and the
+   * two collide. Advance by the line about to be drawn, then scale the
+   * whole stack once so it lands inside the band.
+   */
+  const head = ['it submits.', 'it says', 'thank you.', 'it sends', 'nothing.'];
+  const inset = [300, 140, 140, 60, 140];
+  const sizes = head.map((l, i) => spanSize(ctx, l, gw - inset[i], { cap: 170 }));
+  const step = (i) => sizes[i] * 0.98;
+  const HEAD_TOP = 336, HEAD_BOTTOM = 946;
+  let need = 0;
+  for (let i = 1; i < sizes.length; i++) need += step(i);
+  const k = Math.min(1, (HEAD_BOTTOM - HEAD_TOP) / need);
+
+  let hy = HEAD_TOP;
   head.forEach((line, i) => {
-    const s = spanSize(ctx, line, gw - (i === 0 ? 300 : i === 3 ? 60 : 140), { cap: 170 });
+    const s = sizes[i] * k;
+    if (i) hy += step(i) * k;
     ctx.font = `900 ${s}px ${BLACK}`;
     ctx.letterSpacing = `${-s * 0.035}px`;
     const x = i === 2 ? gx + 60 : gx;
@@ -263,17 +344,16 @@ function scene(ctx, A) {
     ctx.fillRect(x - 8, hy - s * 0.72, ctx.measureText(line).width + 24, s * 0.86);
     ctx.fillStyle = RED;
     ctx.fillText(line, x, hy);
-    hy += s * 0.96;
   });
   ctx.letterSpacing = '0px';
 
-  meta(ctx, '02 — CONVERSION', { x: gx, y: 200, size: 22, alpha: 1, colour: RED });
+  meta(ctx, 'Three. The form that goes nowhere.', { x: gx, y: 200, colour: RED });
   // six lines at 21 ran past the rule and off the sheet; four fit
   body(ctx, [
-    'Pick one action: an enquiry, a booking, a call.',
-    '1 to 3% is normal. Under 0.5% is broken,',
-    'and it is usually the form.',
-    'Doubling this is a week of unglamorous fixes.',
+    'A contact form quietly failing for months. Nobody',
+    'complains about a business that never replied.',
+    'They just go somewhere else, and you read it as',
+    'a slow year.',
   ], { x: gx, y: 1000, size: 21 });
 
   /* ---- panel 4: 03 and 04, then the close ------------------------- */
@@ -281,57 +361,66 @@ function scene(ctx, A) {
   ctx.fillStyle = YELLOW;
   ctx.beginPath(); ctx.arc(P * 4 + 856, 262, 33, 0, Math.PI * 2); ctx.fill();
 
-  meta(ctx, '03 — WHERE THEY LAND', { x: dx, y: 200, size: 22, alpha: 1 });
   ctx.font = `900 62px ${BLACK}`;
   ctx.letterSpacing = '-2px';
   ctx.fillStyle = INK;
-  ctx.fillText('Entry pages,', dx, 280);
-  ctx.fillText('not top pages.', dx, 348);
-  ctx.letterSpacing = '0px';
-  body(ctx, [
-    'Where strangers meet you. Usually not',
-    'the homepage. That page deserves',
-    'attention out of all proportion.',
-  ], { x: dx, y: 396, size: 20 });
+  ctx.fillText('None of that', dx, 232);
 
-  meta(ctx, '04 — WHERE THEY GIVE UP', { x: dx, y: 560, size: 22, alpha: 1 });
-  ctx.font = `900 62px ${BLACK}`;
-  ctx.letterSpacing = '-2px';
-  ctx.fillStyle = INK;
-  ctx.fillText('One step does', dx, 640);
-
-  // the knockout, now carrying a word that means something in context
+  // the knockout lands on the word the whole piece is arguing against
   const ks = 62;
   ctx.font = `900 ${ks}px ${BLACK}`;
-  const wAll = ctx.measureText('all the ').width;
-  const wDam = ctx.measureText('damage.').width;
+  const wWas = ctx.measureText('was a ').width;
+  const wRed = ctx.measureText('redesign.').width;
   ctx.fillStyle = INK;
-  ctx.fillText('all the ', dx, 708);
-  ctx.fillRect(dx + wAll - 6, 708 - ks * 0.8, wDam + 14, ks * 1.04);
+  ctx.fillText('was a ', dx, 300);
+  // the slab used to start 6px before the word and swallowed the space
+  ctx.fillRect(dx + wWas + 4, 300 - ks * 0.82, wRed + 26, ks * 1.08);
   ctx.fillStyle = PAPER;
-  ctx.fillText('damage.', dx + wAll, 708);
+  ctx.fillText('redesign.', dx + wWas + 17, 300);
   ctx.letterSpacing = '0px';
 
   body(ctx, [
-    'A phone number you did not need.',
-    'A forced account. A delivery cost',
-    'that only appears at the end.',
-  ], { x: dx, y: 756, size: 20 });
+    'Three fixes, days of work, and nothing on the',
+    'site has to look any different afterwards.',
+  ], { x: dx, y: 356, size: 20 });
+
+  meta(ctx, 'Check your own, in ten minutes', { x: dx, y: 500 });
+  body(ctx, [
+    'Paste a line from your menu into Google. If it',
+    'does not come back, it is a photograph.',
+    '',
+    'Open your booking page on mobile data, not',
+    'your own wifi, and count.',
+    '',
+    'Send yourself an enquiry through your own',
+    'form, then go and look for the email.',
+  ], { x: dx, y: 556, size: 20 });
+
+  /*
+   * The right half of this panel was empty. It gets the figure the
+   * section is about — someone who gave up — standing on the same rule
+   * as the figure on panel one, so the piece closes where it opened.
+   */
+  if (A.slump) {
+    const sw = 430, sh = 664;
+    ctx.fillStyle = '#FBFAF7';
+    ctx.fillRect(P * 5 - sw, 1148 - sh, sw, sh);
+    ctx.drawImage(stipple(A.slump, { w: sw, h: sh, contrast: 1.5, oy: -30 }),
+                  P * 5 - sw, 1148 - sh);
+  }
 
   ctx.font = `700 34px ${GROT}`;
   ctx.fillStyle = INK;
   ctx.fillText('I find these for a living.', dx, 1046);
-  meta(ctx, 'web3ashley.com', { x: dx, y: 1086, size: 20, alpha: 0.7 });
+  body(ctx, ['Ashley — web3ashley.com'], { x: dx, y: 1086, size: 21 });
 
-  /* ---- the furniture, once per panel so every slide is signed ----- */
-  for (let i = 0; i < PANELS; i++) {
-    meta(ctx, 'WEB3ASHLEY', { x: i * P + 74, y: 76 });
-    // the subject rides on the right of panel one only; centred on the
-    // sheet it landed exactly on a seam and printed through the counter
-    // and the next panel's handle at once
-    meta(ctx, i === 1 ? 'FOUR NUMBERS' : `0${i + 1}/0${PANELS}`,
-         { x: (i + 1) * P - 74, y: 76, align: 'right' });
-  }
+  /*
+   * No furniture. There was a handle top-left and an 01/05 counter
+   * top-right on every panel, both in tracked uppercase mono: the exact
+   * pair of tells that makes a carousel look machine-made. A reader can
+   * already see how many panels there are, and the piece is signed once
+   * at the end, in words.
+   */
 }
 
 /** Paper tooth over the whole sheet, so the cuts share one surface. */
@@ -357,6 +446,7 @@ function tooth(ctx, amount = 0.05) {
 const SOURCES = {
   figure: '/assets/stock/src/figure-laptop.jpg',
   face: '/assets/stock/src/portrait-bw.jpg',
+  slump: '/assets/stock/src/figure-slump.jpg',
 };
 
 let art = null;
@@ -368,6 +458,10 @@ async function load() {
   const got = {};
   for (const [k, src] of Object.entries(SOURCES)) got[k] = await one(src);
   if (got.figure) got.figure = cutOut(got.figure, { tolerance: 52 });
+  // no cutOut on the slump: its background is as dark as its subject, so
+  // corner-sampling removes nothing and leaves a black slab with a
+  // straight edge. It runs as a printed rectangle instead, which is what
+  // the tile field on panels two and three is doing anyway.
   art = got;
   return art;
 }

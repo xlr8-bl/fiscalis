@@ -183,7 +183,7 @@ body.jr-body {
 }
 
 .jr_prose code {
-  font-family: var(--_typography---font--tertiary-family, monospace);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: .88em;
   color: var(--swatch--beige-100, #e8e8e3);
 }

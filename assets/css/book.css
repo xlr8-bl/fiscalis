@@ -6,8 +6,9 @@
    the site's --radius--small (which reads as square), and the display
    face for the heading at section scale.
 
-   Labels use the primary face. Only values the reader compares —
-   times, counts — stay monospaced.
+   Everything is set in the primary face. Times and counts line up on
+   font-variant-numeric: tabular-nums, which is what monospace was
+   being used for here, without the monospace.
    ================================================================== */
 
 :root {
@@ -148,7 +149,6 @@ textarea { resize: vertical; min-height: 7rem; line-height: 1.55; }
 .bk__slot span {
   text-align: center;
   padding: .65rem .3rem;
-  font-family: var(--_typography---font--tertiary-family, monospace);
   font-size: .82rem;
   font-variant-numeric: tabular-nums;
 }
@@ -166,7 +166,6 @@ textarea { resize: vertical; min-height: 7rem; line-height: 1.55; }
 .bk__meter { display: flex; justify-content: flex-end; margin-top: .45rem; }
 .bk__meter span {
   color: var(--bk-dim);
-  font-family: var(--_typography---font--tertiary-family, monospace);
   font-size: .72rem;
   font-variant-numeric: tabular-nums;
 }
