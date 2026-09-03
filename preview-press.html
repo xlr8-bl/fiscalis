@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex">
+<title>Press treatment</title>
+<style>
+ :root{color-scheme:dark}
+ body{margin:0;background:#141311;color:#e8e8e3;font:13px system-ui;padding:24px}
+ h1{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;margin:0 0 12px}
+ .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:28px}
+ figure{margin:0;flex:0 0 320px}
+ canvas{width:100%;display:block;background:#000}
+ figcaption{opacity:.5;font-size:11px;padding-top:5px}
+</style></head><body>
+<h1>Screen: old hash vs measured halftone</h1><div class="row" id="a"></div>
+<h1>Grounds</h1><div class="row" id="b"></div>
+<script type="module">
+import { stipple } from './assets/js/flow.js';
+import { GROUNDS, GROUND_NAMES, halftone, grain, inkCoverage } from './assets/js/press.js';
+const img = await new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src='/assets/stock/src/portrait-bw.jpg';});
+function cell(parent,label,w,h,paint){
+  const f=document.createElement('figure'),c=document.createElement('canvas'),cap=document.createElement('figcaption');
+  c.width=w;c.height=h;f.append(c,cap);parent.append(f);paint(c.getContext('2d'),c);
+  cap.textContent=label+'  ink '+inkCoverage(c).toFixed(3);
+}
+const A=document.getElementById('a');
+cell(A,'old hash (7px)',640,800,(g,c)=>{g.fillStyle='#EFEDE7';g.fillRect(0,0,c.width,c.height);
+  g.drawImage(stipple(img,{w:640,h:800,contrast:1.45}),0,0);});
+cell(A,'halftone 16px',640,800,(g,c)=>{g.fillStyle='#EFEDE7';g.fillRect(0,0,c.width,c.height);
+  g.drawImage(halftone(img,{w:640,h:800,pitch:16}),0,0);grain(g,c.width,c.height);});
+cell(A,'halftone 10px',640,800,(g,c)=>{g.fillStyle='#EFEDE7';g.fillRect(0,0,c.width,c.height);
+  g.drawImage(halftone(img,{w:640,h:800,pitch:10}),0,0);grain(g,c.width,c.height);});
+const B=document.getElementById('b');
+for(const n of GROUND_NAMES){const s=GROUNDS[n];
+  cell(B,`${n} ${s.ratio}:1 ${s.body?'body':'display only'}`,480,600,(g,c)=>{
+    g.fillStyle=s.ground;g.fillRect(0,0,c.width,c.height);
+    g.drawImage(halftone(img,{w:300,h:380,pitch:14,ink:s.photo}),150,190);
+    g.fillStyle=s.mark;g.font='900 66px Helvetica,Arial';g.fillText('Mark',34,86);
+    g.fillStyle=s.accent;g.fillRect(34,110,180,26);
+    grain(g,c.width,c.height);});}
+</script></body></html>
