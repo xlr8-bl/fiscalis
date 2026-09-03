@@ -35,16 +35,16 @@ const FACES = [
   ['Rough', '/assets/fonts/terminal-grotesque.ttf', {}],
   ['Bric', '/assets/fonts/bricolage.woff2', {}],
 ];
-const GROT = '"Grot", Helvetica, Arial, sans-serif';
-const BLACK = '"Black", Helvetica, Arial, sans-serif';
-const BOOK = '"Book", Helvetica, Arial, sans-serif';
-const ANTON = '"Anton", Impact, Haettenschweiler, sans-serif';
-const SPACE = '"Space", Helvetica, Arial, sans-serif';
-const ROUGH = '"Rough", Helvetica, Arial, sans-serif';
-const BRIC = '"Bric", Georgia, serif';
+export const GROT = '"Grot", Helvetica, Arial, sans-serif';
+export const BLACK = '"Black", Helvetica, Arial, sans-serif';
+export const BOOK = '"Book", Helvetica, Arial, sans-serif';
+export const ANTON = '"Anton", Impact, Haettenschweiler, sans-serif';
+export const SPACE = '"Space", Helvetica, Arial, sans-serif';
+export const ROUGH = '"Rough", Helvetica, Arial, sans-serif';
+export const BRIC = '"Bric", Georgia, serif';
 
 let faces = null;
-function loadFaces() {
+export function loadFaces() {
   if (faces) return faces;
   faces = Promise.all(FACES.map(async ([name, url, desc]) => {
     try {
@@ -58,13 +58,13 @@ function loadFaces() {
 /* ---------------------------------------------------------------- type */
 
 /** Point size that makes `text` exactly `width` wide in `family`. */
-function fit(ctx, text, width, { family = BLACK, weight = 900, cap = 1e4 } = {}) {
+export function fit(ctx, text, width, { family = BLACK, weight = 900, cap = 1e4 } = {}) {
   ctx.letterSpacing = '0px';
   ctx.font = `${weight} 100px ${family}`;
   return Math.min(cap, (width / ctx.measureText(text).width) * 100);
 }
 
-function para(ctx, lines, { x, y, size = 20, colour = INK, leading = 1.5, family = BOOK, weight = 500 }) {
+export function para(ctx, lines, { x, y, size = 20, colour = INK, leading = 1.5, family = BOOK, weight = 500 }) {
   ctx.save();
   ctx.font = `${weight} ${size}px ${family}`;
   ctx.fillStyle = colour;
@@ -76,7 +76,7 @@ function para(ctx, lines, { x, y, size = 20, colour = INK, leading = 1.5, family
 /* -------------------------------------------------------------- pieces */
 
 /** A slab of colour at a slight angle, as if laid down by hand. */
-function slab(ctx, { x, y, w, h, rot = 0, colour = RED }) {
+export function slab(ctx, { x, y, w, h, rot = 0, colour = RED }) {
   ctx.save();
   ctx.translate(x, y); ctx.rotate(rot);
   ctx.fillStyle = colour;
@@ -85,7 +85,7 @@ function slab(ctx, { x, y, w, h, rot = 0, colour = RED }) {
 }
 
 /** Type on its own slab: the ransom-note unit. */
-function pasted(ctx, text, { x, y, size, rot = 0, family = BLACK, weight = 900,
+export function pasted(ctx, text, { x, y, size, rot = 0, family = BLACK, weight = 900,
                              ground = PAPER, colour = INK, pad = 14, track = 0 }) {
   ctx.save();
   ctx.font = `${weight} ${size}px ${family}`;
