@@ -286,6 +286,16 @@ const row = ({ title, note, meta, onClick, tools = [] }) => {
 
 /* --------------------------------------------------------------- overview */
 
+/** Move an enquiry along, then redraw so the count is right. */
+async function markBooking(id, state) {
+  try {
+    await api(`/bookings/${id}`, { method: 'PUT', body: JSON.stringify({ state }) });
+    await viewHome();
+  } catch (err) {
+    say(err.message, 'err');
+  }
+}
+
 async function viewHome() {
   await ensureSchema();
   ({ articles } = await api('/articles'));
@@ -301,6 +311,58 @@ async function viewHome() {
 
   const host = $('[data-home-body]');
   host.innerHTML = '';
+
+  /*
+   * Enquiries first, above everything.
+   *
+   * They were not shown anywhere at all before, because they were not
+   * stored anywhere at all: /api/book logged them and returned 200. So
+   * this is the first screen on which a booking request has ever been
+   * visible, and it goes at the top because somebody waiting on a reply
+   * outranks a draft.
+   */
+  try {
+    const { bookings = [] } = await api('/bookings');
+    const fresh = bookings.filter((b) => b.state === 'new');
+    if (bookings.length) {
+      const sec = document.createElement('section');
+      sec.className = 'st-group';
+      sec.innerHTML =
+        '<h2 class="st-group__head">Enquiries' +
+        (fresh.length ? ` <span class="st-group__count">${fresh.length}</span>` : '') +
+        '</h2><ul class="st-rows"></ul>';
+      const list = sec.querySelector('.st-rows');
+
+      for (const b of bookings.slice(0, 8)) {
+        const when = [b.wanted_date ? fmtDate(b.wanted_date) : '', b.slots]
+          .filter(Boolean).join(' · ');
+        list.appendChild(row({
+          title: `${b.name} — ${b.email}`,
+          note: b.message,
+          meta: [when, b.duration, b.state === 'new' ? 'New' : b.state].filter(Boolean),
+          onClick: () => {
+            // the whole message, and mailto with it quoted: replying is
+            // the only thing you ever want to do from here
+            const body = encodeURIComponent(
+              `\n\n\n— you wrote —\n${b.message}\n\nYou asked for ${when || 'no date in particular'}.`
+            );
+            location.href =
+              `mailto:${encodeURIComponent(b.email)}` +
+              `?subject=${encodeURIComponent('Your intro call')}&body=${body}`;
+            markBooking(b.id, 'replied');
+          },
+          tools: [
+            { id: 'read', label: '✓', title: 'Mark as read',
+              disabled: b.state !== 'new',
+              onClick: () => markBooking(b.id, 'read') },
+            { id: 'close', label: '×', title: 'Close this one',
+              onClick: () => markBooking(b.id, 'closed') },
+          ],
+        }));
+      }
+      host.appendChild(sec);
+    }
+  } catch { /* an older database without the table; setup adds it */ }
 
   if (waiting.length) {
     const sec = document.createElement('section');

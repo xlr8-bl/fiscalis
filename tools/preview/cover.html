@@ -1,0 +1,58 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>cover</title>
+<style>html,body{margin:0;background:#111}canvas{display:block}</style></head><body>
+<canvas id="c"></canvas>
+<script type="module">
+import { loadFaces, fit, GROT, BLACK, BOOK } from '/assets/js/decks.js';
+import { GROUNDS, GROUND_NAMES, hash, rng } from '/assets/js/design-spec.js';
+import { grain } from '/assets/js/press.js';
+
+const W = 1200, H = 630, M = 72;
+
+window.draw = async ({ title, kicker, slug }) => {
+  const c = document.getElementById('c');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  await loadFaces();
+
+  // the ground comes off the slug, so an article always gets the same
+  // cover and two neighbours in a list are unlikely to match
+  const r = rng(hash(slug));
+  const usable = GROUND_NAMES.filter((n) => GROUNDS[n].body);
+  const S = GROUNDS[usable[Math.floor(r() * usable.length) % usable.length]];
+
+  g.fillStyle = S.ground; g.fillRect(0, 0, W, H);
+
+  g.fillStyle = S.accent;
+  g.font = `700 24px ${GROT}`;
+  g.fillText(kicker || 'Journal', M, 92);
+
+  // wrap the title to the measure, then size it to fill what is left
+  const words = String(title).split(/\s+/);
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? `${line} ${w}` : w;
+    g.font = `900 64px ${BLACK}`;
+    if (g.measureText(test).width > W - M * 2 && line) { lines.push(line); line = w; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+
+  const size = Math.min(76, ...lines.map((l) => fit(g, l, W - M * 2, { cap: 76 })),
+                        (H - 260) / (lines.length * 1.02));
+  g.font = `900 ${size}px ${BLACK}`;
+  g.letterSpacing = `${-size * 0.03}px`;
+  g.fillStyle = S.mark;
+  lines.forEach((l, i) => g.fillText(l, M, 176 + size + i * size * 1.02));
+  g.letterSpacing = '0px';
+
+  g.fillStyle = S.accent;
+  g.fillRect(M, H - 104, W - M * 2, 5);
+  g.fillStyle = S.mark;
+  g.font = `700 24px ${GROT}`;
+  g.fillText('web3ashley.com', M, H - 56);
+
+  grain(g, W, H);
+  return c.toDataURL('image/jpeg', 0.9);
+};
+</script></body></html>

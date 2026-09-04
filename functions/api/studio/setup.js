@@ -53,22 +53,40 @@ async function missingColumns(db) {
   return missing;
 }
 
+/**
+ * The tables the current schema creates, read out of SCHEMA.
+ *
+ * Listed by hand this went stale the moment a table was added — the
+ * count and the names had to be edited in two places and the second one
+ * was always forgotten.
+ */
+function expectedTables() {
+  const want = new Set();
+  for (const sql of SCHEMA) {
+    const m = /^\s*CREATE TABLE(?:\s+IF NOT EXISTS)?\s+(\w+)/i.exec(sql);
+    if (m) want.add(m[1]);
+  }
+  return [...want];
+}
+
 async function state(db) {
   try {
+    const want = expectedTables();
     const { results } = await db
       .prepare(
         `SELECT name FROM sqlite_master
-         WHERE type = 'table' AND name IN
-           ('articles','entries','settings','media','revisions',
-            'pillars','brand_refs','carousels','slides','oauth_codes',
-            'post_stats')`
+         WHERE type = 'table' AND name IN (${want.map(() => '?').join(',')})`
       )
+      .bind(...want)
       .all();
     const tables = (results ?? []).map((r) => r.name);
     // A database missing one of these is mid-upgrade, not broken. Reporting
     // it as unready puts the Set up button back, which is what applies the
     // rest — and setup is written to be safe to run again.
-    if (tables.length < 11) return { ready: false, tables, counts: null, columns: [] };
+    if (tables.length < want.length) {
+      return { ready: false, tables, counts: null, columns: [],
+               missing: want.filter((t) => !tables.includes(t)) };
+    }
 
     // A database can have every table and still be behind: `design` and
     // `design_seed` arrive by ALTER. Judging readiness on the table count

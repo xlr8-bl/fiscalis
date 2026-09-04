@@ -322,6 +322,47 @@ CREATE INDEX IF NOT EXISTS idx_post_stats_checked
 
 
 -- ==================================================================
+-- Intro call requests.
+--
+-- /api/book used to deliver by email if RESEND_API_KEY was set, write
+-- to a KV namespace if one was bound, and otherwise console.log the
+-- request and return 200. With neither configured — which is the
+-- state this site shipped in — every enquiry was logged to a stream
+-- nobody reads and then discarded, while the visitor was told it had
+-- been sent.
+--
+-- D1 is already bound, so the request lands here first and delivery
+-- becomes the second step rather than the only one. An email that
+-- bounces, a Resend key that expires, a KV namespace nobody created:
+-- none of them lose the enquiry now.
+-- ==================================================================
+CREATE TABLE IF NOT EXISTS bookings (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  name         TEXT NOT NULL,
+  email        TEXT NOT NULL,
+  message      TEXT NOT NULL DEFAULT '',
+  duration     TEXT NOT NULL DEFAULT '',
+  wanted_date  TEXT NOT NULL DEFAULT '',   -- YYYY-MM-DD, the day they asked for
+  slots        TEXT NOT NULL DEFAULT '',   -- comma separated, GMT+1
+  country      TEXT NOT NULL DEFAULT '',   -- cf-ipcountry, for the timezone
+  referrer     TEXT NOT NULL DEFAULT '',   -- which page sent them
+  -- new:      nobody has looked at it
+  -- read:     seen, not answered
+  -- replied:  answered
+  -- booked:   the call is in the diary
+  -- closed:   nothing came of it
+  state        TEXT NOT NULL DEFAULT 'new'
+               CHECK (state IN ('new', 'read', 'replied', 'booked', 'closed')),
+  note         TEXT NOT NULL DEFAULT '',   -- yours, not theirs
+  delivered    TEXT NOT NULL DEFAULT '',   -- 'email' | 'stored' | 'failed: …'
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookings_state
+  ON bookings (state, created_at DESC);
+
+
+-- ==================================================================
 -- Columns added after the first release.
 --
 -- A database created from the CREATE statements above already has

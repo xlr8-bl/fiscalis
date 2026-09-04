@@ -127,6 +127,57 @@ export async function onRequest(context) {
     return null;
   };
 
+  /* -------------------------------------------------------------- bookings */
+  /*
+   * Intro call requests, as they came off the booking form.
+   *
+   * A person only. The agent token can read and draft the site's
+   * content; it has no business reading strangers' email addresses and
+   * what they said was broken about their business, and nothing it does
+   * needs them.
+   */
+  if (head === 'bookings') {
+    if (who.kind !== 'studio') {
+      return json({ error: 'Enquiries are not something the agent token can read.' }, 403);
+    }
+
+    if (method === 'GET' && !rest.length) {
+      try {
+        const { results } = await env.DB
+          .prepare(
+            `SELECT id, name, email, message, duration, wanted_date, slots,
+                    country, referrer, state, note, delivered, created_at
+             FROM bookings ORDER BY created_at DESC LIMIT 200`
+          )
+          .all();
+        return json({ bookings: results ?? [] });
+      } catch (err) {
+        // the table arrives with the schema, so a database that has not
+        // been set up since this shipped says so rather than 500ing
+        if (/no such table/i.test(String(err?.message ?? err))) {
+          return json({ bookings: [], setup_needed: true });
+        }
+        throw err;
+      }
+    }
+
+    // mark one read, replied, booked or closed, and keep a note against it
+    if (method === 'PUT' && rest.length === 1) {
+      const body = await request.json().catch(() => ({}));
+      const state = String(body.state ?? '');
+      if (!['new', 'read', 'replied', 'booked', 'closed'].includes(state)) {
+        return json({ error: 'That is not one of the states.' }, 400);
+      }
+      await env.DB
+        .prepare(`UPDATE bookings SET state = ?1, note = ?2 WHERE id = ?3`)
+        .bind(state, String(body.note ?? '').slice(0, 2000), Number(rest[0]))
+        .run();
+      return json({ ok: true });
+    }
+
+    return json({ error: 'Not a bookings route.' }, 404);
+  }
+
   /* ----------------------------------------------------------------- media */
   if (head === 'media') {
     if (!env.MEDIA) return json({ error: 'No R2 bucket is bound.' }, 503);

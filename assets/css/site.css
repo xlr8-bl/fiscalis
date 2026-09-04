@@ -5069,3 +5069,155 @@ body[data-navigation-status="is-open"] .navbar_cta_wrap {
 @media (prefers-reduced-motion: reduce) {
   .navbar_menu_btn .navbar_menu_span, .navbar_cta_wrap { transition: none; }
 }
+
+/* ==================================================================
+   The site footer
+
+   Rendered by legalFooter() in lib/templates.js and injected into the
+   static pages by tools/build_footer.mjs, so there is one copy of the
+   markup and one copy of these rules. It lives here rather than in
+   journal.css because the booking page carries it too and does not
+   load that file.
+
+   It exists for two reasons at once. TikTok's review asks for a privacy
+   policy and terms "visible on your official website" and reachable
+   without navigating menus, which is the requirement. And a footer is
+   where anyone looks for what a site is, how to reach a person, and
+   where the rest of it went — which is the reason worth having.
+   ================================================================== */
+.site_footer {
+  padding: clamp(3rem, 8vh, 5.5rem) var(--site--margin, 1.5rem)
+           clamp(2rem, 5vh, 3rem);
+  display: flex;
+  flex-flow: column;
+  gap: clamp(2.5rem, 6vh, 4rem);
+  background: var(--swatch--black-300, #101010);
+  color: var(--swatch--beige-100, #e8e8e3);
+}
+.site_footer_grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, minmax(8rem, 1fr));
+  gap: var(--_spacing---space--8, 3rem) var(--site--gutter, 1.5rem);
+  align-items: start;
+}
+.site_footer_col { display: flex; flex-flow: column; gap: .7rem; }
+.site_footer_mark { margin: 0; color: var(--swatch--beige-100, #e8e8e3); }
+.site_footer_line {
+  margin: 0;
+  max-width: 30ch;
+  color: var(--swatch--black-50, #938f8a);
+}
+.site_footer_head { margin: 0 0 .3rem; color: var(--swatch--beige-100, #e8e8e3); }
+.site_footer_base { margin: 0; color: var(--swatch--black-100, #6b645c); }
+
+.footer_legal { display: flex; gap: 1.6rem; flex-wrap: wrap; }
+.footer_legal_link {
+  color: var(--swatch--black-50, #938f8a);
+  text-decoration: none;
+  transition: color 300ms ease;
+}
+.footer_legal_link:hover { color: var(--swatch--beige-100, #e8e8e3); }
+
+@media (max-width: 767px) {
+  .site_footer_grid { grid-template-columns: 1fr 1fr; }
+  .site_footer_col:first-child { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .footer_legal_link { transition: none; }
+}
+
+/* ==================================================================
+   Light mode
+
+   The site is a dark brand and stays dark by default — this is not
+   wired to prefers-color-scheme, because a visitor whose laptop is in
+   light mode has not asked for a different brand. It is a switch in the
+   nav, remembered per browser.
+
+   How it works: the palette is two ramps, black-N and beige-N, and
+   every rule already spends them as ground and mark. So the light theme
+   swaps what the ramps hold rather than restyling anything. The button
+   is the proof — `.g_btn_main` is `background: beige-100; color:
+   black-400`, and it comes out as an ink block with paper type here
+   with no rule of its own.
+
+   The tones are measured, not guessed. Against the #EFEDE7 paper:
+   text 15.9:1, muted 6.1:1, quiet 5.0:1 — the quiet one is used for
+   timestamps and captions and was 4.1:1 at first, which is under AA for
+   body text, so it moved.
+   ================================================================== */
+:root[data-theme="light"] {
+  --swatch--black-400: #EFEDE7;   /* the page */
+  --swatch--card-bg:   #E5E2D9;   /* a raised panel */
+  --swatch--black-300: #E5E2D9;   /* the footer, a figure's backing */
+  --swatch--black-200: #A9A296;   /* a faint edge — never text */
+  --swatch--black-100: #6B6459;   /* quiet: timestamps, captions   5.0:1 */
+  --swatch--black-50:  #5C5751;   /* muted: standfirsts, body      6.1:1 */
+
+  --swatch--beige-100: #14130F;   /* the type                     15.9:1 */
+
+  /*
+   * beige-200, -300 and -400 are deliberately left where they are.
+   *
+   * They read as "the light ramp", but they are not only that: -300 is
+   * also --_theme---background, the ground of the u-theme-light utility
+   * and of <html> itself. Flipping it dark put a near-black band behind
+   * the home page's fixed hero, showing through wherever the scrolling
+   * content is transparent — a dark stripe across a light page, from a
+   * token that looked like it only meant "a pale beige".
+   *
+   * A blanket swap of both ramps is the wrong model for that reason:
+   * these three carry a role, not just a lightness.
+   */
+
+  /* The wordmark's own near-white, which is not part of either ramp and
+     so did not come along with the swap — the mark went invisible on the
+     paper until this was added. The escaped name is the token as the
+     export left it; renaming it would mean touching every use. */
+  --swatch--beige-100-2\<deleted\|variable-17512f3c-8bed-7662-657d-d7aff3b96119\>: #14130F;
+
+  color-scheme: light;
+}
+
+/*
+ * Two things the swap alone does not reach.
+ *
+ * The nav scrim is a gradient written out of black-400 in journal.css,
+ * which follows the token — but the hero canvas and the seasonal canvas
+ * paint their own pixels and do not. They stay as they are, which is
+ * deliberate: a dark picture on a light page is a picture, and a light
+ * one is a blown-out rectangle.
+ */
+:root[data-theme="light"] .footer_canvas_bottom,
+:root[data-theme="light"] .hero_canvas {
+  background: #080807;
+  color: #EFEDE7;
+}
+
+/* the switch itself */
+.theme_toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius--small, .35rem);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: opacity 300ms ease;
+}
+.theme_toggle:hover { opacity: .6; }
+.theme_toggle svg { width: 1.05rem; height: 1.05rem; display: block; }
+/* one icon each way: the sun means "there is a light mode", the moon
+   means "you are in it, here is the way back" */
+.theme_toggle .is-sun { display: block; }
+.theme_toggle .is-moon { display: none; }
+:root[data-theme="light"] .theme_toggle .is-sun { display: none; }
+:root[data-theme="light"] .theme_toggle .is-moon { display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .theme_toggle { transition: none; }
+}

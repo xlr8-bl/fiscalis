@@ -316,22 +316,190 @@ body.jr-body {
   );
 }
 
-/* ------------------------------------------------------------- legal ---- */
-/* Privacy and Terms, and the row that links to them from every rendered
-   page. A platform review asks for both to be reachable without hunting
-   through a menu, which is also where anyone would look. */
-.jr_footer {
-  padding: clamp(2.4rem, 6vh, 4rem) var(--site--gutter, 1.5rem);
+/* ==================================================================
+   Index — cards with covers
+
+   The index used to be titles in a column. It was tidy and it did not
+   read as a blog, because a blog is a thing you graze and this was a
+   table of contents.
+
+   Three findings shaped what replaced it, and they agree with each
+   other:
+
+     Nielsen's blog front-page study found readers scan *summaries*.
+     Shown whole posts they read the first and stopped; shown summaries
+     they worked through ten. So each card carries the standfirst, not
+     just the headline — and not the article.
+
+     Nielsen's scanning work found readers catch on headlines and on
+     images, and ignore pictures that are only there to decorate. The
+     covers are drawn from each title, so the picture says what the post
+     says.
+
+     NN/g's eyetracking on zigzag layouts found alternating image sides
+     makes readers stumble — they fixate on an image, then have to find
+     the text again. Aligned images let them run straight down. So every
+     cover sits at the top of its own card and they line up across the
+     row. Nothing alternates.
+
+   The newest post runs full width. A list where every item is the same
+   size tells a reader nothing about where to start.
+   ================================================================== */
+.jr_cards {
+  display: grid;
+  /* 24rem, not 20: at 20 a 1440px screen fits four across and the
+     standfirst wraps to six short lines, which is the measure problem
+     the cards were meant to fix */
+  grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
+  gap: var(--_spacing---section-space--small, 4rem) var(--site--gutter, 1.5rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jr_card.is-lead { grid-column: 1 / -1; }
+
+.jr_card_link {
   display: flex;
-  justify-content: center;
-}
-.footer_legal { display: flex; gap: 1.6rem; flex-wrap: wrap; }
-.footer_legal_link {
-  color: var(--swatch--black-50, #938f8a);
+  flex-flow: column;
+  gap: var(--_spacing---space--5, 1.4rem);
+  height: 100%;
+  color: inherit;
   text-decoration: none;
-  transition: color 300ms ease;
+  transition: opacity 300ms ease;
 }
-.footer_legal_link:hover { color: var(--swatch--beige-100, #e8e8e3); }
+.jr_cards:hover .jr_card_link { opacity: .45; }
+.jr_cards:hover .jr_card_link:hover { opacity: 1; }
+.jr_card_link:focus-visible { outline: 2px solid currentColor; outline-offset: .6rem; }
+
+.jr_card_media {
+  display: block;
+  overflow: clip;
+  background: var(--swatch--black-300, #12120f);
+}
+.jr_card_media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1200 / 630;
+  object-fit: cover;
+  transition: transform 600ms cubic-bezier(.2, .7, .2, 1);
+}
+.jr_card_link:hover .jr_card_media img { transform: scale(1.03); }
+
+.jr_card_body {
+  display: flex;
+  flex-flow: column;
+  gap: var(--_spacing---space--3, .7rem);
+  max-width: 42ch;
+}
+.jr_card_tag {
+  color: var(--swatch--black-50, #938f8a);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.jr_card_title { display: block; text-wrap: balance; }
+.jr_card_desc { color: var(--swatch--black-50, #938f8a); max-width: 46ch; }
+.jr_card_meta {
+  color: var(--swatch--black-100, #6b645c);
+  font-variant-numeric: tabular-nums;
+  margin-top: auto;
+  padding-top: var(--_spacing---space--2, .4rem);
+}
+
+/* the lead runs picture-left, words-right on a wide screen — one row of
+   it, which is inside what the zigzag study calls fine */
+@media (min-width: 992px) {
+  .jr_card.is-lead .jr_card_link {
+    flex-flow: row;
+    align-items: center;
+    gap: var(--_spacing---space--8, 3rem);
+  }
+  .jr_card.is-lead .jr_card_media { flex: 1 1 58%; min-width: 0; }
+  .jr_card.is-lead .jr_card_body { flex: 1 1 42%; max-width: 34ch; }
+}
+
+/* ------------------------------------------------------- breadcrumbs ---- */
+/* The trail was in the JSON-LD and nowhere a person could see it: Google
+   could follow it and a reader two levels down could not. Google builds
+   the breadcrumb in a result from either source, so this costs nothing
+   there and fixes the half that mattered more. */
+.jr_crumbs {
+  margin: 0 0 var(--_spacing---space--6, 2rem);
+  color: var(--swatch--black-100, #6b645c);
+}
+.jr_crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jr_crumbs li + li::before { content: "/"; margin-right: .5rem; opacity: .6; }
+.jr_crumbs a { color: var(--swatch--black-50, #938f8a); text-decoration: none; }
+.jr_crumbs a:hover { color: var(--swatch--beige-100, #e8e8e3); }
+/* the last crumb is the page you are on, so it does not need to be short */
+.jr_crumbs [aria-current] {
+  /* inline-block, because max-width does nothing to an inline box and
+     the headline crumb then ran the full width of the title */
+  display: inline-block;
+  vertical-align: bottom;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------- byline ---- */
+.jr_byline {
+  display: flex;
+  align-items: center;
+  gap: var(--_spacing---space--4, 1rem);
+  margin-top: var(--_spacing---space--3, .7rem);
+}
+.jr_byline_face {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  background: var(--swatch--black-300, #12120f);
+}
+.jr_byline_text { display: flex; flex-flow: column; gap: .15rem; }
+.jr_byline_name { color: var(--swatch--beige-100, #e8e8e3); }
+.jr_byline_meta {
+  color: var(--swatch--black-50, #938f8a);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------- hero ---- */
+/* The cover again, above the first line of the article. It is the same
+   file the card and the share preview use, so somebody arriving from
+   either lands on the picture they clicked. */
+.jr_hero {
+  margin: 0 0 var(--_spacing---section-space--small, 5rem);
+  overflow: clip;
+  background: var(--swatch--black-300, #12120f);
+}
+.jr_hero img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1200 / 630;
+  object-fit: cover;
+}
+
+@media (max-width: 991px) {
+  .jr_card.is-lead .jr_card_body { max-width: none; }
+  .jr_cards:hover .jr_card_link { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jr_card_link, .jr_card_media img { transition: none; }
+  .jr_card_link:hover .jr_card_media img { transform: none; }
+}
+
+/* The footer itself lives in site.css — it is on the booking page too,
+   and that page does not load this file. */
 
 /* the prose column takes lists as well as paragraphs on these two */
 .jr_prose ul { margin: 0 0 1.1rem; padding-left: 1.15rem; }
