@@ -254,6 +254,22 @@ function drawType(ctx, slot, copy, g, report) {
       ctx.fillStyle = ink(span.fill, g);
       ctx.fillText(span.word, x + ctx.measureText(line.slice(0, at)).width, y);
       ctx.restore();
+    } else if (slot.outline) {
+      /*
+       * Type as an outline, which several sheets use over a photograph.
+       *
+       * Not a style for its own sake: hollow letters let the picture
+       * through, so a headline can sit across the middle of a photograph
+       * without covering the thing the photograph is of. The weight is a
+       * fraction of the size rather than a constant, or it disappears at
+       * caption sizes and turns into a slab at display sizes.
+       */
+      ctx.save();
+      ctx.strokeStyle = ink(slot.fill, g);
+      ctx.lineWidth = Math.max(1.5, size * (slot.outlineWeight ?? 0.022));
+      ctx.lineJoin = 'round';
+      ctx.strokeText(line, x, y);
+      ctx.restore();
     } else {
       ctx.fillText(line, x, y);
     }
@@ -524,7 +540,18 @@ function drawArt(ctx, slot, img, g, report) {
     ctx.drawImage(img, x + (w - img.width * s) / 2, y + (h - img.height * s) / 2,
                   img.width * s, img.height * s);
   } else {
-    photoGround(ctx, img, { w, h, ox: x, oy: y, tint: slot.tint ?? null });
+    /*
+     * A duotone is named by its role, not by two hex values.
+     *
+     * photoGround takes a [dark, light] pair. Writing that pair into a
+     * layout would nail the sheet to one palette, and the whole set is
+     * meant to move onto one palette together — so a slot says which of
+     * the ground's own colours to print in and the pair is resolved here.
+     */
+    const tint = slot.tint === 'ground' ? [g.mark, g.ground]
+      : slot.tint === 'accent' ? [g.mark, g.accent]
+        : Array.isArray(slot.tint) ? slot.tint : null;
+    photoGround(ctx, img, { w, h, ox: x, oy: y, tint });
   }
   ctx.restore();
 }
