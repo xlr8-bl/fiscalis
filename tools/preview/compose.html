@@ -11,12 +11,14 @@ canvas{width:432px;height:540px}</style></head>
  */
 import { compose, W, H, FACES } from '/assets/js/compose.js';
 import { LAYOUTS, MEASURED, brief } from '/lib/hooks/layouts.js';
-import { COPY } from '/lib/hooks/copy.js';
+import { EXAMPLES, sample } from '/lib/hooks/examples.js';
 
 const ctx = document.getElementById('c').getContext('2d', { willReadFrequently: true });
 
 const FILES = { Bricolage:'bricolage.woff2', Anton:'anton.woff2', Archivo:'archivo-700.woff2',
-  Inter:'inter-500.woff2', InstrumentItalic:'instrument-italic.woff2', PixelDisplay:'pixel.woff2' };
+  ArchivoBlack:'archivo-black.woff2', Bodoni:'bodoni-700.woff2', BodoniItalic:'bodoni-italic.woff2',
+  Script:'yellowtail.woff2', Inter:'inter-500.woff2', InstrumentItalic:'instrument-italic.woff2',
+  PixelDisplay:'pixel.woff2' };
 await Promise.all(Object.entries(FILES).map(async ([n, f]) => {
   const ff = new FontFace(n, `url(/assets/fonts/${f})`); await ff.load(); document.fonts.add(ff);
 }));
@@ -30,10 +32,14 @@ const get = (src) => new Promise((res) => {
 window.IDS = MEASURED;
 window.BRIEF = brief;
 
-window.render = async (id) => {
+window.EXAMPLES = EXAMPLES;
+
+/* n picks which of the layout's examples to draw, so the range can be
+   seen rather than asserted. */
+window.render = async (id, n = 0) => {
   const spec = LAYOUTS[id];
   if (!spec) throw new Error(`no layout ${id}`);
-  const copy = COPY[id] ?? {};
+  const copy = (EXAMPLES[id]?.[n]) ?? sample(id);
   const art = {};
   for (const s of spec.slots.filter((x) => x.t === 'art')) {
     if (copy._art?.[s.id]) art[s.id] = await get(copy._art[s.id]);

@@ -28,17 +28,25 @@ await p.goto(`${base}/tools/preview/compose.html`, { waitUntil: 'networkidle' })
 if (errs.length) { console.error('page failed:\n  ' + errs.join('\n  ')); await b.close(); process.exit(1); }
 
 const ids = want.length ? want : await p.evaluate(() => window.IDS);
+// --all-examples draws every fill of every layout, which is how you see
+// whether a layout actually takes a different subject or only looks like
+// it does
+const every = process.argv.includes('--all-examples');
 let bad = 0;
 for (const id of ids) {
-  const r = await p.evaluate(async (x) => {
-    try { return await window.render(x); } catch (e) { return { error: String(e.message || e) }; }
-  }, id);
+  const n = every ? await p.evaluate((x) => (window.EXAMPLES[x] ?? []).length || 1, id) : 1;
+  for (let i = 0; i < n; i++) {
+  const r = await p.evaluate(async ([x, j]) => {
+    try { return await window.render(x, j); } catch (e) { return { error: String(e.message || e) }; }
+  }, [id, i]);
   if (r.error) { console.log(`  ${id}  FAILED  ${r.error}`); bad++; continue; }
-  writeFileSync(`${OUT}/${id}.jpg`, Buffer.from(r.url.split(',')[1], 'base64'));
+  const name = i === 0 ? id : `${id}-${i}`;
+  writeFileSync(`${OUT}/${name}.jpg`, Buffer.from(r.url.split(',')[1], 'base64'));
   const notes = [];
   if (r.tight?.length) notes.push(`tight: ${r.tight.join(',')}`);
   if (r.missing?.length) notes.push(`no art: ${r.missing.join(',')}`);
-  console.log(`  ${id}  ${(r.coverage * 100).toFixed(1)}% ${notes.join('  ')}`);
+  console.log(`  ${name.padEnd(9)} ${(r.coverage * 100).toFixed(1)}% ${notes.join('  ')}`);
+  }
 }
 await b.close();
 console.log(`\n${ids.length - bad} composed into ${OUT}`);

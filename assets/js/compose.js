@@ -37,13 +37,29 @@ import { rng, hash } from './design-spec.js';
 export const W = 1080;
 export const H = 1350;
 
+/**
+ * The faces, by the job they do.
+ *
+ * Sourced to match the corpus rather than substituted for it. The Didone
+ * in six of the references IS the design of those sheets, not a detail
+ * of it, and setting them in a grotesque produces a different poster
+ * that happens to say the same words. Same for the brush script the two
+ * risograph sheets turn on, and for the black grotesque the one-word
+ * sheets need — Archivo 700 is not heavy enough to be the whole design.
+ *
+ * All SIL Open Font Licence. tools/get_fonts.sh fetches them.
+ */
 export const FACES = {
-  display: 'Bricolage',
-  condensed: 'Anton',
-  grotesque: 'Archivo',
-  body: 'Inter',
-  italic: 'InstrumentItalic',
-  pixel: 'PixelDisplay',
+  display: 'Bricolage',          // geometric heavy: most statements
+  black: 'ArchivoBlack',         // when one word IS the sheet
+  condensed: 'Anton',            // long line, still huge
+  grotesque: 'Archivo',          // subheads, labels, UI
+  body: 'Inter',                 // anything you actually read
+  didone: 'Bodoni',              // the high-contrast serif sheets
+  didoneItalic: 'BodoniItalic',  // and their turn lines
+  italic: 'InstrumentItalic',    // a quieter italic
+  script: 'Script',              // the brush sheets
+  pixel: 'PixelDisplay',         // the wordmark, and nothing else
 };
 
 /** A slot's colour names, resolved against whatever ground it is on. */
