@@ -976,6 +976,16 @@ function fieldHtml(f, value) {
       `<div class="st-editor"><textarea id="${id}" class="st-input st-input--area"` +
       ` data-field="${f.name}" data-rich="${f.type === 'markdown' ? 'full' : 'compact'}"` +
       ` rows="${f.type === 'markdown' ? 8 : 3}">${val}</textarea></div>`;
+  } else if (f.type === 'toggle') {
+    // the label sits beside it rather than above it, because a lone
+    // checkbox under a heading reads as unchecked-by-default even when the
+    // stored value is on. Big enough to hit with a thumb.
+    control =
+      '<label class="st-switch">' +
+      `<input id="${id}" type="checkbox" data-field="${f.name}"${value === 'on' ? ' checked' : ''}>` +
+      '<span class="st-switch__track"><span class="st-switch__dot"></span></span>' +
+      `<span class="st-switch__state u-text-style-main" data-toggle-state>${value === 'on' ? 'On' : 'Off'}</span>` +
+      '</label>';
   } else if (f.type === 'media') {
     control =
       '<div class="st-media-field">' +
@@ -1012,6 +1022,10 @@ function wireForm(host) {
       dirty = true;
       const wrap = e.target.closest('[data-field-wrap]');
       if (wrap) { wrap.classList.remove('is-wrong'); $('[data-error]', wrap).hidden = true; }
+      if (e.target.type === 'checkbox') {
+        const state = $('[data-toggle-state]', wrap);
+        if (state) state.textContent = e.target.checked ? 'On' : 'Off';
+      }
       if (entryCtx) rememberSoon(entryDraftId(), entryValues);
     }
   });
@@ -1098,7 +1112,10 @@ async function viewEntry(name, slug) {
   offerDraft(recover, entryDraftId(), entry?.data || {}, (values) => {
     for (const [k, v] of Object.entries(values)) {
       const el = $(`[data-field="${k}"]`, host);
-      if (el) el.value = v;
+      if (!el) continue;
+      if (el.type === 'checkbox') el.checked = v === 'on';
+      else el.value = v;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
     }
   });
 
@@ -1131,8 +1148,15 @@ async function viewSettings(groupName) {
   showView('entry');
 }
 
+// a checkbox has no useful .value, so it says on or off in the same place
+// every other field says its text. The store is flat strings either way.
 const entryValues = () =>
-  Object.fromEntries($$('[data-field]', $('[data-entry-form]')).map((el) => [el.dataset.field, el.value]));
+  Object.fromEntries(
+    $$('[data-field]', $('[data-entry-form]')).map((el) => [
+      el.dataset.field,
+      el.type === 'checkbox' ? (el.checked ? 'on' : 'off') : el.value,
+    ])
+  );
 
 $('[data-entry-save]').addEventListener('click', async () => {
   if (!entryCtx) return;

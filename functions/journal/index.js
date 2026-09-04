@@ -7,9 +7,13 @@
 import { listPublished } from '../../lib/articles.js';
 import { renderIndexPage, prepare } from '../../lib/templates.js';
 import { htmlResponse, missingDatabase, orNotReady } from '../../lib/respond.js';
+import { bookingOnlyRedirect } from '../../lib/content.js';
 
 export async function onRequestGet({ env }) {
   if (!env.DB) return missingDatabase();
+
+  const away = await bookingOnlyRedirect(env.DB);
+  if (away) return away;
   const got = await orNotReady(() => listPublished(env.DB));
   if (!got.ok) return missingDatabase();
   return htmlResponse(renderIndexPage(got.value.map(prepare)));

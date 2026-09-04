@@ -32,7 +32,7 @@
  * the markup and this file.
  */
 
-import { getSettings, listAllEntries } from '../lib/content.js';
+import { getSettings, listAllEntries, isBookingOnly } from '../lib/content.js';
 import { COLLECTIONS } from '../lib/collections.js';
 import { escapeHtml } from '../assets/js/markdown.js';
 
@@ -71,6 +71,27 @@ class HideEmpty {
   element(el) {
     const key = el.getAttribute('data-cms-if');
     if (key && !this.values[key]) el.remove();
+  }
+}
+
+/**
+ * Takes out anything marked for a mode the site is not in.
+ *
+ * `data-off-when="bookingOnly"` sits on the five sections a booking-only
+ * site does not need and on every link that points at one. Removing the
+ * link is not tidiness: a nav that scrolls to a section which is no longer
+ * there is a dead control, and the visitor reads a dead control as a
+ * broken site rather than as a deliberate one.
+ *
+ * A link is removed with its list item where it has one, so the nav closes
+ * up instead of leaving gaps in a flex row. The markup ships complete and
+ * the removal happens on the way out, which means the switch is a setting
+ * he can throw from his phone and not a deploy.
+ */
+class OffWhen {
+  constructor(modes) { this.modes = modes; }
+  element(el) {
+    if (this.modes.has(el.getAttribute('data-off-when'))) el.remove();
   }
 }
 
@@ -207,11 +228,22 @@ export async function onRequestGet(context) {
   const html = expandLists(await response.text(), entries);
   const values = flatten(settings, entries);
 
+  const modes = new Set();
+  let head = faqLd(entries);
+  if (isBookingOnly(settings)) {
+    modes.add('bookingOnly');
+    // the anchor goes, and the list item it sat in is then empty. Closing
+    // the gap in CSS rather than in the rewriter avoids having to know
+    // which of the three navs wraps its links in what
+    head += '<style>li:empty{display:none}</style>';
+  }
+
   const filled = new HTMLRewriter()
     .on('[data-cms]', new TextSlot(values))
     .on('[data-cms-attr]', new AttrSlot(values))
     .on('[data-cms-if]', new HideEmpty(values))
-    .on('head', new HeadTail(faqLd(entries)))
+    .on('[data-off-when]', new OffWhen(modes))
+    .on('head', new HeadTail(head))
     .transform(new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } }));
 
   const headers = new Headers(response.headers);

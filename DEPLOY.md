@@ -102,3 +102,19 @@ nothing to commit. `/studio.html` is where you write and publish.
 Setup (database, R2 bucket, secrets, importing the existing articles) is in
 `content/README.md`. Until D1 is bound, `/journal/` returns a page telling you
 which commands to run rather than a 500.
+
+## Showing the booking page only
+
+`/studio.html` → Settings → **What's showing** → Booking only.
+
+One switch, from a phone. It leaves the opening, the questions and the
+closing call and takes away the pitch, the statement, Work, Services,
+Process and the Journal, along with every link that pointed at them. The
+journal answers `302 /book` rather than a 404, so nothing it has earned in
+search is lost, and it drops out of the sitemap for as long as it is
+redirecting. Your own preview links keep working.
+
+Nothing is deleted and nothing is deployed. The markup ships whole and the
+sections are taken out on the way to the browser, so turning it off puts
+everything back on the next request. `node tools/check_showing.mjs` asserts
+both directions against a running dev server.

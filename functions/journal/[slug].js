@@ -9,6 +9,7 @@ import { renderArticlePage, prepare } from '../../lib/templates.js';
 import { htmlResponse, notFound, missingDatabase, orNotReady } from '../../lib/respond.js';
 import { timingSafeEqual } from '../../lib/auth.js';
 import { sizesFor } from '../../lib/media.js';
+import { bookingOnlyRedirect } from '../../lib/content.js';
 
 export async function onRequestGet({ env, params, request }) {
   if (!env.DB) return missingDatabase();
@@ -16,6 +17,11 @@ export async function onRequestGet({ env, params, request }) {
   const slug = String(params.slug || '');
   const token = new URL(request.url).searchParams.get('preview');
   const preview = Boolean(token && env.STUDIO_PASSWORD && timingSafeEqual(token, env.STUDIO_PASSWORD));
+
+  // a preview link is his own, and has to keep working while the site is
+  // showing one thing only — otherwise he cannot read what he is publishing
+  const away = await bookingOnlyRedirect(env.DB, { unless: preview });
+  if (away) return away;
 
   const got = await orNotReady(() => getBySlug(env.DB, slug, { publishedOnly: !preview }));
   if (!got.ok) return missingDatabase();

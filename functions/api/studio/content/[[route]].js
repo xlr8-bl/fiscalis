@@ -32,8 +32,19 @@ import { SITE } from '../../../../lib/templates.js';
 import * as history from '../../../../lib/revisions.js';
 
 /** The home page is what these feed, so drop it from the edge on any change. */
+/**
+ * A setting can change any public page, so all of them go.
+ *
+ * It used to drop only the home page, which was true when settings were
+ * hero copy and an email address. `site.bookingOnly` also decides whether
+ * the journal answers or redirects and whether the sitemap lists it, and a
+ * switch that takes an hour to show up is a switch he presses twice.
+ */
 async function purgeHome() {
-  await caches.default.delete(new Request(`${SITE}/`)).catch(() => {});
+  const urls = ['/', '/journal/', '/sitemap.xml', '/feed.xml'];
+  await Promise.allSettled(
+    urls.map((u) => caches.default.delete(new Request(`${SITE}${u}`)))
+  );
 }
 
 export async function onRequest({ request, env, params }) {
