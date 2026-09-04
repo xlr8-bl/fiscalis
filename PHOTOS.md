@@ -93,23 +93,32 @@ twelve files and the whole works section stops being generic.
 
 ---
 
-## 4. Article covers
+## 4. Article covers — mostly handled now
 
-Eleven covers exist and are generated from each headline
-(`tools/build_covers.mjs`). They are the site's own type and colour and
-they look deliberate, which is why they shipped.
+**You do not need to shoot these.** Spark sources them itself: it
+searches a stock library, picks a photograph, and stores it in the site's
+media with its credit. Every new post gets a real picture without you
+doing anything, and `publish_article` refuses a post that has no cover.
 
-They are still not photographs. If you want to replace any of them, one
-landscape image per article at **1200×630** is all it takes — the same
-file becomes the card, the picture at the top of the article, and the
-link preview. Set `cover` on the article in the studio and the generated
-one steps aside.
+The eleven older articles still carry covers drawn from their headlines.
+Those look deliberate, which is why they shipped, but they are
+typography rather than photographs. Two ways to replace one:
 
-The three most worth replacing, because the subject is physical:
+- Ask Spark to. It can source and set a cover on an existing post.
+- Do it yourself: open the article in the studio, press **Choose** under
+  Cover picture, and pick anything from the media library. One landscape
+  image at **1200×630** becomes the card, the picture at the top of the
+  article, and the link preview.
+
+The three where a photograph of yours would beat a stock one, because
+the subject is a real thing you can point a phone at:
 
 - `menu-saved-as-an-image` — a menu, photographed badly, on a phone
 - `what-delivery-apps-cost-you` — a delivery bag, or a stack of them
 - `spreadsheet-that-runs-the-business` — a laptop with a real spreadsheet
+
+Those three are a ten-minute job and they would be the only pictures on
+the site that nobody else has.
 
 ---
 

@@ -1042,3 +1042,24 @@ p + .st-check { margin-top: 1.5rem; }
 
 /* Inline links inside prose, which are not actions but still links. */
 .st-note a, .st-lede a, .st-row__desc a { color: var(--swatch--beige-100, #e8e8e3); }
+
+/* --- the article's cover picture ---------------------------------- */
+/* A path in a text box is not a picture. The thumbnail is what somebody
+   actually checks before publishing; the box is what Spark writes into
+   and what gets saved. */
+.st-cover { display: flex; flex-flow: column; gap: .6rem; }
+.st-cover__img {
+  display: block;
+  width: 100%;
+  max-width: 26rem;
+  aspect-ratio: 1200 / 630;
+  object-fit: cover;
+  background: var(--swatch--black-300, #12120f);
+  border-radius: var(--radius--small, .35rem);
+}
+.st-cover__row { display: flex; gap: .5rem; align-items: center; }
+.st-cover__row .st-input { flex: 1; min-width: 0; }
+@media (max-width: 600px) {
+  .st-cover__row { flex-wrap: wrap; }
+  .st-cover__row .st-input { flex-basis: 100%; }
+}

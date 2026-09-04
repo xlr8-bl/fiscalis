@@ -42,6 +42,11 @@ import { refreshStats } from '../lib/insights.js';
 import { drawCarousel } from '../lib/draw.js';
 import { apiKey, imageModel, drawProvider } from '../lib/imagen.js';
 import { getSetting } from '../lib/tokens.js';
+import {
+  writingBrief, voiceRules, checkDraft, writeArticle, publishArticle,
+  findPhotos, keepPhoto,
+} from '../lib/writing.js';
+import { purgeArticle } from '../lib/articles.js';
 
 const MAX_IMAGE = 25 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -382,6 +387,53 @@ async function runTool(name, args, env) {
         ...(offVoice.length ? { fix_before_drawing: offVoice } : {}),
         next: 'the studio draws these on the next visit; design_status to watch it',
       });
+    }
+
+    /* ------------------------------------------------------- the journal */
+    case 'writing_brief':
+      return toolResult(writingBrief());
+
+    case 'voice_rules':
+      return toolResult(await voiceRules());
+
+    case 'check_draft':
+      return toolResult(checkDraft({
+        title: args.title, description: args.description,
+        body: args.body, tags: args.tags,
+      }));
+
+    case 'find_photo': {
+      const count = Math.min(12, Math.max(1, Number(args.count) || 6));
+      const found = await findPhotos(env, args.query, count);
+      if (!found.photos.length) return toolFailed(found.note);
+      return toolResult(found);
+    }
+
+    case 'keep_photo': {
+      if (!env.MEDIA) return toolFailed('No R2 bucket is bound, so there is nowhere to put it.');
+      const photo = args.photo;
+      if (!photo || typeof photo !== 'object' || !photo.url) {
+        return toolFailed('Pass the whole photo object from find_photo, not just its URL.');
+      }
+      const kept = await keepPhoto(env, photo, { slug: clean(args.slug, 80) || 'cover' });
+      return kept.ok ? toolResult(kept) : toolFailed(kept.error);
+    }
+
+    case 'write_article': {
+      const written = await writeArticle(env, args);
+      // A refusal is a normal outcome here, not a fault: the point of the
+      // check is that the model reads it and rewrites. Returned as a
+      // result rather than an error so the reasons survive intact.
+      return toolResult(written, { isError: !written.ok });
+    }
+
+    case 'publish_article': {
+      const done = await publishArticle(env, args.slug);
+      if (!done.ok) return toolResult(done, { isError: true });
+      // the journal index, the article, the sitemap and the feed all
+      // cache at the edge; a post nobody can see is not published
+      await purgeArticle(SITE, done.slug);
+      return toolResult({ ...done, url: `${SITE}/journal/${done.slug}` });
     }
 
     case 'design_status': {

@@ -65,20 +65,10 @@ dl, dd, h1, p { margin: 0; }
   letter-spacing: -.025em;
   text-wrap: balance;
 }
-/*
- * The standfirst sits between the headline and the muted notes, and
- * beige-400 is where that landed on the dark ground. beige-400 does not
- * move in light mode — it is a pale surface elsewhere — so it is named
- * here and given its own light value: #3D3831 is 9.4:1 on the paper,
- * one step down from the headline rather than five.
- */
-.bk { --bk-lede: var(--swatch--beige-400, #bfbfb1); }
-:root[data-theme="light"] .bk { --bk-lede: #3D3831; }
-
 .bk__lede {
   margin-top: 1.3rem;
   max-width: 38ch;
-  color: var(--bk-lede);
+  color: var(--swatch--beige-400, #bfbfb1);
 }
 
 /* the meta list is spaced, not ruled — the home page separates with air */
@@ -118,11 +108,9 @@ dl, dd, h1, p { margin: 0; }
 /*
  * beige-100, not beige-200.
  *
- * The two are a shade apart on the dark ground (#e8e8e3 against
- * #ddddd5) and the difference was never visible. But -100 is the type
- * colour and -200 is a pale surface, and in light mode only -100 turns
- * to ink — so every label on this form came out at about 1.2:1 on the
- * paper. A field label nobody can read is the whole form.
+ * The two are a shade apart here and the difference was never visible,
+ * but they are not the same thing: -100 is the type colour and -200 is
+ * a pale surface. A label is type.
  */
 .bk__label {
   display: block;

@@ -375,3 +375,11 @@ ALTER TABLE media ADD COLUMN height INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE media ADD COLUMN alt TEXT NOT NULL DEFAULT '';
 ALTER TABLE slides ADD COLUMN design TEXT NOT NULL DEFAULT '';
 ALTER TABLE carousels ADD COLUMN design_seed INTEGER NOT NULL DEFAULT 0;
+
+-- The article's own photograph: the card in the journal, the picture at
+-- the top of the piece, and the link preview, all from one file.
+--
+-- Empty means "use the cover drawn from the headline", which is what
+-- every article shipped with. A photograph is better and this is where
+-- it goes.
+ALTER TABLE articles ADD COLUMN cover TEXT NOT NULL DEFAULT '';

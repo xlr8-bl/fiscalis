@@ -56,15 +56,43 @@ second in the order the endpoint checks.
 | | how | what it can do |
 |---|---|---|
 | you | sign in at `/studio` | everything |
-| Spark | the MCP server at `/mcp`, or `Authorization: Bearer $AGENT_TOKEN` on the REST API | plan, draw, hand over for review, fill the brand kit, read how it is going |
+| Spark | the MCP server at `/mcp`, or `Authorization: Bearer $AGENT_TOKEN` on the REST API | carousels: plan, draw, hand over for review, fill the brand kit, read how it is going. The journal: research, source a photograph, write, and publish |
 
-Spark cannot approve, schedule, post or delete, and cannot touch a
-carousel once a person has approved it. That ceiling is the security
+The ceiling is different on the two sides, on purpose.
+
+**Carousels.** Spark cannot approve, schedule, post or delete, and cannot
+touch a carousel once a person has approved it. That is the security
 model, not a convention: Spark researches the open web, so anything it
-reads can try to instruct it. What stops that reaching an audience is
+reads can try to instruct it, and what stops that reaching an audience is
 that its credential cannot reach the states that put something in front
-of one. `tools/check_social.mjs` drives the real API and asserts each of
-those refusals.
+of one. A post on somebody else's platform cannot be recalled.
+`tools/check_social.mjs` drives the real API and asserts each refusal.
+
+**The journal.** Spark can put a post on the site. That is a real change
+and it is bounded on three sides: it can only publish an article in
+`review`, which is a state only it writes into; the publish path re-runs
+every check against the stored row rather than trusting whatever wrote
+it; and you can unpublish from the studio in one tap. That last one is
+the whole difference. `tools/check_journal.mjs` asserts the checks and
+the annotations.
+
+### One thing asks
+
+Every tool on this server declares its MCP annotations explicitly,
+including the read-only ones — `destructiveHint` **defaults to true** in
+the MCP schema, so a client that reads the fields in the wrong order
+prompts on a tool that only reads a list. Stating all four hints on all
+of them is what stops that.
+
+Exactly two tools are declared destructive, and they are the two that
+make something public:
+
+    post_due          posts an approved carousel to the platforms
+    publish_article   puts an article on the site
+
+Everything else is additive and undoable from the studio, so nothing else
+should interrupt you. That is the point: a prompt still means something
+when it is the only one you see.
 
 ## A day, in calls
 
@@ -156,6 +184,90 @@ opening them. `GET` the same path to read what it *would* say without
 sending. Needs `RESEND_API_KEY`, the same Resend account the booking form
 uses; with no key it says so rather than reporting a success that never
 arrived.
+
+## A post in the journal, in calls
+
+The other half of the machine, and the one that ends in something public.
+Six tools, in this order.
+
+    writing_brief          what the journal is, how it sounds, the cycle
+    voice_rules            every pattern that will be refused, and why
+    find_photo             search a stock library, store nothing
+    keep_photo             download the one you picked into the site's media
+    write_article          the draft, checked before anything is stored
+    publish_article        put it on the site
+
+**The voice rules are enforced, not suggested.** `write_article` runs a
+detector over the draft and stores **nothing** if it trips a hard
+pattern. The patterns come from Wikipedia's "Signs of AI writing"
+(WikiProject AI Cleanup) by way of the humanizer skill, which is checked
+into `.claude/skills/humanizer`, and the list lives in
+`assets/js/tells.js` so `voice_rules` is generated from the checker
+rather than written beside it — the brief cannot describe a rule the code
+does not enforce.
+
+Some patterns are refused and some are only reported. An em dash, a curly
+quote, an emoji, a Title Case heading, a chatbot artifact, one of the
+fifteen stock phrases: refused, with the line and the phrase quoted back.
+A stock word like "robust" or "leverage": reported, never refused,
+because those are also just words. The skill's own list of what is *not*
+a tell is half its length and `voice_rules` returns that too.
+
+A refusal is cheap and is meant to be. `check_draft` runs the identical
+checks and stores nothing at all, which is what to use while still
+rewriting.
+
+Beyond the AI patterns the same call refuses: no description, a title
+over 70 characters, a body under 500 words or over 2,200, no `##`
+headings, and any price or package language — that last one is the
+brand's rule and it is absolute.
+
+**Every post needs a real photograph.** The journal used to draw a cover
+from each headline, and it looked like exactly what it was.
+
+    find_photo  { query: 'menu on a table', count: 6 }
+
+Two libraries, in order. Unsplash when `UNSPLASH_ACCESS_KEY` is set — the
+key is a Cloudflare secret and Spark never sees it, it calls a tool and
+the Worker holds the key. Otherwise Wikimedia Commons, which needs no key
+at all, so this works on a deployment nobody has configured.
+
+Commons is an archive rather than a stock library and searching it
+naively gives archive results: the first version of this returned nothing
+for "menu on a table" and answered "phone in hand" with a Japanese
+handset from 1997. Three things fixed it, and they are worth knowing
+because they shape what to search for:
+
+- Commons matches words, not phrases, so the query is stripped to its
+  nouns and shortened pass by pass until something comes back.
+- Commons mirrors a large set of CC0 Unsplash photographs, and they are
+  the only genuinely editorial pictures in it. `"unsplash"` **with** the
+  quotes finds them; without the quotes it finds nothing. That mirror is
+  the first pass.
+- What comes back is ranked: the Unsplash mirror first, then CC0 and
+  public domain, then aspect ratio, because an archive will hand you a
+  head-on scan of a menu at 1200x1619 and that cannot be cropped to a
+  1200x630 cover and still be of anything.
+
+Search for a **thing**, not an idea. "menu on a table", "empty
+restaurant", "phone in hand", "laptop on a desk" all find photographs.
+"digital transformation" finds nothing worth using.
+
+    keep_photo  { photo: <one result, unchanged>, slug: 'the-article' }
+
+Downloads it into R2 and the `media` table with its credit, and returns
+the `/media/…` path to pass as `cover`. Only the two libraries' own hosts
+are fetchable — a URL of your own is refused, because "fetch whatever URL
+the agent hands you" is how a tool becomes a proxy for someone else's
+traffic.
+
+    publish_article  { slug }
+
+The one tool here that makes anything public. It re-runs every check
+against the stored row, refuses an article with no cover, then puts it in
+the journal, the sitemap and the feed, and drops the edge cache for all
+four. Unpublish from the studio in one tap.
+
 
 ## The kit, through Spark
 

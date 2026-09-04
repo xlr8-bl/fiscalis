@@ -24,7 +24,7 @@
  *   DELETE /api/studio/media/:key                          -> remove one
  */
 
-import { listAll, getBySlug, uniqueSlug, slugify } from '../../../lib/articles.js';
+import { listAll, getBySlug, uniqueSlug, slugify, purgeArticle } from '../../../lib/articles.js';
 import { json } from '../../../lib/respond.js';
 import {
   identify, createSession, sessionCookie, authenticate, accounts,
@@ -36,7 +36,9 @@ import * as history from '../../../lib/revisions.js';
 /** The fields a revision of an article keeps. */
 const snapshot = (a) => ({
   title: a.title, description: a.description, body: a.body,
-  tags: a.tags, slug: a.slug, status: a.status,
+  // cover included, or restoring an older version quietly drops the
+  // article's photograph and puts the drawn one back
+  tags: a.tags, cover: a.cover ?? '', slug: a.slug, status: a.status,
 });
 
 const MAX_BODY = 200_000;      // an article
@@ -74,12 +76,7 @@ function noAccountsHint(request) {
 }
 
 /** Drop the edge cache for the pages an article change affects. */
-async function purge(article) {
-  const cache = caches.default;
-  const urls = [`${SITE}/journal/`, `${SITE}/sitemap.xml`, `${SITE}/feed.xml`];
-  if (article?.slug) urls.push(`${SITE}/journal/${article.slug}`);
-  await Promise.allSettled(urls.map((u) => cache.delete(new Request(u))));
-}
+const purge = (article) => purgeArticle(SITE, article?.slug);
 
 export async function onRequest(context) {
   const { request, env, params } = context;
@@ -287,12 +284,12 @@ export async function onRequest(context) {
 
     await env.DB
       .prepare(
-        `INSERT INTO articles (slug, title, description, body, tags, status, source,
-                               author, last_editor)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)`
+        `INSERT INTO articles (slug, title, description, body, tags, cover,
+                               status, source, author, last_editor)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?9, ?6, ?7, ?8, ?8)`
       )
       .bind(newSlug, title, clean(input.description), clean(input.body, MAX_BODY),
-            clean(input.tags), status, source, who.name)
+            clean(input.tags), status, source, who.name, clean(input.cover))
       .run();
 
     return json({ slug: newSlug, status, source }, 201);
@@ -337,14 +334,16 @@ export async function onRequest(context) {
     await env.DB
       .prepare(
         `UPDATE articles SET slug = ?1, title = ?2, description = ?3, body = ?4,
-                             tags = ?5, last_editor = ?7, updated_at = datetime('now')
+                             tags = ?5, cover = ?8,
+                             last_editor = ?7, updated_at = datetime('now')
          WHERE id = ?6`
       )
       .bind(nextSlug, title,
             input.description === undefined ? existing.description : clean(input.description),
             input.body === undefined ? existing.body : clean(input.body, MAX_BODY),
             input.tags === undefined ? existing.tags : clean(input.tags),
-            existing.id, who.name)
+            existing.id, who.name,
+            input.cover === undefined ? (existing.cover ?? '') : clean(input.cover))
       .run();
 
     if (existing.status === 'published') await purge({ slug: nextSlug });
@@ -416,11 +415,14 @@ export async function onRequest(context) {
     await env.DB
       .prepare(
         `UPDATE articles SET title = ?1, description = ?2, body = ?3, tags = ?4,
-                             last_editor = ?6, updated_at = datetime('now')
+                             cover = ?7, last_editor = ?6, updated_at = datetime('now')
          WHERE id = ?5`
       )
       .bind(clean(d.title) || existing.title, clean(d.description),
-            clean(d.body, MAX_BODY), clean(d.tags), existing.id, who.name)
+            clean(d.body, MAX_BODY), clean(d.tags), existing.id, who.name,
+            // a revision predating the column restores as no cover, which
+            // means the drawn one — not a broken image
+            clean(d.cover ?? ''))
       .run();
 
     if (existing.status === 'published') await purge(existing);

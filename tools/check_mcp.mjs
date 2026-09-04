@@ -8,9 +8,17 @@
  * Two things are being checked. The protocol, because Spark will simply
  * fail to connect if the handshake is wrong and the error will be on
  * Google's side of the wire where it cannot be read. And the ceiling,
- * because the whole reason this endpoint is safe to expose to an agent
- * that reads the open web is that it has no tool for approving, posting
- * or deleting — which is worth asserting rather than assuming.
+ * which is now two different ceilings and worth asserting rather than
+ * assuming:
+ *
+ *   carousels  no approving, no scheduling, no deleting, and post_due is
+ *              a trigger rather than an authority — it fires only what a
+ *              person already approved and gave a slot to. A post on
+ *              somebody else's platform cannot be recalled.
+ *   the journal  Spark can publish, deliberately. It can only publish
+ *              something in `review`, the publish path re-runs every
+ *              check against the stored row, and a person unpublishes
+ *              from the studio in one tap.
  */
 
 const BASE = process.env.BASE || 'http://127.0.0.1:8801';
@@ -215,9 +223,10 @@ await step('tools/list describes every tool with a schema', async () => {
   }
   const names = tools.map((t) => t.name).sort();
   is(names.join(','),
-     'add_reference,brief,deliver_slide,design_brief,design_carousel,design_status,'
-     + 'draw,hand_over,list_carousels,performance,plan_carousel,post_due,progress,'
-     + 'queue,send_digest',
+     'add_reference,brief,check_draft,deliver_slide,design_brief,design_carousel,'
+     + 'design_status,draw,find_photo,hand_over,keep_photo,list_carousels,'
+     + 'performance,plan_carousel,post_due,progress,publish_article,queue,'
+     + 'send_digest,voice_rules,write_article,writing_brief',
      'the tool set');
 });
 
@@ -291,15 +300,39 @@ await step('a good design spec comes back with its plan and files nothing on che
   }
 });
 
-await step('there is no tool for approving, posting, scheduling or deleting', async () => {
+await step('nothing can approve, schedule or delete a carousel', async () => {
   const names = (await modern('tools/list')).body.result.tools.map((t) => t.name);
   // `post_due` is a trigger, not an authority: it publishes only what a
   // person already approved and gave a slot to, and cannot reach anything
   // else. The ceiling is about deciding, not about firing.
-  for (const forbidden of ['approve', 'publish', 'schedule', 'delete']) {
+  for (const forbidden of ['approve', 'schedule', 'delete']) {
     const found = names.filter((x) => x.includes(forbidden));
     if (found.length) throw new Error(`exposes ${found.join(', ')}`);
   }
+  // and the one publishing tool on this side is the carousel trigger,
+  // not something that decides a carousel is ready
+  const publishers = names.filter((x) => /publish|post/.test(x)).sort();
+  is(publishers.join(','), 'post_due,publish_article', 'what can make something public');
+});
+
+/*
+ * The journal's ceiling is a different shape and it is deliberate. What
+ * matters is that the ONE tool that makes an article public is the one
+ * declared destructive, and that nothing else on the server is — a
+ * second prompt on something harmless is how a person learns to click
+ * through the prompt that matters.
+ */
+await step('exactly the two publishing tools ask, and nothing else does', async () => {
+  const tools = (await modern('tools/list')).body.result.tools;
+  const bare = tools.filter((t) => t.annotations?.destructiveHint === undefined);
+  if (bare.length) {
+    // destructiveHint defaults to TRUE in the schema, so unset is a
+    // prompt on any client that checks it before readOnlyHint
+    throw new Error(`unset destructiveHint on ${bare.map((t) => t.name).join(', ')}`);
+  }
+  const asks = tools.filter((t) => t.annotations.destructiveHint === true)
+    .map((t) => t.name).sort();
+  is(asks.join(','), 'post_due,publish_article', 'the tools a client should ask about');
 });
 
 await step('an unknown tool is a protocol error, not a tool error', async () => {
@@ -593,6 +626,6 @@ await step('what this run made is cleaned up', async () => {
 console.log(
   problems.length
     ? `\n${problems.length} failed: ${problems.join(', ')}`
-    : '\nthe endpoint speaks both eras, and exposes nothing that can publish'
+    : '\nthe endpoint speaks both eras, and only the two publishing tools ask'
 );
 process.exit(problems.length ? 1 : 0);

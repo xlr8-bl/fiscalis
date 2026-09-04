@@ -569,7 +569,10 @@ field('title').addEventListener('keydown', (e) => {
 function fillArticle(a) {
   current = a;
   dirty = false;
-  for (const n of ['title', 'description', 'slug', 'tags', 'body']) field(n).value = a[n] ?? '';
+  for (const n of ['title', 'description', 'slug', 'tags', 'body', 'cover']) {
+    if (field(n)) field(n).value = a[n] ?? '';
+  }
+  showCover();
 
   const live = a.status === 'published';
   const parts = [];
@@ -602,6 +605,7 @@ function fillArticle(a) {
 
 async function viewArticle(slug) {
   if (!bodyEditor) bodyEditor = attachEditor(field('body'), { pickImage });
+  wireCover();
 
   if (slug === 'new') {
     fillArticle({ title: '', description: '', slug: '', tags: '', body: '', status: 'draft', author: me });
@@ -619,6 +623,51 @@ function applyArticleValues(values) {
   for (const [k, v] of Object.entries(values)) if (field(k)) field(k).value = v;
   fitTitle();
   refreshArticle();
+}
+
+/**
+ * The cover picture: show it, choose one, clear it.
+ *
+ * A path in a text box is not a picture, and a picture that is wrong is
+ * the kind of wrong nobody notices until it is on somebody's timeline.
+ * So the box stays — Spark writes into it and a path is what gets saved
+ * — and the thumbnail above it is what a person actually reads.
+ */
+function showCover() {
+  const box = field('cover');
+  const img = $('[data-cover-preview]');
+  if (!box || !img) return;
+  const url = box.value.trim();
+  img.hidden = !url;
+  if (url) img.src = url;
+}
+
+function wireCover() {
+  const box = field('cover');
+  if (!box || box.dataset.wired) return;
+  box.dataset.wired = '1';
+
+  box.addEventListener('input', showCover);
+
+  const pick = $('[data-cover-pick]');
+  if (pick) {
+    pick.addEventListener('click', async () => {
+      const picked = await pickImage();
+      if (!picked) return;
+      box.value = picked.url;
+      showCover();
+      dirty = true;
+    });
+  }
+
+  const clear = $('[data-cover-clear]');
+  if (clear) {
+    clear.addEventListener('click', () => {
+      box.value = '';
+      showCover();
+      dirty = true;
+    });
+  }
 }
 
 function refreshArticle() {
@@ -679,6 +728,7 @@ const articleValues = () => ({
   description: field('description').value.trim(),
   slug: field('slug').value.trim(),
   tags: field('tags').value.trim(),
+  cover: field('cover') ? field('cover').value.trim() : '',
   body: field('body').value,
 });
 

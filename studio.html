@@ -10,9 +10,9 @@
 <link rel="preload" href="/assets/fonts/inter-500.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/pixel.woff2" as="font" type="font/woff2" crossorigin>
-<link href="/assets/css/site.css?v=9009c31540" rel="stylesheet" type="text/css">
+<link href="/assets/css/site.css?v=891f86b074" rel="stylesheet" type="text/css">
 <link href="/assets/css/statement.css?v=fa9ba48a14" rel="stylesheet" type="text/css">
-<link href="/assets/css/studio.css?v=db69fc27ec" rel="stylesheet" type="text/css">
+<link href="/assets/css/studio.css?v=9abe7a9c86" rel="stylesheet" type="text/css">
 </head>
 <body class="body st-body" data-theme-section="dark">
 
@@ -137,6 +137,25 @@
           <label class="st-label u-text-style-main" for="st-tags">Tags</label>
           <input id="st-tags" class="st-input" data-f="tags" placeholder="speed, mobile">
           <p class="st-note u-text-style-main">Commas between them. They pick what appears under Read next.</p>
+        </div>
+      </div>
+
+      <!--
+        The cover. One file does three jobs: the card in the journal, the
+        picture at the top of the article, and the link preview when
+        somebody shares it. Blank means the cover drawn from the headline,
+        which is what every post shipped with.
+      -->
+      <div class="st-field">
+        <label class="st-label u-text-style-main" for="st-cover">Cover picture</label>
+        <p class="st-note u-text-style-main">The card, the top of the article, and the link preview. Leave it empty to use the one drawn from the headline.</p>
+        <div class="st-cover">
+          <img class="st-cover__img" data-cover-preview alt="" hidden>
+          <div class="st-cover__row">
+            <input id="st-cover" class="st-input" data-f="cover" placeholder="/media/…">
+            <button class="st-btn" data-cover-pick type="button">Choose</button>
+            <button class="st-btn" data-cover-clear type="button">Clear</button>
+          </div>
         </div>
       </div>
 
@@ -291,6 +310,6 @@
   </main>
 </div>
 
-<script type="module" src="/assets/js/studio.js?v=e1f6ab1bab"></script>
+<script type="module" src="/assets/js/studio.js?v=0cea34d542"></script>
 </body>
 </html>
