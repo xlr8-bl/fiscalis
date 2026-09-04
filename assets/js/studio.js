@@ -1097,16 +1097,28 @@ $('[data-entry-history-toggle]').addEventListener('click', async () => {
  */
 async function viewSetup(info) {
   const missing = !info.bound;
+  // An upgrade is not a first run and should not be described as one. A
+  // database with every table but not every column needs one button
+  // press and nothing else, and saying "it needs its tables and your
+  // content" on that database is alarming and wrong.
+  const upgrade = !missing && Array.isArray(info.columns) && info.columns.length > 0;
+
   $('[data-setup-lede]').textContent = missing
     ? 'The site is live, but there is no database behind it yet.'
-    : 'The database is connected. It just needs its tables and your content.';
+    : upgrade
+      ? 'The database is a version behind. One press brings it up to date.'
+      : 'The database is connected. It just needs its tables and your content.';
 
   $('[data-setup-steps]').innerHTML = missing
     ? `<li>In the Cloudflare dashboard, open <b>Storage &amp; Databases</b> &rarr; <b>D1 SQL Database</b> and create one called <code>web3ashley</code>.</li>
        <li>Open <b>R2</b> and create a bucket called <code>web3ashley-media</code>.</li>
        <li>Send me the database ID and I will wire it up, then reload this page.</li>`
-    : `<li>Press the button. It creates the tables and loads everything the site currently says.</li>
-       <li>Nothing on the site changes — the page already says all of it. It just becomes editable.</li>`;
+    : upgrade
+      ? `<li>Missing: ${info.columns.map((c) => `<code>${c}</code>`).join(', ')}.</li>
+         <li>Press the button. It adds them and leaves everything else alone.</li>
+         <li>Nothing you have written is touched — this only adds columns.</li>`
+      : `<li>Press the button. It creates the tables and loads everything the site currently says.</li>
+         <li>Nothing on the site changes — the page already says all of it. It just becomes editable.</li>`;
 
   $('[data-setup-run]').hidden = missing;
   showView('setup');

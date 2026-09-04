@@ -145,6 +145,37 @@ console.log('\na database that has not been set up');
      Boolean(q.setup_needed) && q.carousels.length === 0);
 }
 
+/*
+ * The second half of the same field failure. Told to press Set up, the
+ * button was not there — because readiness was decided on table count
+ * alone, and a database with every table but two missing columns
+ * reported itself ready. The button was unreachable on precisely the
+ * database that needed it.
+ */
+console.log('\na database that is a version behind');
+{
+  const { SCHEMA } = await import('../lib/seed.js');
+  const alters = SCHEMA.filter((s) => /^\s*ALTER TABLE/i.test(s));
+  ok('the schema still carries its ALTERs for older databases', alters.length >= 5);
+  ok('the design columns are among them',
+     alters.some((s) => /slides ADD COLUMN design\b/i.test(s))
+     && alters.some((s) => /carousels ADD COLUMN design_seed/i.test(s)));
+
+  const src = await import('node:fs').then((fs) =>
+    fs.readFileSync('functions/api/studio/setup.js', 'utf8'));
+  ok('readiness is no longer table count alone',
+     /missingColumns/.test(src) && /PRAGMA table_info/.test(src));
+  ok('the missing columns are reported, not just counted',
+     /columns\.length/.test(src) && /return \{ ready: false, tables, counts: null, columns \}/.test(src));
+  ok('expected columns are read out of SCHEMA rather than hardcoded',
+     /ALTER TABLE\\s\+\(\\w\+\)/.test(src) || /expectedColumns/.test(src));
+
+  const studio = await import('node:fs').then((fs) =>
+    fs.readFileSync('assets/js/studio.js', 'utf8'));
+  ok('the setup screen tells an upgrade apart from a first run',
+     /const upgrade = /.test(studio) && /a version behind/.test(studio));
+}
+
 console.log('\nthe instructions');
 {
   const { INSTRUCTIONS } = await import('../lib/mcp.js');

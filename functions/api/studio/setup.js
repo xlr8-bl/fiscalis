@@ -20,6 +20,39 @@ import { identify } from '../../../lib/auth.js';
 import { SCHEMA, SEED } from '../../../lib/seed.js';
 import { applyCorrections, applyEntryCorrections } from '../../../lib/corrections.js';
 
+/**
+ * The columns the current schema adds after the tables exist.
+ *
+ * Read out of SCHEMA rather than listed here, so a column added in a
+ * later release becomes a readiness condition on its own. Listing them
+ * by hand is how this went wrong the first time.
+ */
+function expectedColumns() {
+  const want = new Map();
+  for (const sql of SCHEMA) {
+    const m = /^\s*ALTER TABLE\s+(\w+)\s+ADD COLUMN\s+(\w+)/i.exec(sql);
+    if (!m) continue;
+    if (!want.has(m[1])) want.set(m[1], []);
+    want.get(m[1]).push(m[2]);
+  }
+  return want;
+}
+
+/** Which of those a database does not have yet. */
+async function missingColumns(db) {
+  const missing = [];
+  for (const [table, columns] of expectedColumns()) {
+    let have = [];
+    try {
+      const { results } = await db.prepare(`PRAGMA table_info(${table})`).all();
+      have = (results ?? []).map((r) => r.name);
+    } catch { continue; }        // the table itself is missing; caught above
+    if (!have.length) continue;
+    for (const c of columns) if (!have.includes(c)) missing.push(`${table}.${c}`);
+  }
+  return missing;
+}
+
 async function state(db) {
   try {
     const { results } = await db
@@ -35,16 +68,24 @@ async function state(db) {
     // A database missing one of these is mid-upgrade, not broken. Reporting
     // it as unready puts the Set up button back, which is what applies the
     // rest — and setup is written to be safe to run again.
-    if (tables.length < 11) return { ready: false, tables, counts: null };
+    if (tables.length < 11) return { ready: false, tables, counts: null, columns: [] };
+
+    // A database can have every table and still be behind: `design` and
+    // `design_seed` arrive by ALTER. Judging readiness on the table count
+    // alone left the Set up button unreachable on exactly the database
+    // that needed pressing it, which is how this was found.
+    const columns = await missingColumns(db);
+    if (columns.length) return { ready: false, tables, counts: null, columns };
 
     const counts = {};
     for (const t of ['articles', 'entries', 'settings']) {
       const row = await db.prepare(`SELECT count(*) AS n FROM ${t}`).first();
       counts[t] = row?.n ?? 0;
     }
-    return { ready: true, tables, counts };
+    return { ready: true, tables, counts, columns: [] };
   } catch (e) {
-    return { ready: false, tables: [], counts: null, error: String(e.message || e) };
+    return { ready: false, tables: [], counts: null, columns: [],
+             error: String(e.message || e) };
   }
 }
 
