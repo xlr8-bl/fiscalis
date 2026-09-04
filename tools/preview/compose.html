@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>compose</title>
+<style>body{margin:0;background:#101010;display:grid;place-items:center;min-height:100vh}
+canvas{width:432px;height:540px}</style></head>
+<body><canvas id="c" width="1080" height="1350"></canvas>
+<script type="module">
+/*
+ * Drives lib/hooks/layouts.js through assets/js/compose.js.
+ * The browser is required: the layout engine measures with the real
+ * font metrics and the halftone works on decoded pixels.
+ */
+import { compose, W, H, FACES } from '/assets/js/compose.js';
+import { LAYOUTS, MEASURED, brief } from '/lib/hooks/layouts.js';
+import { COPY } from '/lib/hooks/copy.js';
+
+const ctx = document.getElementById('c').getContext('2d', { willReadFrequently: true });
+
+const FILES = { Bricolage:'bricolage.woff2', Anton:'anton.woff2', Archivo:'archivo-700.woff2',
+  Inter:'inter-500.woff2', InstrumentItalic:'instrument-italic.woff2', PixelDisplay:'pixel.woff2' };
+await Promise.all(Object.entries(FILES).map(async ([n, f]) => {
+  const ff = new FontFace(n, `url(/assets/fonts/${f})`); await ff.load(); document.fonts.add(ff);
+}));
+await document.fonts.ready;
+
+const get = (src) => new Promise((res) => {
+  const im = new Image(); im.crossOrigin = 'anonymous';
+  im.onload = () => res(im); im.onerror = () => res(null); im.src = src;
+});
+
+window.IDS = MEASURED;
+window.BRIEF = brief;
+
+window.render = async (id) => {
+  const spec = LAYOUTS[id];
+  if (!spec) throw new Error(`no layout ${id}`);
+  const copy = COPY[id] ?? {};
+  const art = {};
+  for (const s of spec.slots.filter((x) => x.t === 'art')) {
+    if (copy._art?.[s.id]) art[s.id] = await get(copy._art[s.id]);
+  }
+  ctx.clearRect(0, 0, W, H);
+  const report = compose(ctx, spec, copy, art);
+  return { url: ctx.canvas.toDataURL('image/jpeg', 0.92), ...report };
+};
+void FACES;
+</script></body></html>

@@ -16,3 +16,11 @@ journal-backup.sql
 # browser-check screenshots
 .check-shots/
 wrangler.local.toml
+
+# Reference sheets and everything derived from them.
+#
+# The references are other people's finished designs, saved off Pinterest
+# for study. The measurements taken from them are in lib/hooks/ and are
+# ours; the images are not, and they do not belong in the repository.
+# Renders and triage sheets are rebuildable from those measurements.
+.refs/
