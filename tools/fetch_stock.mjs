@@ -37,7 +37,14 @@ mkdirSync(OUT, { recursive: true });
 const UA = 'web3ashley/1.0 (https://web3ashley.com; ashleymbaht@gmail.com)';
 
 const credits = [];
-const roles = wanted.length ? wanted : ROLE_NAMES;
+// a cut-out role is not fetched even when it is asked for by name: a
+// rectangular photograph is not a stand-in for a cut-out, and caching one
+// only means resolveArt has something wrong to find
+const roles = (wanted.length ? wanted : ROLE_NAMES).filter((r) => {
+  if (ROLES[r].fill !== 'box') return true;
+  console.log(`  ${r}: skipped — it is a cut-out, and the box is the honest answer`);
+  return false;
+});
 
 for (const role of roles) {
   // clear the role first, so a re-run replaces rather than accumulating
@@ -48,7 +55,12 @@ for (const role of roles) {
   const found = [];
   for (const query of ROLES[role].search) {
     if (found.length >= per) break;
-    const got = await findPhotos({}, query, per).catch(() => ({ photos: [] }));
+    // the shape is the role's, not the journal's. Without this the search
+    // scores for a 1200x630 blog cover and throws away every upright
+    // photograph before ranking, which is how the portrait role ended up
+    // holding three landscape scenes
+    const got = await findPhotos({}, query, per, { shape: ROLES[role].shape ?? 'wide' })
+      .catch(() => ({ photos: [] }));
     for (const p of got.photos) {
       if (found.length >= per) break;
       if (found.some((f) => f.id === p.id)) continue;
@@ -90,17 +102,20 @@ for (const role of roles) {
  * anyway is the rule assets/stock/scene/SOURCES.md already set, and a
  * source that cannot be traced is a source that cannot be defended.
  */
+const onDisk = new Set(readdirSync(OUT));
 const counts = {};
-for (const f of readdirSync(OUT)) {
+for (const f of onDisk) {
   const m = /^([a-z]+)-\d+\.jpg$/.exec(f);
   if (m) counts[m[1]] = (counts[m[1]] ?? 0) + 1;
 }
 
-// credits accumulate across runs for the same reason
+// Credits accumulate across runs for the same reason, minus anything whose
+// file has since gone — a role can stop taking stock, and a credit for a
+// picture that is not there claims a source the sheet never used.
 const before = existsSync('lib/hooks/stock.js')
   ? (await import('../lib/hooks/stock.js')).CREDITS ?? []
   : [];
-const kept = before.filter((c) => !roles.includes(c.role));
+const kept = before.filter((c) => !roles.includes(c.role) && onDisk.has(c.file));
 const all = [...kept, ...credits].sort((a, b) => a.file.localeCompare(b.file));
 
 writeFileSync('lib/hooks/stock.js',

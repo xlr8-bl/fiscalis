@@ -218,6 +218,21 @@ console.log('\nthe photo search');
     const one = await findPhotos({}, 'laptop on a desk', 3);
     ok('a second query works too', one.photos.length > 0);
 
+    /*
+     * The shape is asked for, not assumed.
+     *
+     * This scored for a 1200x630 cover and threw away anything taller
+     * than 1.1 before ranking, which was right for the journal and meant
+     * a hook sheet's portrait slot could not receive an upright
+     * photograph at all — it was filled with landscape scenes that
+     * happened to have a person somewhere in them.
+     */
+    const tall = await findPhotos({}, 'portrait of a woman face', 3, { shape: 'tall' });
+    ok('asking for an upright picture gets upright pictures',
+       tall.photos.length > 0
+       && tall.photos.every((p) => !p.height || p.width / p.height <= 1.15),
+       tall.photos.map((p) => (p.height ? (p.width / p.height).toFixed(2) : '?')).join(' '));
+
     const none = await findPhotos({}, '   ', 3);
     ok('an empty query says so rather than throwing',
        none.photos.length === 0 && Boolean(none.note));

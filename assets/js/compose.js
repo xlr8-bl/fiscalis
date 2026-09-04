@@ -389,6 +389,9 @@ function drawObjects(ctx, slot, g, kinds) {
     w: Math.ceil(w), h: Math.ceil(h),
     pitch: slot.pitch ? px.h(slot.pitch) : Math.max(6, h * 0.028),
     angle: 0.26, ink: ink(slot.fill ?? 'mark', g), paper: g.ground, gamma: 0.9,
+    // these are drawn at tones this file chose, so there is nothing to
+    // measure and nothing to open up
+    levels: false,
   });
 
   // the screened row carries the ground with it, so it is masked back to

@@ -54,6 +54,7 @@ export { GROUNDS, GROUND_NAMES } from './design-spec.js';
  */
 export function halftone(img, { w, h, pitch = 16, angle = 0.26,
                                 ink = '#141310', contrast = 1.0,
+                                levels = true,
                                 gamma = 0.78, ox = 0, oy = 0 } = {}) {
   const src = document.createElement('canvas');
   src.width = w; src.height = h;
@@ -63,11 +64,62 @@ export function halftone(img, { w, h, pitch = 16, angle = 0.26,
   sg.drawImage(img, (w - iw) / 2 + ox, (h - ih) / 2 + oy, iw, ih);
   const px = sg.getImageData(0, 0, w, h).data;
 
+  /*
+   * Stretch whatever arrived to the full range before screening.
+   *
+   * A screen prints ink in proportion to darkness, so a photograph that
+   * lives between 0.35 and 0.75 — which is most photographs, and every
+   * photograph shot in flat light — prints as an even field of mid-sized
+   * dots with no blacks and no paper. The face is there and you cannot
+   * read it. The references are all high-contrast because a press sheet
+   * has to be.
+   *
+   * Measured rather than dialled: the 2nd and 98th percentiles of the
+   * actual pixels, so a photograph that already fills the range is left
+   * alone and one that does not is opened up. It has to be measured
+   * because the source changes — cached stock now, Ashley's own later,
+   * shot in whatever light he had.
+   *
+   * `levels: false` turns it off for art that is already a flat graphic,
+   * where stretching two tones apart only exaggerates a JPEG artefact.
+   */
+  let lo = 0, hi = 1;
+  if (levels) {
+    const hist = new Uint32Array(64);
+    let n = 0;
+    // every 4th pixel: a histogram does not need the other three, and at
+    // 1080x1350 the full read is four times the work for the same bins
+    for (let i = 0; i < px.length; i += 16) {
+      if (px[i + 3] < 8) continue;
+      const l = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
+      hist[Math.min(63, (l * 64) | 0)]++;
+      n++;
+    }
+    if (n > 64) {
+      const at = (frac) => {
+        let seen = 0;
+        const want = n * frac;
+        for (let b = 0; b < 64; b++) {
+          seen += hist[b];
+          if (seen >= want) return b / 63;
+        }
+        return 1;
+      };
+      lo = at(0.02);
+      hi = at(0.98);
+      // a source with almost no range is a flat colour, and stretching it
+      // turns noise into a pattern
+      if (hi - lo < 0.12) { lo = 0; hi = 1; }
+    }
+  }
+  const span = hi - lo || 1;
+
   const lumAt = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return 1;
     const i = (y * w + x) * 4;
     if (px[i + 3] < 8) return 1;
-    const l = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
+    const raw = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
+    const l = (raw - lo) / span;
     return Math.min(1, Math.max(0, (l - 0.5) * contrast + 0.5));
   };
 
