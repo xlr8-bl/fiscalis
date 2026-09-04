@@ -45,6 +45,10 @@ for (const id of ids) {
   const notes = [];
   if (r.tight?.length) notes.push(`tight: ${r.tight.join(',')}`);
   if (r.missing?.length) notes.push(`no art: ${r.missing.join(',')}`);
+  const stock = Object.entries(r.art ?? {}).filter(([, v]) => v === 'stock').map(([k]) => k);
+  if (stock.length) notes.push(`stock: ${stock.join(',')}`);
+  const own = Object.entries(r.art ?? {}).filter(([, v]) => v === 'own').map(([k]) => k);
+  if (own.length) notes.push(`YOURS: ${own.join(',')}`);
   console.log(`  ${name.padEnd(9)} ${(r.coverage * 100).toFixed(1)}% ${notes.join('  ')}`);
   }
 }

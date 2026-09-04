@@ -12,6 +12,8 @@ canvas{width:432px;height:540px}</style></head>
 import { compose, W, H, FACES } from '/assets/js/compose.js';
 import { LAYOUTS, MEASURED, brief } from '/lib/hooks/layouts.js';
 import { EXAMPLES, sample } from '/lib/hooks/examples.js';
+import { resolveArt } from '/lib/hooks/art.js';
+import { STOCK } from '/lib/hooks/stock.js';
 
 const ctx = document.getElementById('c').getContext('2d', { willReadFrequently: true });
 
@@ -40,13 +42,20 @@ window.render = async (id, n = 0) => {
   const spec = LAYOUTS[id];
   if (!spec) throw new Error(`no layout ${id}`);
   const copy = (EXAMPLES[id]?.[n]) ?? sample(id);
+  /* Pictures come from the resolver, never from the spec. `own` is
+     empty until Ashley's photographs are tagged in the studio, at which
+     point every layout asking for that role picks them up here with no
+     other change anywhere. */
   const art = {};
-  for (const s of spec.slots.filter((x) => x.t === 'art')) {
-    if (copy._art?.[s.id]) art[s.id] = await get(copy._art[s.id]);
+  const used = {};
+  for (const slot of spec.slots.filter((x) => x.t === 'art')) {
+    const got = resolveArt(slot, { own: window.OWN ?? {}, stock: STOCK, seed: n + 1 });
+    used[slot.id] = got.from;
+    if (got.url) art[slot.id] = await get(got.url);
   }
   ctx.clearRect(0, 0, W, H);
   const report = compose(ctx, spec, copy, art);
-  return { url: ctx.canvas.toDataURL('image/jpeg', 0.92), ...report };
+  return { url: ctx.canvas.toDataURL('image/jpeg', 0.92), ...report, art: used };
 };
 void FACES;
 </script></body></html>

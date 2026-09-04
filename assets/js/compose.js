@@ -281,9 +281,132 @@ function drawGrid(ctx, slot, g) {
  * it. Missing art draws the box it will fill, at the size it will be,
  * so the layout can be judged before the shoot rather than after.
  */
+/**
+ * The objects that are drawn rather than photographed.
+ *
+ * Not a fallback. A drawn handset is a real cut-out with a clean edge on
+ * bare paper, which is exactly what the references do with objects, and
+ * a photograph of a 2019 handset dates in a year while this does not.
+ * The keyless archive cannot supply a cut-out at all — measured, see
+ * lib/hooks/art.js — so for these roles drawing is the better answer and
+ * not the consolation.
+ */
+export const DRAWN = {
+  handset(ctx, { x, y, w, h, on }) {
+    const bw = w * 0.42, bh = h * 0.86;
+    const bx = x + (w - bw) / 2, by = y + (h - bh) / 2;
+    ctx.save();
+    ctx.fillStyle = on;
+    // body
+    ctx.beginPath();
+    ctx.roundRect?.(bx, by, bw, bh, bw * 0.18);
+    if (!ctx.roundRect) ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+    // screen and keypad knocked back out
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillRect(bx + bw * 0.14, by + bh * 0.09, bw * 0.72, bh * 0.30);
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 3; c++) {
+        ctx.beginPath();
+        ctx.ellipse(bx + bw * (0.26 + c * 0.24), by + bh * (0.52 + r * 0.10),
+                    bw * 0.085, bh * 0.030, 0, 0, 7);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  },
+  crt(ctx, { x, y, w, h, on }) {
+    const cw = Math.min(w * 0.86, h * 0.98);
+    // bottom-aligned with the rest of the row rather than centred in its
+    // own cell, which is what made it look dropped in from another sheet
+    const cx = x + (w - cw) / 2, cy = y + h - cw * 0.90;
+    ctx.save();
+    ctx.fillStyle = on;
+    ctx.beginPath();
+    ctx.roundRect?.(cx, cy, cw, cw * 0.72, cw * 0.06);
+    if (!ctx.roundRect) ctx.rect(cx, cy, cw, cw * 0.72);
+    ctx.fill();
+    ctx.fillRect(cx + cw * 0.30, cy + cw * 0.72, cw * 0.40, cw * 0.09);
+    ctx.fillRect(cx + cw * 0.16, cy + cw * 0.81, cw * 0.68, cw * 0.06);
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.roundRect?.(cx + cw * 0.08, cy + cw * 0.07, cw * 0.84, cw * 0.52, cw * 0.04);
+    if (!ctx.roundRect) ctx.rect(cx + cw * 0.08, cy + cw * 0.07, cw * 0.84, cw * 0.52);
+    ctx.fill();
+    ctx.restore();
+  },
+  phone(ctx, { x, y, w, h, on }) {
+    const bw = w * 0.36, bh = h * 0.9;
+    const bx = x + (w - bw) / 2, by = y + (h - bh) / 2;
+    ctx.save();
+    ctx.fillStyle = on;
+    ctx.beginPath();
+    ctx.roundRect?.(bx, by, bw, bh, bw * 0.14);
+    if (!ctx.roundRect) ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.roundRect?.(bx + bw * 0.07, by + bh * 0.05, bw * 0.86, bh * 0.86, bw * 0.08);
+    if (!ctx.roundRect) ctx.rect(bx + bw * 0.07, by + bh * 0.05, bw * 0.86, bh * 0.86);
+    ctx.fill();
+    ctx.restore();
+  },
+};
+
+/**
+ * A row of drawn objects, screened.
+ *
+ * Drawn flat they read as placeholder icons: solid slabs at whatever
+ * height each shape happened to want. Two things fix that. They are laid
+ * out to a common baseline so the row reads as a set, and the whole row
+ * is screened to the same halftone the photographs get, so a drawn
+ * object and a photographed one belong to the same sheet.
+ */
+function drawObjects(ctx, slot, g, kinds) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const list = (kinds ?? ['phone']).slice(0, 4);
+  const cw = w / list.length;
+
+  // drawn onto their own surface first, so the screen can be applied to
+  // the row rather than to the page under it
+  const pad = new OffscreenCanvas(Math.ceil(w), Math.ceil(h));
+  const p2 = pad.getContext('2d');
+  list.forEach((kind, i) => {
+    const fn = DRAWN[kind] ?? DRAWN.phone;
+    fn(p2, { x: i * cw, y: 0, w: cw, h, on: '#000000' });
+  });
+
+  if (slot.screen === false) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(pad, x, y);
+    ctx.restore();
+    return;
+  }
+
+  const screened = halftone(pad, {
+    w: Math.ceil(w), h: Math.ceil(h),
+    pitch: slot.pitch ? px.h(slot.pitch) : Math.max(6, h * 0.028),
+    angle: 0.26, ink: ink(slot.fill ?? 'mark', g), paper: g.ground, gamma: 0.9,
+  });
+
+  // the screened row carries the ground with it, so it is masked back to
+  // the shapes: a rectangle of dots is not a cut-out
+  const out = new OffscreenCanvas(Math.ceil(w), Math.ceil(h));
+  const o2 = out.getContext('2d');
+  o2.drawImage(screened, 0, 0);
+  o2.globalCompositeOperation = 'destination-in';
+  o2.drawImage(pad, 0, 0);
+  ctx.drawImage(out, x, y);
+}
+
 function drawArt(ctx, slot, img, g, report) {
   const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
   const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+
+  // a slot whose role is drawn does not want a photograph at all
+  if (slot.draws) { drawObjects(ctx, slot, g, slot.draws); return; }
 
   if (!img) {
     report.missing.push(slot.id);
@@ -371,9 +494,12 @@ export function compose(ctx, spec, copy = {}, art = {}) {
         x: px.x(slot.box[0]), y: px.y(slot.box[1]),
         w: px.w(slot.box[2]), h: px.h(slot.box[3]),
       };
-      const on = pickPolarity(ctx, box);
-      fitScrim(ctx, box, on);
-      drawType(ctx, { ...slot, fill: on }, text, g, report);
+      // pickPolarity returns a decision, not a colour: {colour, dark, mean}.
+      // Passing the whole object to fitScrim, which wants a hex string,
+      // is what "textHex.slice is not a function" was.
+      const polarity = pickPolarity(ctx, box, { light: g.ground, dark: g.mark });
+      fitScrim(ctx, box, polarity.colour, { dark: polarity.dark });
+      drawType(ctx, { ...slot, fill: polarity.colour }, text, g, report);
       continue;
     }
 
