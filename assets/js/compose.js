@@ -171,6 +171,24 @@ function drawType(ctx, slot, copy, g, report) {
       : by;
 
   ctx.save();
+
+  /*
+   * `rotate` turns the block about the centre of its measured box.
+   *
+   * Several sheets run a short instruction up the right edge. Drawing it
+   * horizontally and clipping — which is what happened before this — loses
+   * half the words silently, and a rail that says APPLY instead of APPLY
+   * NOW looks like a bug rather than a design.
+   *
+   * The box stays the box: it is measured as it appears on the sheet, tall
+   * and narrow, and the type is laid out along the long side of it.
+   */
+  if (slot.rotate) {
+    ctx.translate(bx + bw / 2, by + bh / 2);
+    ctx.rotate((slot.rotate * Math.PI) / 180);
+    ctx.translate(-(bx + bh / 2), -(by + bw / 2));
+  }
+
   ctx.font = fontAt(slot, size);
   ctx.fillStyle = ink(slot.fill, g);
   if (slot.alpha != null) ctx.globalAlpha = slot.alpha;
@@ -184,6 +202,32 @@ function drawType(ctx, slot, copy, g, report) {
       : align === 'center' ? bx + (bw - lw) / 2
         : bx;
     const y = y0 + size * 0.78 + i * size * leading;
+
+    /*
+     * `highlight` puts a solid bar behind the line, sized to the line.
+     *
+     * It has to belong to the type rather than be a rect slot beside it.
+     * A separate rect is measured once, against the words that were in
+     * the reference, and the moment an agent writes shorter ones the bar
+     * runs off past them and the sheet looks automated — which is the
+     * exact failure the whole file exists to avoid. Measured here, the bar
+     * is always the width of whatever was written.
+     */
+    const lit = slot.highlight
+      && (!slot.highlightLines || slot.highlightLines.includes(i));
+    if (lit) {
+      const padX = size * (slot.highlightPad?.[0] ?? 0.10);
+      const padY = size * (slot.highlightPad?.[1] ?? 0.16);
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = ink(slot.highlight, g);
+      ctx.fillRect(x - padX, y - size * 0.78 - padY,
+                   lw + padX * 2, size * 0.78 + padY * 2);
+      ctx.restore();
+      ctx.fillStyle = ink(slot.highlightText ?? 'ground', g);
+    } else if (slot.highlight) {
+      ctx.fillStyle = ink(slot.fill, g);
+    }
 
     // a span recolours one word without needing a second slot
     const span = slot.spans?.[i] ?? (i === 0 ? slot.span : null);
@@ -440,7 +484,25 @@ function drawArt(ctx, slot, img, g, report) {
   }
 
   ctx.save();
-  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  ctx.beginPath();
+  /*
+   * `mask: 'ellipse'` puts the picture in a vignette rather than a
+   * rectangle. Several references frame a portrait in a circle and then
+   * let the subject break the edge of it, which is a different move from
+   * a cropped photograph: the circle reads as a lens, and anything
+   * crossing it reads as coming out of the sheet.
+   *
+   * `bleed` is how far past the box the picture may run, as a fraction of
+   * the box, so the subject can break the frame while the frame stays
+   * where it was measured.
+   */
+  if (slot.mask === 'ellipse') {
+    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+  } else {
+    const b = slot.bleed ? [px.w(slot.box[2] * slot.bleed), px.h(slot.box[3] * slot.bleed)] : [0, 0];
+    ctx.rect(x - b[0], y - b[1], w + b[0] * 2, h + b[1] * 2);
+  }
+  ctx.clip();
   if (slot.treat === 'contain') {
     const s = Math.min(w / img.width, h / img.height);
     ctx.drawImage(img, x + (w - img.width * s) / 2, y + (h - img.height * s) / 2,
