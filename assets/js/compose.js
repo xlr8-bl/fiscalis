@@ -196,6 +196,22 @@ function drawType(ctx, slot, copy, g, report) {
   ctx.textBaseline = 'alphabetic';
 
   lines.forEach((line, i) => {
+    /*
+     * `italicFrom` switches face partway down a headline.
+     *
+     * Several sheets set the first lines roman and turn the last one or
+     * two italic, and the switch is not decoration: the italic half is the
+     * thing being named. It has to be one slot rather than two, because
+     * two slots means two boxes and the line that turns italic then cannot
+     * move when the copy gets longer.
+     */
+    if (slot.italicFrom != null) {
+      ctx.font = fontAt(
+        i >= slot.italicFrom ? { ...slot, role: slot.italicRole ?? 'didoneItalic' } : slot,
+        size
+      );
+      if (slot.track) ctx.letterSpacing = `${slot.track * size}px`;
+    }
     const lw = ctx.measureText(line).width;
     const align = slot.align ?? 'left';
     const x = align === 'right' ? bx + bw - lw
