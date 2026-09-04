@@ -162,6 +162,10 @@ CREATE TABLE IF NOT EXISTS carousels (
   title         TEXT NOT NULL DEFAULT '',   -- what to call it in here
   topic         TEXT NOT NULL DEFAULT '',   -- what was researched
   research      TEXT NOT NULL DEFAULT '',   -- JSON: sources, why this, why now
+  -- The seed the whole set's designs were chosen from. Kept so a set
+  -- can be re-rolled by changing one number, and so the same spec
+  -- redrawn later comes back identical.
+  design_seed   INTEGER NOT NULL DEFAULT 0,
   caption       TEXT NOT NULL DEFAULT '',
   hashtags      TEXT NOT NULL DEFAULT '',
   -- planned:    filed, no images yet
@@ -215,6 +219,11 @@ CREATE TABLE IF NOT EXISTS slides (
   -- studio typesets it into media_key. Kept rather than discarded so
   -- the type can be reset without paying to redraw the picture.
   ground_key  TEXT NOT NULL DEFAULT '',
+  -- The generator's spec for this panel: the words, and the device,
+  -- ground and seed chosen for it. Separate from `prompt` because a
+  -- slide is drawn either by an image model from a prompt or by the
+  -- generator from a design, never both.
+  design      TEXT NOT NULL DEFAULT '',
   width       INTEGER NOT NULL DEFAULT 0,
   height      INTEGER NOT NULL DEFAULT 0,
   -- pending: planned, not generated
@@ -323,3 +332,5 @@ CREATE INDEX IF NOT EXISTS idx_post_stats_checked
 ALTER TABLE media ADD COLUMN width INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE media ADD COLUMN height INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE media ADD COLUMN alt TEXT NOT NULL DEFAULT '';
+ALTER TABLE slides ADD COLUMN design TEXT NOT NULL DEFAULT '';
+ALTER TABLE carousels ADD COLUMN design_seed INTEGER NOT NULL DEFAULT 0;

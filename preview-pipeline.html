@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex">
+<title>Pipeline</title>
+<style>
+ :root{color-scheme:dark}
+ body{margin:0;background:#141311;color:#e8e8e3;font:12px system-ui;padding:22px}
+ h1{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;margin:0 0 10px}
+ pre{background:#1c1b19;padding:10px;border-radius:4px;font-size:11px;white-space:pre-wrap;margin:0 0 18px}
+ .strip{display:flex;gap:10px;flex-wrap:wrap}
+ figure{margin:0;flex:0 0 230px}
+ canvas{width:100%;display:block;background:#000}
+ figcaption{opacity:.6;font-size:10px;padding-top:5px;line-height:1.35}
+ .bad{color:#ff7a5c}
+</style></head><body>
+<h1>Refusals</h1><pre id="v"></pre>
+<h1>A spec Spark could file, drawn</h1><div class="strip" id="s"></div>
+<script type="module">
+import { validateSpec } from './assets/js/design-spec.js';
+import { renderCarousel } from './assets/js/generate.js';
+
+const bad = {
+  title: 'Bad spec',
+  panels: [
+    { setup: 'They ordered eleven times.', payoff: ['You never got their name at all'],
+      body: ['x'] },
+    { setup: 'x'.repeat(50), payoff: ['Short'], body: ['y'] },
+    { setup: 'Fine.', payoff: ['Fine.'], body: ['body'], ground: 'red' },
+  ],
+};
+document.getElementById('v').textContent =
+  validateSpec(bad).errors.map(e => '· ' + e).join('\n');
+
+const good = {
+  title: 'What the delivery apps cost you',
+  slug: 'delivery-apps',
+  panels: [
+    { setup: 'They ordered eleven times.', payoff: ['You never','got their','name.'],
+      body: ['The apps keep the customer. No name, no','email, no number you can use.'] },
+    { setup: 'The commission is the visible part.', payoff: ['25% of','a £25 order.'],
+      body: ['That is £6.25 before packaging. Against food','and labour, the margin is close to nothing.'] },
+    { setup: 'You cannot win them back.', payoff: ['They are a','stranger.'],
+      body: ['You cannot tell them you opened Sundays,','or that the price changed.'] },
+    { setup: 'Worth knowing before you decide.', payoff: ['Four things','to work out.'],
+      body: ['None of it says leave the apps. It says','make it a decision, not a default.'],
+      cells: [{head:'Commission',tail:'per order'},{head:'The customer',tail:'you never get'},
+              {head:'The data',tail:'they keep'},{head:'Price',tail:'pressure'}] },
+    { setup: 'Ask six operators.', payoff: ['Six accept it.'], tail: ['That is defensible.','Make it deliberate.'] },
+  ],
+};
+const checked = validateSpec(good, { hasScene: true, hasCutout: true });
+document.getElementById('v').textContent +=
+  `\n\nGood spec: ok=${checked.ok}  seed=${checked.seed}\n` +
+  checked.plan.map(p => `  panel ${p.position+1}: ${p.device} on ${p.ground}`).join('\n');
+
+const load = (src)=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src;});
+good.assets = { scene: await load('/assets/stock/scene/counter.jpg'),
+                cutout: await load('/assets/stock/cut/figure-laptop-01.png') };
+const strip = document.getElementById('s');
+const canvases = good.panels.map(()=>{
+  const f=document.createElement('figure'), c=document.createElement('canvas'), cap=document.createElement('figcaption');
+  f.append(c,cap); strip.append(f); return {c,cap};
+});
+const out = await renderCarousel(good, i => canvases[i].c);
+out.forEach((r,i)=>{
+  const cap = canvases[i].cap;
+  if (!r.ok) { cap.className='bad'; cap.textContent = `${r.error}: ${r.detail}`; return; }
+  cap.innerHTML = `<b>${r.device}</b> / ${r.ground} · jump ${r.ratio ?? '—'} · cov ${r.covered}`
+    + (r.findings.length ? `<br><span class="bad">${r.findings.map(f=>f.check+': '+f.detail).join('<br>')}</span>` : '<br>clean');
+});
+</script></body></html>

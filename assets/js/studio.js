@@ -1408,6 +1408,10 @@ async function viewCarousel(slug) {
   // them now rather than waiting to be asked: it is the same visit, and
   // a carousel that looks half-made when it is really one canvas away
   // reads as broken.
+  if (!typesetting && carousel.slides.some((s) => s.needs_design)) {
+    typesetting = true;
+    try { await drawTheDesigns(); } finally { typesetting = false; }
+  }
   if (!typesetting && carousel.slides.some((s) => s.needs_type)) {
     typesetting = true;
     try { await setTheType(); } finally { typesetting = false; }
@@ -1786,6 +1790,78 @@ async function drawSlides() {
  * approved on this screen anyway, so the work happens on a visit that
  * was already going to happen.
  */
+/**
+ * Draw the panels Spark designed.
+ *
+ * The mirror of setTheType(), for the other route into a slide. Spark
+ * files words and the site draws them here, on a canvas, because that is
+ * where the fonts and the pixels are — the same reason the typesetter
+ * runs here, and it costs nothing, since a slide cannot be approved
+ * without somebody opening this screen anyway.
+ *
+ * The generator's own findings travel back with the picture. A panel
+ * that a person is about to approve should carry what the checks said
+ * about it, not just how it looks at thumbnail size on a phone.
+ */
+async function drawTheDesigns() {
+  const c = carousel;
+  const owed = c.slides.filter((s) => s.needs_design);
+  if (!owed.length) return 0;
+
+  say(`Drawing ${owed.length} panel${owed.length === 1 ? '' : 's'}\u2026`);
+  const { renderPanel } = await import('./generate.js');
+
+  const pick = (list) => (list && list.length ? list[0] : null);
+  const load = (src) => new Promise((res) => {
+    if (!src) return res(null);
+    const i = new Image();
+    i.crossOrigin = 'anonymous';
+    i.onload = () => res(i); i.onerror = () => res(null);
+    i.src = src;
+  });
+  const assets = {
+    scene: await load(pick(c.scenes)),
+    cutout: await load(pick(c.cutouts)),
+  };
+
+  let done = 0;
+  const failed = [];
+  for (const slide of owed) {
+    try {
+      const canvas = document.createElement('canvas');
+      const report = await renderPanel(canvas, slide.design, slide.design.seed, assets);
+      const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+      if (!blob) throw new Error('the canvas produced nothing');
+
+      const form = new FormData();
+      form.append('file', new File([blob], `${c.slug}-${slide.position}.jpg`,
+                                   { type: 'image/jpeg' }));
+      form.append('width', String(canvas.width));
+      form.append('height', String(canvas.height));
+      form.append('qc', JSON.stringify({
+        device: report.device, ground: report.ground,
+        jump: report.ratio, coverage: report.covered,
+        findings: report.findings,
+      }));
+      const res = await fetch(
+        `/api/studio/carousels/${encodeURIComponent(c.slug)}/slides/${slide.position}`,
+        { method: 'PUT', body: form, credentials: 'same-origin' }
+      );
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+      done += 1;
+    } catch (e) {
+      // Overflow carries which block and by how much, which is a content
+      // problem the person can fix, so it is reported rather than hidden
+      failed.push(`Panel ${slide.position + 1}: ${e.message}`);
+    }
+  }
+
+  await viewCarousel(c.slug);
+  if (failed.length) say(failed.join(' \u00b7 '), 'err');
+  else say(`Drew ${done} panel${done === 1 ? '' : 's'}.`);
+  return done;
+}
+
 async function setTheType() {
   const c = carousel;
   const owed = c.slides.filter((s) => s.needs_type);

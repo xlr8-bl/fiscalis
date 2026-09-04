@@ -26,6 +26,8 @@ import {
 import { timingSafeEqual } from '../lib/auth.js';
 import { readToken, resourceUri, SCOPE } from '../lib/oauth.js';
 import { SITE } from '../lib/templates.js';
+import { designBrief, planDesign, fileDesign, designQueue, designStatus }
+  from '../lib/designer.js';
 import {
   brief, agentQueue, getCarousel, listCarousels, setSlides,
   uniqueSlug, slugify, MIN_SLIDES, MAX_SLIDES,
@@ -315,6 +317,75 @@ async function runTool(name, args, env) {
         ...out,
         note: 'A null count was not readable, not zero — the reason is on the platform.',
       });
+    }
+
+
+    case 'design_brief':
+      return toolResult(designBrief());
+
+    case 'design_carousel': {
+      const title = clean(args.title) || clean(args.topic) || 'Untitled carousel';
+      const panels = Array.isArray(args.panels) ? args.panels : [];
+      const spec = {
+        title,
+        slug: args.slug || title,
+        seed: Number.isInteger(args.seed) ? args.seed : undefined,
+        panels,
+      };
+
+      // validated before anything is written, so a refusal costs nothing
+      // and can be fixed in the same turn it was made in
+      const checked = await planDesign(env, spec);
+      if (!checked.ok) {
+        return toolFailed(
+          `This spec cannot be drawn:\n- ${checked.errors.join('\n- ')}`
+        );
+      }
+      if (args.check === true) {
+        return toolResult({ ok: true, checked_only: true, ...checked });
+      }
+
+      const slug = await uniqueSlug(db, args.slug || title);
+      await db
+        .prepare(
+          `INSERT INTO carousels (slug, pillar, title, topic, research, caption,
+                                  hashtags, status, targets, author, last_editor)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'planned', ?8, 'Spark', 'Spark')`
+        )
+        .bind(
+          slug,
+          slugify(args.pillar || '') === 'carousel' ? '' : clean(args.pillar),
+          title,
+          clean(args.topic, 8000),
+          asJson(args.research),
+          clean(args.caption, 2200),
+          clean(args.hashtags, 8000),
+          clean(Array.isArray(args.targets) ? args.targets.join(',') : args.targets)
+            || 'tiktok'
+        )
+        .run();
+      const row = await db.prepare('SELECT id FROM carousels WHERE slug = ?1').bind(slug).first();
+      const filed = await fileDesign(env, { ...spec, slug }, { carouselId: row.id, slug });
+      if (!filed.ok) return toolFailed(`This spec cannot be drawn:\n- ${filed.errors.join('\n- ')}`);
+
+      const offVoice = brandProblems(await getCarousel(db, slug));
+      return toolResult({
+        slug,
+        status: 'planned',
+        panels: filed.slides,
+        seed: filed.seed,
+        plan: filed.plan,
+        ...(offVoice.length ? { fix_before_drawing: offVoice } : {}),
+        next: 'the studio draws these on the next visit; design_status to watch it',
+      });
+    }
+
+    case 'design_status': {
+      if (args.carousel) {
+        const one = await designStatus(db, clean(args.carousel));
+        return one ? toolResult(one) : toolFailed(`No carousel "${clean(args.carousel)}".`);
+      }
+      return toolResult(await designQueue(db));
     }
 
     case 'send_digest': {

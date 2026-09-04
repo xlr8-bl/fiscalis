@@ -34,9 +34,12 @@
 
 import { loadFaces, fit, GROT, BLACK, BOOK } from './decks.js';
 import {
-  GROUNDS, GROUND_NAMES, halftone, pitchFor, grain, coverage,
+  halftone, pitchFor, grain, coverage,
   photoGround, fitScrim, sampleAccent, pickPolarity,
 } from './press.js';
+import {
+  GROUNDS, GROUND_NAMES, DEVICE_CATALOGUE, rng, hash, choose as chooseDesign,
+} from './design-spec.js';
 import { phone, skeleton, mapPack, grid, receipt } from './ui.js';
 
 export const W = 1024;
@@ -56,26 +59,7 @@ export class Overflow extends Error {
 
 /* ------------------------------------------------------------- seeding */
 
-/** mulberry32 — small, fast, and the same everywhere. */
-export function rng(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6D2B79F5) >>> 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** A stable 32-bit hash of a string, so a slug can seed a carousel. */
-export function hash(str) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
+export { rng, hash };
 
 const pick = (r, list) => list[Math.floor(r() * list.length) % list.length];
 
@@ -429,35 +413,26 @@ export const OBJECTS = ['phone', 'mappack', 'grid', 'receipt'];
  * number rather than by hoping.
  */
 export function choose(content, seed, { hasScene = false, hasCutout = false } = {}) {
+  // device and ground are the shared decision, so the Worker's plan and
+  // this render cannot disagree about what is being made
+  const base = chooseDesign(content, seed, { hasScene, hasCutout });
+  if (!base) return null;
+
+  // A named device that is not available here — usually because the
+  // photograph the plan counted on is not loaded — is silently replaced
+  // by the shared chooser. That is the one way the plan and the render
+  // can still disagree, so it is recorded and reported rather than left
+  // to be noticed later by eye.
+  const substituted = Boolean(content.device) && content.device !== base.device;
+
   const r = rng(seed);
-  const usable = DEVICE_NAMES.filter((name) => {
-    const d = DEVICES[name];
-    if (d.needs.body && !(content.body?.length)) return false;
-    if (d.needs.body === false && content.body?.length) return false;
-    if (d.needs.rows && !(content.rows?.length >= d.needs.rows)) return false;
-    if (d.needs.bars && !(content.bars?.length >= d.needs.bars)) return false;
-    if (d.needs.cells && !(content.cells?.length >= d.needs.cells)) return false;
-    if (d.wantsPhoto && !hasScene) return false;
-    if (d.wantsCutout && !hasCutout) return false;
-    return true;
-  });
-  if (!usable.length) return null;
-
-  const device = content.device && usable.includes(content.device)
-    ? content.device : pick(r, usable);
-
-  // a device that sets a paragraph cannot go on a ground that will not
-  // carry one; that is the red field's measured 4.31:1, not a preference
-  const wantsBody = DEVICES[device].needs.body !== false;
-  const grounds = GROUND_NAMES.filter((g) => (wantsBody ? GROUNDS[g].body : true));
-  const ground = content.ground && grounds.includes(content.ground)
-    ? content.ground : pick(r, grounds);
-
+  r(); r();                       // burn the two draws the shared choice made
   return {
-    device,
-    ground,
-    scheme: GROUNDS[ground],
-    accent: GROUNDS[ground].accent,
+    ...base,
+    substituted,
+    asked: content.device ?? null,
+    scheme: GROUNDS[base.ground],
+    accent: GROUNDS[base.ground].accent,
     object: pick(r, OBJECTS),
     footer: r() > 0.5,
     tint: pick(r, [['#120E0C', '#F4EFE4'], ['#0A1410', '#EAF2E4'],
@@ -491,6 +466,11 @@ const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w
  */
 export function review(canvas, out, style, { minRatio = 4.5, minPayoffRatio = 2.4 } = {}) {
   const found = [];
+
+  if (style?.substituted) {
+    found.push({ check: 'device-substituted', detail:
+      `the plan asked for ${style.asked} and this render used ${style.device}` });
+  }
 
   if (style?.scheme && style.scheme.ratio < minRatio) {
     found.push({ check: 'contrast', detail:
@@ -528,7 +508,12 @@ export function review(canvas, out, style, { minRatio = 4.5, minPayoffRatio = 2.
 
   const ground = style?.scheme?.ground ?? '#000000';
   const covered = coverage(canvas, ground);
-  if (covered < 0.08) {
+  // A statement panel is meant to be mostly empty — that is the device,
+  // and the reference it comes from is a headline on a bare red field.
+  // Holding it to the same floor as a panel with a picture on it was
+  // flagging the design working correctly.
+  const floor = style?.device === 'statement' ? 0.03 : 0.08;
+  if (covered < floor) {
     found.push({ check: 'coverage', detail:
       `only ${(covered * 100).toFixed(1)}% of the sheet carries a mark` });
   }

@@ -215,9 +215,80 @@ await step('tools/list describes every tool with a schema', async () => {
   }
   const names = tools.map((t) => t.name).sort();
   is(names.join(','),
-     'add_reference,brief,deliver_slide,draw,hand_over,list_carousels,performance,'
-     + 'plan_carousel,post_due,progress,queue,send_digest',
+     'add_reference,brief,deliver_slide,design_brief,design_carousel,design_status,'
+     + 'draw,hand_over,list_carousels,performance,plan_carousel,post_due,progress,'
+     + 'queue,send_digest',
      'the tool set');
+});
+
+/*
+ * Annotations are why a client stops asking permission for every call.
+ * Both destructiveHint and openWorldHint default to TRUE in the spec, so
+ * an unannotated tool reads as destructive and open-world, and a chat
+ * client is right to prompt on it. Annotating honestly is the fix; lying
+ * to silence a prompt would be the wrong one, which is why post_due is
+ * still declared destructive here.
+ */
+await step('every tool is annotated, and honestly', async () => {
+  const tools = (await modern('tools/list')).body.result.tools;
+  for (const t of tools) {
+    if (!t.annotations) throw new Error(`${t.name}: no annotations`);
+    const a = t.annotations;
+    if (a.readOnlyHint && a.destructiveHint) {
+      throw new Error(`${t.name}: read-only and destructive at once`);
+    }
+    if (!a.readOnlyHint && a.destructiveHint === undefined) {
+      throw new Error(`${t.name}: writes but does not say whether it destroys`);
+    }
+  }
+  const byName = Object.fromEntries(tools.map((t) => [t.name, t.annotations]));
+  is(byName.post_due.destructiveHint, true, 'post_due stays destructive');
+  is(byName.brief.readOnlyHint, true, 'brief is read-only');
+  is(byName.design_carousel.destructiveHint, false, 'filing a design is additive');
+  is(byName.design_status.readOnlyHint, true, 'design_status is read-only');
+});
+
+await step('the design tools describe what can actually be made', async () => {
+  const r = await call('design_brief', {});
+  const b = r.body.result.structuredContent ?? JSON.parse(r.body.result.content[0].text);
+  if (!b.devices?.length) throw new Error('no devices in the design brief');
+  if (!b.grounds?.length) throw new Error('no grounds in the design brief');
+  const red = b.grounds.find((g) => g.name === 'red');
+  is(red.body, false, 'red is declared display-only');
+});
+
+await step('a design spec that cannot be drawn is refused with the reason', async () => {
+  const r = await call('design_carousel', {
+    title: 'Refusal test',
+    check: true,
+    panels: [
+      { setup: 'Fine.', payoff: ['A payoff line far too long to set'], body: ['x'] },
+      { setup: 'Fine.', payoff: ['Short.'], body: ['x'] },
+    ],
+  });
+  const text = JSON.stringify(r.body.result);
+  if (!/too long/.test(text)) throw new Error(`expected a length refusal, got ${text.slice(0, 200)}`);
+  is(r.body.result.isError, true, 'refused');
+});
+
+await step('a good design spec comes back with its plan and files nothing on check', async () => {
+  const r = await call('design_carousel', {
+    title: 'Plan test',
+    check: true,
+    panels: [
+      { setup: 'They ordered eleven times.', payoff: ['You never', 'got their', 'name.'],
+        body: ['The apps keep the customer.'] },
+      { setup: 'Ask six operators.', payoff: ['Six accept it.'] },
+    ],
+  });
+  const out = r.body.result.structuredContent
+    ?? JSON.parse(r.body.result.content[0].text);
+  is(out.ok, true, 'the spec is drawable');
+  is(out.checked_only, true, 'nothing was filed');
+  if (out.plan.length !== 2) throw new Error('expected a plan per panel');
+  for (const p of out.plan) {
+    if (!p.device || !p.ground) throw new Error('a planned panel has no device or ground');
+  }
 });
 
 await step('there is no tool for approving, posting, scheduling or deleting', async () => {

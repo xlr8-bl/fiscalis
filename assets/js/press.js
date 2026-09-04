@@ -33,34 +33,10 @@
 
 /* ------------------------------------------------------------ grounds */
 
-/**
- * Whole-field schemes. `ground` is the sheet, `mark` carries type,
- * `accent` is the second colour, `photo` is the ink a screened image
- * prints in on that ground.
- *
- * `ratio` is the measured WCAG contrast of mark on ground and `body`
- * says whether that is enough to set paragraphs in. A hot red field
- * cannot carry body copy: darkening the red until it reaches 7:1 takes
- * it to #922114, a brick that is no longer the poster colour. So red
- * stays hot and is declared display-only, which is exactly how the
- * references use it — the red-field example in the set is a headline
- * and nothing else. Callers putting a paragraph on a display-only
- * ground is a bug the generator should refuse, not a judgement call.
- *
- * Every number here came out of the same contrast function the
- * extractor uses. The first version of this table was eyeballed and
- * three of the six were wrong by enough to matter.
- */
-export const GROUNDS = {
-  paper: { ground: '#EFEDE7', mark: '#141310', accent: '#E0331F', photo: '#141310', ratio: 15.87, body: true },
-  ink:   { ground: '#141310', mark: '#EFEDE7', accent: '#E0331F', photo: '#EFEDE7', ratio: 15.87, body: true },
-  red:   { ground: '#E0331F', mark: '#140B08', accent: '#F2E4C9', photo: '#140B08', ratio: 4.31, body: false },
-  blue:  { ground: '#1843BE', mark: '#F2F0E8', accent: '#F0C531', photo: '#F2F0E8', ratio: 7.12, body: true },
-  navy:  { ground: '#22345E', mark: '#EFEDE7', accent: '#F0C531', photo: '#EFEDE7', ratio: 10.42, body: true },
-  amber: { ground: '#F0C531', mark: '#171310', accent: '#1843BE', photo: '#171310', ratio: 11.20, body: true },
-};
-
-export const GROUND_NAMES = Object.keys(GROUNDS);
+// The table itself lives in design-spec.js, which has no DOM, because
+// the Worker has to validate against the same numbers the browser draws
+// with and two copies of a contrast ratio is two chances to be wrong.
+export { GROUNDS, GROUND_NAMES } from './design-spec.js';
 
 /* ---------------------------------------------------------- treatment */
 
