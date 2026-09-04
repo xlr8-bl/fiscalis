@@ -32,7 +32,7 @@ call or a purchase, and track the percentage of visitors who complete it.
 This is the only number that connects your website to your bank account. Traffic
 without conversion is a busier waiting room, not more customers.
 
-A useful reference: 1–3% is normal for a small business site. Under 0.5% means
+A useful reference: 1% to 3% is normal for a small business site. Under 0.5% means
 something is broken. Usually the form. Sometimes the price, sometimes that the
 page never says what you actually do.
 

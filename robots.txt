@@ -1,5 +1,23 @@
 User-agent: *
 Allow: /
+
+# The API returns JSON to the site's own pages. Nothing under it is a
+# page, and a crawler that indexes /api/studio/articles has indexed a
+# login error.
 Disallow: /api/
+
+# The studio is the back office. It is behind a password, so a crawler
+# gets the sign-in screen — which is exactly the thin, duplicated page
+# that should never be in an index.
+Disallow: /studio.html
+Disallow: /studio
+
+# Preview pages for the build scripts. Real HTML, served by the host,
+# and not part of the site.
+Disallow: /tools/
+
+# A draft rendered for its author to read before it goes live. It also
+# carries <meta name="robots" content="noindex">; this saves the crawl.
+Disallow: /*?preview=
 
 Sitemap: https://web3ashley.com/sitemap.xml

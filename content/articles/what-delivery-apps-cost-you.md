@@ -51,7 +51,7 @@ Do not guess. Work these four numbers out.
 
 1. **Monthly orders through apps**, and average order value.
 2. **Total commission per month.** Orders × value × rate.
-3. **What direct ordering would cost.** Card processing is roughly 1.5–2.5%. A
+3. **What direct ordering would cost.** Card processing is roughly 1.5% to 2.5%. A
    hosted ordering system is typically a modest monthly fee, or a one-off build.
    Add delivery if you are not doing it yourself, using either your own driver or a
    courier on a per-drop rate, which is usually far below platform commission.

@@ -48,16 +48,16 @@ apology.
 
 ## Reading the score
 
-**5–6 yes.** Repair. You have a working site with specific problems. Fix them
+**5 or 6 yes.** Repair. You have a working site with specific problems. Fix them
 individually: the images, the copy, the one broken form. Spending on a rebuild
 buys you novelty, not results.
 
-**3–4 yes.** It depends, and the deciding factor is question 1. If you can edit
+**3 or 4 yes.** It depends, and the deciding factor is question 1. If you can edit
 it yourself and it is merely dated, repair and redesign the surface. If every
 change needs a developer, the cost of ownership will exceed a rebuild within
 about two years.
 
-**0–2 yes.** Rebuild. You are paying to maintain something that is not serving
+**2 or fewer yes.** Rebuild. You are paying to maintain something that is not serving
 you, and each patch is on foundations that will need replacing anyway.
 
 > The question is never "is this site good". It is "what does the next two

@@ -18,7 +18,9 @@
 import { json } from '../../../lib/respond.js';
 import { identify } from '../../../lib/auth.js';
 import { SCHEMA, SEED } from '../../../lib/seed.js';
-import { applyCorrections, applyEntryCorrections } from '../../../lib/corrections.js';
+import {
+  applyCorrections, applyEntryCorrections, applyArticleTouches,
+} from '../../../lib/corrections.js';
 
 /**
  * The columns the current schema adds after the tables exist.
@@ -168,6 +170,7 @@ export async function onRequestPost({ request, env }) {
   // edited since. The seed itself cannot do this: it inserts only where
   // nothing exists, precisely so it never walks over an edit.
   const corrected = await applyCorrections(env.DB);
+  const touched = await applyArticleTouches(env.DB);
 
   const after = await state(env.DB);
   return json({
@@ -176,6 +179,7 @@ export async function onRequestPost({ request, env }) {
     statements: SEED.length,
     corrected,
     moved,
+    touched,
     counts: after.counts,
   });
 }

@@ -150,6 +150,44 @@ function flatten(settings, entries) {
   return values;
 }
 
+/**
+ * The FAQ section, again, as structured data.
+ *
+ * The questions are already on the page and already come from D1. This
+ * says the same thing in the form Google reads, which is what makes them
+ * eligible to appear under the result rather than only on the page.
+ *
+ * Built from the same rows the section is built from, so a question
+ * edited in the studio cannot end up answered differently in the markup
+ * and in the schema — which is the failure mode of writing FAQ schema
+ * out by hand, and the one Google penalises.
+ */
+function faqLd(entries) {
+  const rows = (entries.faqs ?? [])
+    .map((r) => r.data)
+    .filter((d) => d?.question && d?.answer);
+  if (rows.length < 2) return '';
+  return (
+    '<script type="application/ld+json">' +
+    JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: rows.map((d) => ({
+        '@type': 'Question',
+        name: d.question,
+        acceptedAnswer: { '@type': 'Answer', text: d.answer },
+      })),
+    }).replace(/</g, '\\u003c') +
+    '</script>'
+  );
+}
+
+/** Puts a block of markup in just before </head>. */
+class HeadTail {
+  constructor(markup) { this.markup = markup; }
+  element(el) { if (this.markup) el.append(this.markup, { html: true }); }
+}
+
 export async function onRequestGet(context) {
   const { env, next } = context;
   const response = await next();
@@ -173,6 +211,7 @@ export async function onRequestGet(context) {
     .on('[data-cms]', new TextSlot(values))
     .on('[data-cms-attr]', new AttrSlot(values))
     .on('[data-cms-if]', new HideEmpty(values))
+    .on('head', new HeadTail(faqLd(entries)))
     .transform(new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } }));
 
   const headers = new Headers(response.headers);
