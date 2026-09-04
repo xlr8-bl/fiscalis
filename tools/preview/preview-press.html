@@ -13,8 +13,8 @@
 <h1>Screen: old hash vs measured halftone</h1><div class="row" id="a"></div>
 <h1>Grounds</h1><div class="row" id="b"></div>
 <script type="module">
-import { stipple } from './assets/js/flow.js';
-import { GROUNDS, GROUND_NAMES, halftone, grain, inkCoverage } from './assets/js/press.js';
+import { stipple } from '/assets/js/flow.js';
+import { GROUNDS, GROUND_NAMES, halftone, grain, inkCoverage } from '/assets/js/press.js';
 const img = await new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src='/assets/stock/src/portrait-bw.jpg';});
 function cell(parent,label,w,h,paint){
   const f=document.createElement('figure'),c=document.createElement('canvas'),cap=document.createElement('figcaption');

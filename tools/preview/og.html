@@ -1,0 +1,51 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>og</title>
+<style>html,body{margin:0;background:#111}canvas{display:block}</style></head><body>
+<canvas id="c"></canvas>
+<script type="module">
+import { loadFaces, fit, GROT, BLACK, BOOK } from '/assets/js/decks.js';
+import { GROUNDS } from '/assets/js/design-spec.js';
+import { grain } from '/assets/js/press.js';
+
+const W = 1200, H = 630, M = 76;
+const c = document.getElementById('c');
+c.width = W; c.height = H;
+const g = c.getContext('2d');
+await loadFaces();
+const S = GROUNDS.ink;
+
+g.fillStyle = S.ground; g.fillRect(0, 0, W, H);
+
+// the name, at the size the frame allows
+const nameSize = Math.min(96, fit(g, 'WEB3ASHLEY', W - M * 2, { family: BLACK, weight: 900, cap: 96 }));
+g.fillStyle = S.mark;
+g.font = `900 ${nameSize}px ${BLACK}`;
+g.letterSpacing = `${-nameSize * 0.03}px`;
+g.fillText('WEB3ASHLEY', M, 178);
+g.letterSpacing = '0px';
+
+// the positioning line, broken across the scale the hooks use
+const lines = ['I find what your business', 'is losing online.'];
+const big = Math.min(78, ...lines.map((l) => fit(g, l, W - M * 2, { family: BLACK, weight: 900, cap: 78 })));
+g.font = `900 ${big}px ${BLACK}`;
+g.letterSpacing = `${-big * 0.035}px`;
+lines.forEach((l, i) => {
+  g.fillStyle = i === lines.length - 1 ? S.accent : S.mark;
+  g.fillText(l, M, 306 + i * big * 0.94);
+});
+g.letterSpacing = '0px';
+
+g.fillStyle = S.mark;
+g.font = `500 27px ${BOOK}`;
+g.globalAlpha = 0.82;
+g.fillText('Then I build the thing that fixes it, and hand over the numbers that show it worked.', M, 486);
+g.globalAlpha = 1;
+
+g.fillStyle = S.accent;
+g.fillRect(M, 536, W - M * 2, 5);
+g.fillStyle = S.mark;
+g.font = `700 27px ${GROT}`;
+g.fillText('web3ashley.com', M, 590);
+
+grain(g, W, H);
+window.__og = c.toDataURL('image/jpeg', 0.92);
+</script></body></html>

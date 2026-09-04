@@ -98,9 +98,20 @@ async function answer(text = null) {
   );
 }
 page.on('console', (m) => {
-  if (m.type() === 'error' && !IGNORE.test(m.text())) problems.push('console: ' + m.text());
+  if (m.type() === 'error' && !IGNORE.test(m.text())) {
+    // the bare message says a resource 404'd but not which one; the
+    // location is the only place the URL survives
+    const at = m.location?.()?.url || '';
+    problems.push('console: ' + m.text() + (at ? ` <- ${at.replace(BASE, '')}` : ''));
+  }
 });
 page.on('pageerror', (e) => problems.push('pageerror: ' + e.message));
+// a bare "console: 404" says nothing about what is missing; name the URL
+page.on('response', (r) => {
+  if (r.status() >= 400 && !/\/api\/studio\/me/.test(r.url())) {
+    problems.push(`${r.status()} ${r.url().replace(BASE, '')}`);
+  }
+});
 page.on('requestfailed', (r) => {
   // a reload cancels whatever was in flight; that is not a broken request
   const why = r.failure()?.errorText || '';
@@ -579,6 +590,14 @@ await step('what this run made is cleaned up', async () => {
 
 // phone
 const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+phone.on('console', (m) => {
+  if (m.type() === 'error' && !IGNORE.test(m.text())) problems.push('phone console: ' + m.text());
+});
+phone.on('response', (r) => {
+  if (r.status() >= 400 && !/\/api\/studio\/me/.test(r.url())) {
+    problems.push(`phone ${r.status()} ${r.url().replace(BASE, '')}`);
+  }
+});
 phone.on('dialog', (d) => d.accept());
 await phone.goto(BASE + '/studio', { waitUntil: 'domcontentloaded' });
 await phone.fill('#st-pw', PASSWORD);

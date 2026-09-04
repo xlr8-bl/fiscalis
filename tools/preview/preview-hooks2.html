@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex">
-<title>Hooks III</title>
+<title>Hooks II</title>
 <style>
  :root{color-scheme:dark}
  body{margin:0;background:#141311;color:#e8e8e3;font:13px system-ui;padding:24px}
@@ -8,17 +8,15 @@
  .strip{display:flex;gap:12px;flex-wrap:wrap}
  figure{margin:0;flex:1 1 300px}
  canvas{width:100%;display:block;background:#000}
- figcaption{opacity:.55;font-size:11px;padding-top:6px}
- .bad{color:#ff6a4d}
+ figcaption{opacity:.5;font-size:11px;padding-top:6px}
 </style></head><body>
-<h1>Full-bleed photography</h1><div class="strip" id="s"></div>
+<h1>Five topics, five grounds</h1><div class="strip" id="s"></div>
 <script type="module">
-import { drawPanel, PANELS } from './assets/js/hooks3.js';
+import { drawPanel, PANELS } from '/assets/js/hooks2.js';
 for (let i=0;i<PANELS.length;i++){
   const f=document.createElement('figure'),c=document.createElement('canvas'),cap=document.createElement('figcaption');
   f.append(c,cap); document.getElementById('s').append(f);
-  const {fitted}=await drawPanel(c,i);
-  cap.textContent=`${i+1} — ${PANELS[i][0]}  ·  ${fitted.ratio}:1 veil ${fitted.alpha} ${fitted.passed?'PASS':'FAIL'}`;
-  if(!fitted.passed) cap.className='bad';
+  const {covered}=await drawPanel(c,i);
+  cap.textContent=`${i+1} — ${PANELS[i][0]}  ·  covered ${covered.toFixed(3)}`;
 }
 </script></body></html>
