@@ -115,5 +115,46 @@ ok('nothing claims to be read-only and destructive at once',
 ok('design_carousel takes panels, not slides',
    Boolean(byName.design_carousel?.inputSchema?.properties?.panels));
 
+/*
+ * The failure that actually happened in the field: the code shipped
+ * before the database had the columns, D1 raised SQLITE_ERROR, and the
+ * agent — given a raw driver error — decided the tool was broken and
+ * went off and designed the slides itself in a chat canvas. So what is
+ * tested here is not the SQL, it is what the agent is told.
+ */
+console.log('\na database that has not been set up');
+{
+  const missing = (sql) => {
+    const err = new Error('D1_ERROR: table slides has no column named design: SQLITE_ERROR');
+    return { prepare: () => ({ all: () => Promise.reject(err),
+                               bind: () => ({ run: () => Promise.reject(err) }),
+                               first: () => Promise.reject(err) }) };
+  };
+  const env = { DB: missing() };
+  const { hasDesignColumns, MIGRATION_MESSAGE, designQueue } =
+    await import('../lib/designer.js');
+
+  ok('the missing columns are detected rather than thrown',
+     (await hasDesignColumns(env)) === false);
+  ok('the message tells a person what to press',
+     /Set up/.test(MIGRATION_MESSAGE) && /studio/i.test(MIGRATION_MESSAGE));
+  ok('the message does not leak SQLITE_ERROR',
+     !/SQLITE|D1_ERROR/.test(MIGRATION_MESSAGE));
+  const q = await designQueue(env.DB);
+  ok('the queue says setup is needed rather than reporting nothing waiting',
+     Boolean(q.setup_needed) && q.carousels.length === 0);
+}
+
+console.log('\nthe instructions');
+{
+  const { INSTRUCTIONS } = await import('../lib/mcp.js');
+  ok('the agent is told not to design slides itself',
+     /do not design a slide yourself/i.test(INSTRUCTIONS));
+  ok('the agent is told not to render in a canvas',
+     /canvas/i.test(INSTRUCTIONS));
+  ok('design_carousel is named as the usual path',
+     /design_carousel for each/i.test(INSTRUCTIONS));
+}
+
 console.log(failed ? `\n${failed} failed\n` : '\nall good\n');
 process.exit(failed ? 1 : 0);

@@ -26,8 +26,8 @@ import {
 import { timingSafeEqual } from '../lib/auth.js';
 import { readToken, resourceUri, SCOPE } from '../lib/oauth.js';
 import { SITE } from '../lib/templates.js';
-import { designBrief, planDesign, fileDesign, designQueue, designStatus }
-  from '../lib/designer.js';
+import { designBrief, planDesign, fileDesign, designQueue, designStatus,
+         hasDesignColumns, MIGRATION_MESSAGE } from '../lib/designer.js';
 import {
   brief, agentQueue, getCarousel, listCarousels, setSlides,
   uniqueSlug, slugify, MIN_SLIDES, MAX_SLIDES,
@@ -344,6 +344,10 @@ async function runTool(name, args, env) {
       if (args.check === true) {
         return toolResult({ ok: true, checked_only: true, ...checked });
       }
+
+      // asked before the carousel row is created, so a database that has
+      // not been set up does not end up holding a plan with no slides
+      if (!(await hasDesignColumns(env))) return toolFailed(MIGRATION_MESSAGE);
 
       const slug = await uniqueSlug(db, args.slug || title);
       await db
