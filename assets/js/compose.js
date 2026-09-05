@@ -814,17 +814,34 @@ function drawBadge(ctx, slot, g) {
   const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
   const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
   const r = Math.min(w, h) / 2, cx = x + w / 2, cy = y + h / 2;
-  const solid = slot.solid !== false;
+  const ring = slot.ring !== false;
+  const solid = ring && slot.solid !== false;
   const c = ink(slot.fill ?? 'mark', g);
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, solid ? r : r - r * 0.12, 0, Math.PI * 2);
-  if (solid) { ctx.fillStyle = c; ctx.fill(); }
-  else { ctx.strokeStyle = c; ctx.lineWidth = r * 0.16; ctx.stroke(); }
+  if (ring) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, solid ? r : r - r * 0.12, 0, Math.PI * 2);
+    if (solid) { ctx.fillStyle = c; ctx.fill(); }
+    else { ctx.strokeStyle = c; ctx.lineWidth = r * 0.16; ctx.stroke(); }
+  }
 
   ctx.strokeStyle = ctx.fillStyle = solid ? ink(slot.on ?? 'ground', g) : c;
   ctx.lineWidth = r * 0.20;
-  if ((slot.icon ?? 'phone') === 'globe') {
+  const icon = slot.icon ?? 'phone';
+  if (icon === 'bookmark') {
+    // the save-for-later tag: a strip with a notch cut out of the foot
+    const bw = (ring ? r * 1.10 : w) * 0.72, bh = ring ? r * 1.40 : h;
+    ctx.lineWidth = Math.max(1.5, bh * 0.10);
+    ctx.lineJoin = 'miter';
+    ctx.beginPath();
+    ctx.moveTo(cx - bw / 2, cy - bh / 2);
+    ctx.lineTo(cx + bw / 2, cy - bh / 2);
+    ctx.lineTo(cx + bw / 2, cy + bh / 2);
+    ctx.lineTo(cx, cy + bh * 0.16);
+    ctx.lineTo(cx - bw / 2, cy + bh / 2);
+    ctx.closePath();
+    ctx.stroke();
+  } else if (icon === 'globe') {
     const k = r * 0.60;
     ctx.beginPath();
     ctx.arc(cx, cy, k, 0, Math.PI * 2);
@@ -848,6 +865,34 @@ function drawBadge(ctx, slot, g) {
     ctx.stroke();
     ctx.restore();
   }
+  ctx.restore();
+}
+
+/**
+ * An arrow: a shaft and an open head. Swipe, next, read on.
+ *
+ * Set as a character it is at the mercy of the face — Archivo's arrow is
+ * a different weight from its letters and Bodoni has none at all — and
+ * the references draw theirs at a weight that matches nothing in the
+ * text anyway.
+ */
+function drawArrow(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const cy = y + h / 2;
+  const head = Math.min(h, w * 0.35);
+  ctx.save();
+  ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
+  ctx.lineWidth = Math.max(2, h * (slot.weight ?? 0.16));
+  ctx.lineCap = slot.cap ?? 'butt';
+  ctx.lineJoin = 'miter';
+  ctx.beginPath();
+  ctx.moveTo(x, cy);
+  ctx.lineTo(x + w, cy);
+  ctx.moveTo(x + w - head, cy - head / 2);
+  ctx.lineTo(x + w, cy);
+  ctx.lineTo(x + w - head, cy + head / 2);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -1103,6 +1148,7 @@ const DRAW = {
   dial: (ctx, s, _c, g) => drawDial(ctx, s, g),
   star: (ctx, s, _c, g) => drawStar(ctx, s, g),
   badge: (ctx, s, _c, g) => drawBadge(ctx, s, g),
+  arrow: (ctx, s, _c, g) => drawArrow(ctx, s, g),
   wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
   frost: (ctx, s, c, g, _r, seed, spec) => drawFrost(ctx, s, c, g, spec, seed),
   reprint: (ctx, s, c, g, _r, _seed, spec) => drawReprint(ctx, s, c, g, spec),
