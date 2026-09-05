@@ -246,13 +246,30 @@ function drawType(ctx, slot, copy, g, report) {
     }
 
     // a span recolours one word without needing a second slot
-    const span = slot.spans?.[i] ?? (i === 0 ? slot.span : null);
-    if (span && line.includes(span.word)) {
+    let span = slot.spans?.[i] ?? (i === 0 ? slot.span : null);
+    // `last: n` picks out the final n words, so the device survives copy
+    // it was not measured with; naming a literal word only works once
+    if (span?.last && !span.word) {
+      const parts = line.trim().split(/\s+/);
+      span = { ...span, word: parts.slice(-span.last).join(' ') };
+    }
+    if (span?.word && line.includes(span.word)) {
       const at = line.indexOf(span.word);
       ctx.fillText(line, x, y);
       ctx.save();
       ctx.fillStyle = ink(span.fill, g);
       ctx.fillText(span.word, x + ctx.measureText(line.slice(0, at)).width, y);
+      ctx.restore();
+    } else if (slot.glass) {
+      /* Frosted letters over a photograph: a low white fill and a slightly
+         stronger edge, so the picture reads through them. Not an outline —
+         an outline draws a line, and this is a pane. */
+      ctx.save();
+      ctx.fillStyle = `rgba(255,255,255,${slot.glassFill ?? 0.13})`;
+      ctx.fillText(line, x, y);
+      ctx.strokeStyle = `rgba(255,255,255,${slot.glassEdge ?? 0.24})`;
+      ctx.lineWidth = Math.max(1, size * 0.012);
+      ctx.strokeText(line, x, y);
       ctx.restore();
     } else if (slot.outline) {
       /*
@@ -554,6 +571,15 @@ function drawArt(ctx, slot, img, g, report) {
     photoGround(ctx, img, { w, h, ox: x, oy: y, tint });
   }
   ctx.restore();
+
+  if (slot.darken) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.fillStyle = `rgba(0,0,0,${slot.darken})`;
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 /* ---------------------------------------------------------------- draw */
@@ -668,11 +694,33 @@ function drawGlobe(ctx, slot, g) {
   ctx.restore();
 }
 
+/** A soft wash: a radial or vertical gradient ground. */
+function drawWash(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const from = ink(slot.from ?? 'ground', g);
+  const to = ink(slot.to ?? 'ground', g);
+  let grad;
+  if (slot.axis === 'y') {
+    grad = ctx.createLinearGradient(x, y, x, y + h);
+  } else {
+    const cx = x + w * (slot.cx ?? 0.5), cy = y + h * (slot.cy ?? 0.5);
+    grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * (slot.spread ?? 0.7));
+  }
+  grad.addColorStop(0, from);
+  grad.addColorStop(1, to);
+  ctx.save();
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+}
+
 const DRAW = {
   rect: (ctx, s, _c, g) => drawRect(ctx, s, g),
   card: (ctx, s, _c, g) => drawCard(ctx, s, g),
   dots: (ctx, s, _c, g) => drawDots(ctx, s, g),
   globe: (ctx, s, _c, g) => drawGlobe(ctx, s, g),
+  wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
   grid: (ctx, s, _c, g) => drawGrid(ctx, s, g),
   barcode: (ctx, s, _c, g, _r, seed) => drawBarcode(ctx, s, g, seed),
 };
@@ -718,7 +766,15 @@ export function compose(ctx, spec, copy = {}, art = {}) {
       // pickPolarity returns a decision, not a colour: {colour, dark, mean}.
       // Passing the whole object to fitScrim, which wants a hex string,
       // is what "textHex.slice is not a function" was.
-      const polarity = pickPolarity(ctx, box, { light: g.ground, dark: g.mark });
+      /* A slot can pin its polarity. Measuring what is behind the type is
+         right when the picture is unknown; it is wrong when the sheet has
+         already decided — h005 is white on a darkened photograph, and
+         letting the measurement flip it to black over a bright frame
+         produces a different poster. `darken` on the art slot is what
+         makes the pinned choice safe. */
+      const polarity = slot.polarity === 'keep'
+        ? { colour: ink(slot.fill, g), dark: true }
+        : pickPolarity(ctx, box, { light: g.ground, dark: g.mark });
       fitScrim(ctx, box, polarity.colour, { dark: polarity.dark });
       drawType(ctx, { ...slot, fill: polarity.colour }, text, g, report);
       continue;
