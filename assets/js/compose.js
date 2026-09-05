@@ -261,16 +261,52 @@ function drawType(ctx, slot, copy, g, report) {
       ctx.fillText(span.word, x + ctx.measureText(line.slice(0, at)).width, y);
       ctx.restore();
     } else if (slot.glass) {
-      /* Frosted letters over a photograph: a low white fill and a slightly
-         stronger edge, so the picture reads through them. Not an outline —
-         an outline draws a line, and this is a pane. */
-      ctx.save();
-      ctx.fillStyle = `rgba(255,255,255,${slot.glassFill ?? 0.13})`;
-      ctx.fillText(line, x, y);
-      ctx.strokeStyle = `rgba(255,255,255,${slot.glassEdge ?? 0.24})`;
-      ctx.lineWidth = Math.max(1, size * 0.012);
-      ctx.strokeText(line, x, y);
-      ctx.restore();
+      /*
+       * Frosted glass: a BLURRED PANE of the picture underneath, masked by
+       * the letterforms, with a bevelled edge.
+       *
+       * Not filled type and not an outline. Filling the letters with white
+       * at low alpha veils the picture; a pane refracts it — the image is
+       * still there inside the letter, softened and lifted, and the edge
+       * catches light on one side and shadow on the other because the
+       * glass has thickness. That difference is the whole effect the sheet
+       * is teaching.
+       */
+      const pad = Math.ceil(size * 0.35);
+      const gx = Math.max(0, Math.floor(x - pad));
+      const gy = Math.max(0, Math.floor(y - size * 0.82 - pad));
+      const gw = Math.min(W - gx, Math.ceil(lw + pad * 2));
+      const gh = Math.min(H - gy, Math.ceil(size * 1.10 + pad * 2));
+      if (gw > 2 && gh > 2) {
+        const pane = new OffscreenCanvas(gw, gh);
+        const pc = pane.getContext('2d');
+        // the picture as seen through the glass
+        pc.filter = `blur(${Math.max(2, size * (slot.blur ?? 0.055))}px) `
+          + `brightness(${slot.lift ?? 1.16}) saturate(${slot.sat ?? 0.88})`;
+        // sampled slightly off, because glass displaces what is behind it
+        const sh = size * (slot.shift ?? 0.022);
+        pc.drawImage(ctx.canvas, gx, gy, gw, gh, -sh, -sh, gw + sh * 2, gh + sh * 2);
+        pc.filter = 'none';
+        // a touch of frost, so it reads as a surface rather than a smudge
+        pc.fillStyle = `rgba(255,255,255,${slot.frost ?? 0.10})`;
+        pc.fillRect(0, 0, gw, gh);
+        // the letters are the pane
+        pc.globalCompositeOperation = 'destination-in';
+        pc.font = ctx.font;
+        pc.textBaseline = 'alphabetic';
+        if (slot.track) pc.letterSpacing = `${slot.track * size}px`;
+        pc.fillStyle = '#fff';
+        pc.fillText(line, x - gx, y - gy);
+        // bevel: light up-left, shadow down-right, kept inside the letters
+        const off = Math.max(1, size * (slot.bevel ?? 0.012));
+        pc.globalCompositeOperation = 'source-atop';
+        pc.lineWidth = off * 1.6;
+        pc.strokeStyle = `rgba(255,255,255,${slot.bevelLight ?? 0.55})`;
+        pc.strokeText(line, x - gx - off, y - gy - off);
+        pc.strokeStyle = `rgba(0,0,0,${slot.bevelDark ?? 0.30})`;
+        pc.strokeText(line, x - gx + off, y - gy + off);
+        ctx.drawImage(pane, gx, gy);
+      }
     } else if (slot.outline) {
       /*
        * Type as an outline, which several sheets use over a photograph.
