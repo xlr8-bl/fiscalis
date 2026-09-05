@@ -161,9 +161,47 @@ def keyability(alpha: np.ndarray) -> float:
     return float(decided)
 
 
+def from_alpha(path: pathlib.Path, out_dir: pathlib.Path) -> list[dict] | None:
+    """A source that already carries alpha is trimmed, not keyed."""
+    im = Image.open(path)
+    if im.mode not in ("RGBA", "LA", "P") or "transparency" not in im.info \
+            and im.mode != "RGBA":
+        return None
+    im = im.convert("RGBA")
+    scale = MAX_EDGE / max(im.size)
+    if scale < 1:
+        im = im.resize((round(im.width * scale), round(im.height * scale)),
+                       Image.LANCZOS)
+    a = np.asarray(im)
+    alpha = a[..., 3].astype(np.float32) / 255
+    cover = float((alpha > 0.5).mean())
+    if cover < 0.03 or cover > 0.92:
+        return None                       # no alpha worth having, or none at all
+    ys, xs = np.where(alpha > 0.02)
+    if not ys.size:
+        return None
+    y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    sub = a[y0:y1, x0:x1]
+    score = keyability(alpha[y0:y1, x0:x1])
+    photo = photographic(sub[..., :3].astype(np.float32), alpha[y0:y1, x0:x1])
+    name = f"{path.stem}-01.png"
+    Image.fromarray(sub, "RGBA").save(out_dir / name)
+    return [{
+        "file": name, "source": path.name,
+        "bbox": [int(x0), int(y0), int(x1 - x0), int(y1 - y0)],
+        "area_share": round(cover, 4),
+        "keyability": round(score, 3), "photographic": photo,
+        "aspect": round((x1 - x0) / (y1 - y0), 3),
+        "had_alpha": True,
+    }]
+
+
 def extract(path: pathlib.Path, out_dir: pathlib.Path, *,
             tolerance: float, min_area: float, feather: float,
             max_objects: int) -> list[dict]:
+    got = from_alpha(path, out_dir)
+    if got is not None:
+        return got
     im = load(path)
     a = np.asarray(im, dtype=np.float32)
     h, w, _ = a.shape

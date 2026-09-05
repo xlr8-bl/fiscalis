@@ -368,65 +368,35 @@ function drawGrid(ctx, slot, g) {
  * not the consolation.
  */
 export const DRAWN = {
-  handset(ctx, { x, y, w, h, on }) {
-    const bw = w * 0.42, bh = h * 0.86;
-    const bx = x + (w - bw) / 2, by = y + (h - bh) / 2;
+  /*
+   * A loose stroke, for the sheets whose "picture" is a gesture rather
+   * than a thing: a painted swoosh behind a headline, a scribbled
+   * underline, a mark somebody made with one movement.
+   *
+   * Drawn rather than sourced because there is nothing to source. An
+   * archive has no photographs of a brush stroke that happen to run the
+   * width of a 1080x1350 sheet, and the one it returns for "paint stroke"
+   * is a photograph of a wall. It is also the one kind of art that must
+   * change with the sheet: the stroke exists to hold the type, so it has
+   * to be drawn to the box the type is in.
+   */
+  stroke(ctx, { x, y, w, h, on }) {
     ctx.save();
-    ctx.fillStyle = on;
-    // body
+    ctx.strokeStyle = on;
+    ctx.lineWidth = h * 0.30;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.roundRect?.(bx, by, bw, bh, bw * 0.18);
-    if (!ctx.roundRect) ctx.rect(bx, by, bw, bh);
-    ctx.fill();
-    // screen and keypad knocked back out
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillRect(bx + bw * 0.14, by + bh * 0.09, bw * 0.72, bh * 0.30);
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 3; c++) {
-        ctx.beginPath();
-        ctx.ellipse(bx + bw * (0.26 + c * 0.24), by + bh * (0.52 + r * 0.10),
-                    bw * 0.085, bh * 0.030, 0, 0, 7);
-        ctx.fill();
-      }
-    }
+    ctx.moveTo(x + w * 0.02, y + h * 0.30);
+    ctx.bezierCurveTo(x + w * 0.30, y - h * 0.10,
+                      x + w * 0.62, y + h * 0.62,
+                      x + w * 0.98, y + h * 0.22);
+    ctx.bezierCurveTo(x + w * 0.72, y + h * 1.05,
+                      x + w * 0.28, y + h * 0.55,
+                      x + w * 0.06, y + h * 0.92);
+    ctx.stroke();
     ctx.restore();
   },
-  crt(ctx, { x, y, w, h, on }) {
-    const cw = Math.min(w * 0.86, h * 0.98);
-    // bottom-aligned with the rest of the row rather than centred in its
-    // own cell, which is what made it look dropped in from another sheet
-    const cx = x + (w - cw) / 2, cy = y + h - cw * 0.90;
-    ctx.save();
-    ctx.fillStyle = on;
-    ctx.beginPath();
-    ctx.roundRect?.(cx, cy, cw, cw * 0.72, cw * 0.06);
-    if (!ctx.roundRect) ctx.rect(cx, cy, cw, cw * 0.72);
-    ctx.fill();
-    ctx.fillRect(cx + cw * 0.30, cy + cw * 0.72, cw * 0.40, cw * 0.09);
-    ctx.fillRect(cx + cw * 0.16, cy + cw * 0.81, cw * 0.68, cw * 0.06);
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath();
-    ctx.roundRect?.(cx + cw * 0.08, cy + cw * 0.07, cw * 0.84, cw * 0.52, cw * 0.04);
-    if (!ctx.roundRect) ctx.rect(cx + cw * 0.08, cy + cw * 0.07, cw * 0.84, cw * 0.52);
-    ctx.fill();
-    ctx.restore();
-  },
-  phone(ctx, { x, y, w, h, on }) {
-    const bw = w * 0.36, bh = h * 0.9;
-    const bx = x + (w - bw) / 2, by = y + (h - bh) / 2;
-    ctx.save();
-    ctx.fillStyle = on;
-    ctx.beginPath();
-    ctx.roundRect?.(bx, by, bw, bh, bw * 0.14);
-    if (!ctx.roundRect) ctx.rect(bx, by, bw, bh);
-    ctx.fill();
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath();
-    ctx.roundRect?.(bx + bw * 0.07, by + bh * 0.05, bw * 0.86, bh * 0.86, bw * 0.08);
-    if (!ctx.roundRect) ctx.rect(bx + bw * 0.07, by + bh * 0.05, bw * 0.86, bh * 0.86);
-    ctx.fill();
-    ctx.restore();
-  },
+
 };
 
 /**
@@ -441,7 +411,7 @@ export const DRAWN = {
 function drawObjects(ctx, slot, g, kinds) {
   const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
   const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
-  const list = (kinds ?? ['phone']).slice(0, 4);
+  const list = (kinds ?? ['stroke']).slice(0, 4);
   const cw = w / list.length;
 
   // drawn onto their own surface first, so the screen can be applied to
@@ -449,7 +419,7 @@ function drawObjects(ctx, slot, g, kinds) {
   const pad = new OffscreenCanvas(Math.ceil(w), Math.ceil(h));
   const p2 = pad.getContext('2d');
   list.forEach((kind, i) => {
-    const fn = DRAWN[kind] ?? DRAWN.phone;
+    const fn = DRAWN[kind] ?? DRAWN.stroke;
     fn(p2, { x: i * cw, y: 0, w: cw, h, on: '#000000' });
   });
 
@@ -481,6 +451,20 @@ function drawObjects(ctx, slot, g, kinds) {
 }
 
 function drawArt(ctx, slot, img, g, report) {
+  // a row: several cut-outs across one box, bottom-aligned to a common
+  // baseline so they read as a set rather than as loose icons
+  if (Array.isArray(img)) {
+    const bx = px.x(slot.box[0]), by = px.y(slot.box[1]);
+    const bw = px.w(slot.box[2]), bh = px.h(slot.box[3]);
+    const gap = bw * (slot.gap ?? 0.05);
+    const cell = (bw - gap * (img.length - 1)) / img.length;
+    img.forEach((im, i) => {
+      const s = Math.min(cell / im.width, bh / im.height);
+      const w = im.width * s, h = im.height * s;
+      ctx.drawImage(im, bx + i * (cell + gap) + (cell - w) / 2, by + bh - h, w, h);
+    });
+    return;
+  }
   const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
   const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
 
@@ -508,9 +492,15 @@ function drawArt(ctx, slot, img, g, report) {
   }
 
   if (slot.treat === 'halftone') {
+    // A screen lays ink in proportion to darkness, so a high-key
+    // photograph — which is most of what a stock search returns — comes
+    // through as a few small dots and reads as an empty box. Stretching
+    // the range is not enough on its own when the range is genuinely
+    // narrow, so a slot can ask for more contrast than the photograph has.
     ctx.drawImage(halftone(img, {
       w, h, pitch: slot.pitch ? px.h(slot.pitch) : pitchFor(h),
-      angle: 0.26, ink: g.photo, paper: g.ground, gamma: 0.78,
+      angle: 0.26, ink: g.photo, paper: g.ground,
+      gamma: slot.gamma ?? 0.78, contrast: slot.contrast ?? 1.15,
     }), x, y);
     return;
   }

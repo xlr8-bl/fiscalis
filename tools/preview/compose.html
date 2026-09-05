@@ -13,6 +13,7 @@ import { compose, W, H, FACES } from '/assets/js/compose.js';
 import { LAYOUTS, MEASURED, brief } from '/lib/hooks/layouts.js';
 import { EXAMPLES, sample } from '/lib/hooks/examples.js';
 import { resolveArt } from '/lib/hooks/art.js';
+import { CUTOUTS } from '/lib/hooks/cutouts.js';
 import { STOCK } from '/lib/hooks/stock.js';
 
 const ctx = document.getElementById('c').getContext('2d', { willReadFrequently: true });
@@ -38,6 +39,7 @@ window.EXAMPLES = EXAMPLES;
 
 /* n picks which of the layout's examples to draw, so the range can be
    seen rather than asserted. */
+const seedOf = (s) => [...s].reduce((h, c) => (h * 33 + c.charCodeAt(0)) >>> 0, 5381);
 window.render = async (id, n = 0) => {
   const spec = LAYOUTS[id];
   if (!spec) throw new Error(`no layout ${id}`);
@@ -49,9 +51,10 @@ window.render = async (id, n = 0) => {
   const art = {};
   const used = {};
   for (const slot of spec.slots.filter((x) => x.t === 'art')) {
-    const got = resolveArt(slot, { own: window.OWN ?? {}, stock: STOCK, seed: n + 1 });
+    const got = resolveArt(slot, { own: window.OWN ?? {}, stock: STOCK, cut: CUTOUTS, seed: seedOf(id) + n });
     used[slot.id] = got.from;
-    if (got.url) art[slot.id] = await get(got.url);
+    if (got.urls?.length > 1) art[slot.id] = await Promise.all(got.urls.map(get));
+    else if (got.url) art[slot.id] = await get(got.url);
   }
   ctx.clearRect(0, 0, W, H);
   const report = compose(ctx, spec, copy, art);
