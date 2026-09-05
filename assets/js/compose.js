@@ -630,9 +630,13 @@ function drawArt(ctx, slot, img, g, report) {
      * meant to move onto one palette together — so a slot says which of
      * the ground's own colours to print in and the pair is resolved here.
      */
+    /* photoGround takes [dark, light]. `ground` is that pair on a light
+       sheet and inverted on a dark one, so a dark ground names `field`
+       instead and gets its own colour as the shadow. */
     const tint = slot.tint === 'ground' ? [g.mark, g.ground]
-      : slot.tint === 'accent' ? [g.mark, g.accent]
-        : Array.isArray(slot.tint) ? slot.tint : null;
+      : slot.tint === 'field' ? [g.ground, g.mark]
+        : slot.tint === 'accent' ? [g.mark, g.accent]
+          : Array.isArray(slot.tint) ? slot.tint : null;
     photoGround(ctx, img, { w, h, ox: x, oy: y, tint, key: slot.key ?? 0,
                             contrast: slot.contrast ?? 1.0 });
   }
@@ -790,6 +794,59 @@ function drawStar(ctx, slot, g) {
     ctx.moveTo(cx - Math.cos(a) * r, cy - Math.sin(a) * r);
     ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
     ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
+ * A contact badge: a small disc with a phone or a globe in it.
+ *
+ * The contact rows along the foot of a dozen references are a 14px icon
+ * and a line of figures. Set as characters they are at the mercy of
+ * whatever emoji font the machine happens to have, which in a headless
+ * render is usually nothing at all — so the two shapes that actually
+ * appear are drawn.
+ *
+ * `solid` fills the disc and knocks the shape out of it; otherwise the
+ * disc is a ring and the shape is drawn in the same colour.
+ */
+function drawBadge(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const r = Math.min(w, h) / 2, cx = x + w / 2, cy = y + h / 2;
+  const solid = slot.solid !== false;
+  const c = ink(slot.fill ?? 'mark', g);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, solid ? r : r - r * 0.12, 0, Math.PI * 2);
+  if (solid) { ctx.fillStyle = c; ctx.fill(); }
+  else { ctx.strokeStyle = c; ctx.lineWidth = r * 0.16; ctx.stroke(); }
+
+  ctx.strokeStyle = ctx.fillStyle = solid ? ink(slot.on ?? 'ground', g) : c;
+  ctx.lineWidth = r * 0.20;
+  if ((slot.icon ?? 'phone') === 'globe') {
+    const k = r * 0.60;
+    ctx.beginPath();
+    ctx.arc(cx, cy, k, 0, Math.PI * 2);
+    ctx.moveTo(cx - k, cy); ctx.lineTo(cx + k, cy);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, k * 0.48, k, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    /* A handset is one thick round-capped arc turned 45 degrees. Drawing
+       the ear-piece, the mouth-piece and the bar between them separately
+       is the right shape and the wrong scale — at the 20px these badges
+       actually render it collapses into a squiggle. */
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-Math.PI / 4);
+    ctx.lineCap = 'round';
+    ctx.lineWidth = r * 0.34;
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.22, r * 0.50, Math.PI * 0.18, Math.PI * 0.82);
+    ctx.stroke();
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -1045,6 +1102,7 @@ const DRAW = {
   globe: (ctx, s, _c, g) => drawGlobe(ctx, s, g),
   dial: (ctx, s, _c, g) => drawDial(ctx, s, g),
   star: (ctx, s, _c, g) => drawStar(ctx, s, g),
+  badge: (ctx, s, _c, g) => drawBadge(ctx, s, g),
   wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
   frost: (ctx, s, c, g, _r, seed, spec) => drawFrost(ctx, s, c, g, spec, seed),
   reprint: (ctx, s, c, g, _r, _seed, spec) => drawReprint(ctx, s, c, g, spec),
