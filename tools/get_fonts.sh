@@ -37,5 +37,7 @@ grab 'Archivo:wght@100..900' archivo-var.woff2
 grab 'Bricolage+Grotesque:wght@200..800' bricolage-var.woff2
 # The rounded fat face the Y2K collage sheets shout in.
 grab 'Bagel+Fat+One' bagel-fat.woff2
+# The felt-tip the risograph sheets write their turn line in.
+grab 'Gochi+Hand' gochi-hand.woff2
 # A brush script, for the two sheets that turn on one.
 grab 'Yellowtail' yellowtail.woff2

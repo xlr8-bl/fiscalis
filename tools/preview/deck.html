@@ -1,34 +1,25 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>compose</title>
+<html lang="en"><head><meta charset="utf-8"><title>decks</title>
 <style>body{margin:0;background:#101010;display:grid;place-items:center;min-height:100vh}
 canvas{width:432px;height:540px}</style></head>
 <body><canvas id="c" width="1080" height="1350"></canvas>
 <script type="module">
 /*
- * Drives lib/hooks/layouts.js through assets/js/compose.js.
- * The browser is required: the layout engine measures with the real
- * font metrics and the halftone works on decoded pixels.
+ * Drives lib/hooks/decks.js. Same engine as compose.html; the only
+ * difference is that a slide names its layout instead of being one, and
+ * the layout may come from either file — measured hooks from
+ * layouts.js, invented inside slides from inside.js.
  */
-import { compose, W, H, FACES } from '/assets/js/compose.js';
-import { LAYOUTS, MEASURED, brief } from '/lib/hooks/layouts.js';
-import { EXAMPLES, sample } from '/lib/hooks/examples.js';
+import { compose, W, H } from '/assets/js/compose.js';
+import { LAYOUTS } from '/lib/hooks/layouts.js';
+import { INSIDE } from '/lib/hooks/inside.js';
+import { DECKS, DECK_IDS } from '/lib/hooks/decks.js';
 import { resolveArt } from '/lib/hooks/art.js';
 import { CUTOUTS } from '/lib/hooks/cutouts.js';
 import { STOCK } from '/lib/hooks/stock.js';
 
 const ctx = document.getElementById('c').getContext('2d', { willReadFrequently: true });
 
-/*
- * Each face registers the weights it actually carries.
- *
- * A FontFace with no weight descriptor is registered at 400, so every
- * `weight: '700'` in a layout was being FAUX-BOLDED on top of a file that
- * was already bold — Bricolage's own weight class is 800 — and the whole
- * corpus rendered a stop heavier and blunter than the references. The
- * three faces layouts ask for more than one weight of are the variable
- * cuts; the single-weight files declare the one weight they hold, so a
- * layout asking for it gets the outline instead of a synthesis.
- */
 const FILES = {
   Bricolage: ['bricolage-var.woff2', { weight: '200 800' }],
   Outfit: ['outfit-var.woff2', { weight: '100 900' }],
@@ -54,33 +45,30 @@ const get = (src) => new Promise((res) => {
   im.onload = () => res(im); im.onerror = () => res(null); im.src = src;
 });
 
-window.IDS = MEASURED;
-window.BRIEF = brief;
+window.DECK_IDS = DECK_IDS;
+window.LENGTHS = Object.fromEntries(DECK_IDS.map((k) => [k, DECKS[k].slides.length]));
 
-window.EXAMPLES = EXAMPLES;
-
-/* n picks which of the layout's examples to draw, so the range can be
-   seen rather than asserted. */
 const seedOf = (s) => [...s].reduce((h, c) => (h * 33 + c.charCodeAt(0)) >>> 0, 5381);
-window.render = async (id, n = 0) => {
-  const spec = LAYOUTS[id];
-  if (!spec) throw new Error(`no layout ${id}`);
-  const copy = (EXAMPLES[id]?.[n]) ?? sample(id);
-  /* Pictures come from the resolver, never from the spec. `own` is
-     empty until Ashley's photographs are tagged in the studio, at which
-     point every layout asking for that role picks them up here with no
-     other change anywhere. */
+
+window.slide = async (deckId, n) => {
+  const deck = DECKS[deckId];
+  const s = deck.slides[n];
+  const base = LAYOUTS[s.layout] ?? INSIDE[s.layout];
+  if (!base) throw new Error(`no layout ${s.layout}`);
+  /* A slide may move a device onto another ground without a second
+     layout — that is the only thing a deck is allowed to override. */
+  const spec = s.ground ? { ...base, ground: s.ground } : base;
   const art = {};
-  const used = {};
+  /* Seeded per slide, so two `plate` slides in one deck do not resolve
+     to the same photograph. */
+  const seed = seedOf(deckId) + n * 7919;
   for (const slot of spec.slots.filter((x) => x.t === 'art')) {
-    const got = resolveArt(slot, { own: window.OWN ?? {}, stock: STOCK, cut: CUTOUTS, seed: seedOf(id) + n });
-    used[slot.id] = got.from;
+    const got = resolveArt(slot, { own: window.OWN ?? {}, stock: STOCK, cut: CUTOUTS, seed });
     if (got.urls?.length > 1) art[slot.id] = await Promise.all(got.urls.map(get));
     else if (got.url) art[slot.id] = await get(got.url);
   }
   ctx.clearRect(0, 0, W, H);
-  const report = compose(ctx, spec, copy, art);
-  return { url: ctx.canvas.toDataURL('image/jpeg', 0.92), ...report, art: used };
+  const report = compose(ctx, { ...spec, seed }, s.copy, art);
+  return { url: ctx.canvas.toDataURL('image/jpeg', 0.92), ...report, layout: s.layout };
 };
-void FACES;
 </script></body></html>

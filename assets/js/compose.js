@@ -61,6 +61,7 @@ export const FACES = {
   didoneItalic: 'BodoniItalic',  // and their turn lines
   italic: 'InstrumentItalic',    // a quieter italic
   script: 'Script',              // the brush sheets
+  marker: 'Gochi',               // the felt-tip on the risograph sheets
   pixel: 'PixelDisplay',         // the wordmark, and nothing else
 };
 
@@ -637,7 +638,12 @@ function drawArt(ctx, slot, img, g, report) {
     const tint = slot.tint === 'ground' ? [g.mark, g.ground]
       : slot.tint === 'field' ? [g.ground, g.mark]
         : slot.tint === 'accent' ? [g.mark, g.accent]
-          : Array.isArray(slot.tint) ? slot.tint : null;
+        /* `print` is one ink on the paper — the accent in the shadows and
+           the ground in the highlights, with no black anywhere. It is what
+           a risograph actually does, and `ground` on those sheets prints a
+           colour photograph in black on yellow instead. */
+          : slot.tint === 'print' ? [g.accent, g.ground]
+            : Array.isArray(slot.tint) ? slot.tint : null;
     photoGround(ctx, img, { w, h, ox: x, oy: y, tint, key: slot.key ?? 0,
                             contrast: slot.contrast ?? 1.0 });
   }
@@ -969,6 +975,28 @@ function drawRings(ctx, slot, g) {
 }
 
 /**
+ * A rounded rectangle outline. The rubber stamp on the zine sheets.
+ */
+function drawFrame(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const r = px.h(slot.r ?? 0.020);
+  ctx.save();
+  ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
+  ctx.lineWidth = Math.max(2, px.h(slot.weight ?? 0.004));
+  if (slot.dash) ctx.setLineDash([px.h(slot.dash), px.h(slot.dash) * 0.7]);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
  * A pill outline with a line of type in it. The handle on a collage.
  */
 function drawPill(ctx, slot, copy, g) {
@@ -1194,18 +1222,31 @@ function drawBurst(ctx, slot, g, seed) {
   const cx = x + w / 2, cy = y + h / 2;
   const n = slot.points ?? 11;
   const rnd = rng(seed ^ 0x5eed);
+  /* `inner` is how far the notches cut in. At 0.34 it is a starburst; at
+     0.44 it is the wobbly hand-drawn outline the zine sheets ring a word
+     with, which is the same construction with the teeth taken out. */
+  const lo = slot.inner ?? 0.34;
+  const jitter = slot.jitter ?? 0.4;
   ctx.save();
-  ctx.fillStyle = ink(slot.fill ?? 'mark', g);
   ctx.beginPath();
   for (let i = 0; i < n * 2; i++) {
     const t = (i / (n * 2)) * Math.PI * 2;
-    const r = (i % 2 ? 0.34 : 0.5) * (0.8 + rnd() * 0.4);
+    const r = (i % 2 ? lo : 0.5) * (1 - jitter / 2 + rnd() * jitter);
     const px2 = cx + Math.cos(t) * w * r;
     const py2 = cy + Math.sin(t) * h * r;
     if (i === 0) ctx.moveTo(px2, py2); else ctx.lineTo(px2, py2);
   }
   ctx.closePath();
-  ctx.fill();
+  if (slot.bg) { ctx.fillStyle = ink(slot.bg, g); ctx.fill(); }
+  if (slot.outline) {
+    ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
+    ctx.lineWidth = Math.max(1.5, Math.min(w, h) * (slot.weight ?? 0.02));
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = ink(slot.fill ?? 'mark', g);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -1245,6 +1286,7 @@ const DRAW = {
   sparkle: (ctx, s, _c, g) => drawSparkle(ctx, s, g),
   rings: (ctx, s, _c, g) => drawRings(ctx, s, g),
   pill: (ctx, s, c, g) => drawPill(ctx, s, c, g),
+  frame: (ctx, s, _c, g) => drawFrame(ctx, s, g),
   wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
   frost: (ctx, s, c, g, _r, seed, spec) => drawFrost(ctx, s, c, g, spec, seed),
   reprint: (ctx, s, c, g, _r, _seed, spec) => drawReprint(ctx, s, c, g, spec),
