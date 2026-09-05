@@ -501,6 +501,7 @@ function drawArt(ctx, slot, img, g, report) {
       w, h, pitch: slot.pitch ? px.h(slot.pitch) : pitchFor(h),
       angle: 0.26, ink: g.photo, paper: g.ground,
       gamma: slot.gamma ?? 0.78, contrast: slot.contrast ?? 1.15,
+      target: slot.target ?? 0.52,
     }), x, y);
     return;
   }

@@ -54,8 +54,15 @@ export { GROUNDS, GROUND_NAMES } from './design-spec.js';
  */
 export function halftone(img, { w, h, pitch = 16, angle = 0.26,
                                 ink = '#141310', contrast = 1.0,
-                                levels = true,
+                                levels = true, target = null,
                                 gamma = 0.78, ox = 0, oy = 0 } = {}) {
+  /* Whole pixels. A canvas truncates a fractional width, while
+     getImageData rounds one UP, so the buffer's row stride and the `w`
+     used to index it disagreed and every read landed in the wrong row.
+     It failed silently as an empty screen, and only for boxes that are
+     not a whole number of pixels — which is most of them. */
+  w = Math.max(1, Math.round(w));
+  h = Math.max(1, Math.round(h));
   const src = document.createElement('canvas');
   src.width = w; src.height = h;
   const sg = src.getContext('2d');
@@ -114,12 +121,34 @@ export function halftone(img, { w, h, pitch = 16, angle = 0.26,
   }
   const span = hi - lo || 1;
 
+  /* A screen prints ink where the photograph is dark, so a low-key source
+     fills the sheet with ink and the paper disappears. `target` puts the
+     median tone where it has to be for the sheet to read as ink on paper
+     rather than paper on ink; it is a printing decision, not a filter. */
+  let shift = 0;
+  if (levels && target != null) {
+    const hist2 = new Uint32Array(64);
+    let n2 = 0;
+    for (let i = 0; i < px.length; i += 16) {
+      if (px[i + 3] < 8) continue;
+      const raw = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
+      hist2[Math.min(63, (((raw - lo) / span) * 64) | 0)]++;
+      n2++;
+    }
+    let seen = 0, med = 0.5;
+    for (let b2 = 0; b2 < 64; b2++) {
+      seen += hist2[b2];
+      if (seen >= n2 / 2) { med = b2 / 63; break; }
+    }
+    shift = target - med;
+  }
+
   const lumAt = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return 1;
     const i = (y * w + x) * 4;
     if (px[i + 3] < 8) return 1;
     const raw = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
-    const l = (raw - lo) / span;
+    const l = (raw - lo) / span + shift;
     return Math.min(1, Math.max(0, (l - 0.5) * contrast + 0.5));
   };
 
