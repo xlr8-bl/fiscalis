@@ -53,6 +53,7 @@ export const FACES = {
   display: 'Bricolage',          // geometric heavy: most statements
   geometric: 'Outfit',           // the circular geometric the agency sheets set
   black: 'ArchivoBlack',         // when one word IS the sheet
+  fat: 'BagelFat',               // the rounded fat face the collage sheets shout in
   condensed: 'Anton',            // long line, still huge
   grotesque: 'Archivo',          // subheads, labels, UI
   body: 'Inter',                 // anything you actually read
@@ -896,6 +897,98 @@ function drawArrow(ctx, slot, g) {
   ctx.restore();
 }
 
+/**
+ * A four-point sparkle, drawn as a concave star.
+ *
+ * The Y2K-collage sheets in the corpus put these in the corners and
+ * beside a headline. `pinch` is how far the waist is pulled in — at 0.5
+ * it is a diamond, near 0.12 it is the long thin cross these use.
+ * `outline` draws it as a hairline instead of a solid.
+ */
+function drawSparkle(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const cx = x + w / 2, cy = y + h / 2, rx = w / 2, ry = h / 2;
+  const k = slot.pinch ?? 0.16;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - ry);
+  ctx.quadraticCurveTo(cx + rx * k, cy - ry * k, cx + rx, cy);
+  ctx.quadraticCurveTo(cx + rx * k, cy + ry * k, cx, cy + ry);
+  ctx.quadraticCurveTo(cx - rx * k, cy + ry * k, cx - rx, cy);
+  ctx.quadraticCurveTo(cx - rx * k, cy - ry * k, cx, cy - ry);
+  ctx.closePath();
+  if (slot.outline) {
+    ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
+    ctx.lineWidth = Math.max(1.5, Math.min(w, h) * (slot.weight ?? 0.045));
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = ink(slot.fill ?? 'mark', g);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/**
+ * A row of overlapping outlines: plain ellipses, or faces.
+ *
+ * Two of the collage sheets sign a line with three rings sliding into
+ * each other, and one answers it with three expressions in the same
+ * shape. Same geometry, so one primitive: `face` adds eyes and a mouth,
+ * and the mouth alternates so the row reads as a mood changing.
+ */
+function drawRings(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const n = slot.count ?? 3;
+  const overlap = slot.overlap ?? 0.42;
+  const rx = w / (n - (n - 1) * overlap) / 2, ry = h / 2;
+  const cy = y + ry;
+  ctx.save();
+  ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
+  ctx.lineWidth = Math.max(1.5, ry * (slot.weight ?? 0.10));
+  ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const cx = x + rx + i * rx * 2 * (1 - overlap);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    if (!slot.face) continue;
+    const e = rx * 0.30, up = i % 2 === 0 ? 1 : -1;
+    ctx.beginPath();
+    ctx.moveTo(cx - e, cy - ry * 0.34); ctx.lineTo(cx - e, cy - ry * 0.02);
+    ctx.moveTo(cx + e, cy - ry * 0.34); ctx.lineTo(cx + e, cy - ry * 0.02);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy + ry * (up > 0 ? 0.10 : 0.62), rx * 0.44,
+            up > 0 ? 0.15 * Math.PI : 1.15 * Math.PI,
+            up > 0 ? 0.85 * Math.PI : 1.85 * Math.PI);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
+ * A pill outline with a line of type in it. The handle on a collage.
+ */
+function drawPill(ctx, slot, copy, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const r = h / 2;
+  ctx.save();
+  ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
+  ctx.lineWidth = Math.max(1.5, h * (slot.weight ?? 0.07));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
 /** A wireframe sphere: latitude and longitude, no fill. Corpus furniture. */
 function drawGlobe(ctx, slot, g) {
   const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
@@ -1149,6 +1242,9 @@ const DRAW = {
   star: (ctx, s, _c, g) => drawStar(ctx, s, g),
   badge: (ctx, s, _c, g) => drawBadge(ctx, s, g),
   arrow: (ctx, s, _c, g) => drawArrow(ctx, s, g),
+  sparkle: (ctx, s, _c, g) => drawSparkle(ctx, s, g),
+  rings: (ctx, s, _c, g) => drawRings(ctx, s, g),
+  pill: (ctx, s, c, g) => drawPill(ctx, s, c, g),
   wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
   frost: (ctx, s, c, g, _r, seed, spec) => drawFrost(ctx, s, c, g, spec, seed),
   reprint: (ctx, s, c, g, _r, _seed, spec) => drawReprint(ctx, s, c, g, spec),
