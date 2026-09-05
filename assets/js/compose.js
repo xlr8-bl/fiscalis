@@ -923,6 +923,52 @@ function drawReprint(ctx, slot, copy, g, spec) {
   ctx.drawImage(pane, 0, 0);
 }
 
+/** A starburst: a scribbled radiating mark, the kind stuck beside a word. */
+function drawBurst(ctx, slot, g, seed) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const cx = x + w / 2, cy = y + h / 2;
+  const n = slot.points ?? 11;
+  const rnd = rng(seed ^ 0x5eed);
+  ctx.save();
+  ctx.fillStyle = ink(slot.fill ?? 'mark', g);
+  ctx.beginPath();
+  for (let i = 0; i < n * 2; i++) {
+    const t = (i / (n * 2)) * Math.PI * 2;
+    const r = (i % 2 ? 0.34 : 0.5) * (0.8 + rnd() * 0.4);
+    const px2 = cx + Math.cos(t) * w * r;
+    const py2 = cy + Math.sin(t) * h * r;
+    if (i === 0) ctx.moveTo(px2, py2); else ctx.lineTo(px2, py2);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A waveform: the readout line several sheets use as a small mark. */
+function drawWave(ctx, slot, g, seed) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const n = slot.steps ?? 40;
+  const rnd = rng(seed ^ 0x77a1);
+  ctx.save();
+  ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
+  ctx.lineWidth = Math.max(1.5, h * 0.06);
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    // quiet at the ends, loud in the middle, which is what a readout does
+    const env = Math.sin(Math.PI * t) ** 1.6;
+    const v = (rnd() - 0.5) * 2 * env;
+    const px2 = x + t * w;
+    const py2 = y + h / 2 + v * h * 0.5;
+    if (i === 0) ctx.moveTo(px2, py2); else ctx.lineTo(px2, py2);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 const DRAW = {
   rect: (ctx, s, _c, g) => drawRect(ctx, s, g),
   card: (ctx, s, _c, g) => drawCard(ctx, s, g),
@@ -931,6 +977,8 @@ const DRAW = {
   wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
   frost: (ctx, s, c, g, _r, seed, spec) => drawFrost(ctx, s, c, g, spec, seed),
   reprint: (ctx, s, c, g, _r, _seed, spec) => drawReprint(ctx, s, c, g, spec),
+  burst: (ctx, s, _c, g, _r, seed) => drawBurst(ctx, s, g, seed),
+  wave: (ctx, s, _c, g, _r, seed) => drawWave(ctx, s, g, seed),
   grid: (ctx, s, _c, g) => drawGrid(ctx, s, g),
   barcode: (ctx, s, _c, g, _r, seed) => drawBarcode(ctx, s, g, seed),
 };
