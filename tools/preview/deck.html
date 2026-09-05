@@ -55,9 +55,14 @@ window.slide = async (deckId, n) => {
   const s = deck.slides[n];
   const base = LAYOUTS[s.layout] ?? INSIDE[s.layout];
   if (!base) throw new Error(`no layout ${s.layout}`);
-  /* A slide may move a device onto another ground without a second
-     layout — that is the only thing a deck is allowed to override. */
-  const spec = s.ground ? { ...base, ground: s.ground } : base;
+  /* A slide may move a device onto another ground, and may tweak named
+     slots — a night subject wants the plate darker than the layout's
+     default and that is not worth a second layout. Copy and geometry
+     still come from the layout. */
+  let spec = s.ground ? { ...base, ground: s.ground } : base;
+  if (s.tweak) {
+    spec = { ...spec, slots: spec.slots.map((x) => (s.tweak[x.id] ? { ...x, ...s.tweak[x.id] } : x)) };
+  }
   const art = {};
   /* Seeded per slide, so two `plate` slides in one deck do not resolve
      to the same photograph. */

@@ -23,12 +23,16 @@
  * darkening it until it does turns it to brick.
  */
 export const GROUNDS = {
-  paper: { ground: '#EFEDE7', mark: '#141310', accent: '#E0331F', photo: '#141310', ratio: 15.87, body: true },
-  ink:   { ground: '#141310', mark: '#EFEDE7', accent: '#E0331F', photo: '#EFEDE7', ratio: 15.87, body: true },
-  red:   { ground: '#E0331F', mark: '#140B08', accent: '#F2E4C9', photo: '#140B08', ratio: 4.31, body: false },
-  blue:  { ground: '#1843BE', mark: '#F2F0E8', accent: '#F0C531', photo: '#F2F0E8', ratio: 7.12, body: true },
-  navy:  { ground: '#22345E', mark: '#EFEDE7', accent: '#F0C531', photo: '#EFEDE7', ratio: 10.42, body: true },
-  amber: { ground: '#F0C531', mark: '#171310', accent: '#1843BE', photo: '#171310', ratio: 11.20, body: true },
+  /* Warm cream, not the cool near-white it was: the reference corpus is
+     printed on cream and #EFEDE7 read grey beside it. The accent moved
+     with it — a hotter red-orange holds against cream where the old cool
+     red went muddy. Ratios recomputed, not guessed. */
+  paper: { ground: '#F2ECE0', mark: '#14120F', accent: '#D93B0F', photo: '#14120F', ratio: 15.89, body: true },
+  ink:   { ground: '#14120F', mark: '#F2ECE0', accent: '#F26A1B', photo: '#F2ECE0', ratio: 15.89, body: true },
+  red:   { ground: '#D93B0F', mark: '#1A0A05', accent: '#F2ECE0', photo: '#1A0A05', ratio: 4.62, body: false },
+  blue:  { ground: '#1B3FB8', mark: '#F2ECE0', accent: '#EFC22B', photo: '#F2ECE0', ratio: 7.29, body: true },
+  navy:  { ground: '#1E2F55', mark: '#F2ECE0', accent: '#EFC22B', photo: '#F2ECE0', ratio: 11.21, body: true },
+  amber: { ground: '#EFC22B', mark: '#14120F', accent: '#1B3FB8', photo: '#14120F', ratio: 11.06, body: true },
 };
 
 export const GROUND_NAMES = Object.keys(GROUNDS);
