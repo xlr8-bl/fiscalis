@@ -151,6 +151,39 @@ function layOut(ctx, slot, copy) {
   return { size, lines, over: true };
 }
 
+/**
+ * Fit a layout measured in one frame into the 1080x1350 sheet.
+ *
+ * The corpus is not all 4:5. Forty-five references are, thirteen are 3:4,
+ * five are taller, and three are square. A measurement is normalised
+ * against ITS OWN frame, so rendering a square sheet's coordinates at 4:5
+ * stretches the design a quarter taller — the boxes are then right about
+ * each other and wrong about the page.
+ *
+ * So the design is scaled uniformly to fit the sheet and centred, and
+ * every normalised value moves with it: x and widths against the width,
+ * y and heights and TYPE SIZES against the height, because size is
+ * normalised against the height everywhere else in this file.
+ */
+const OUT_ASPECT = W / H;
+
+function refit(slot, spec) {
+  const a = spec.src ?? OUT_ASPECT;
+  if (Math.abs(a - OUT_ASPECT) < 0.005) return slot;
+
+  let kx = 1, ky = 1, ox = 0, oy = 0;
+  if (a > OUT_ASPECT) { ky = OUT_ASPECT / a; oy = (1 - ky) / 2; }
+  else { kx = a / OUT_ASPECT; ox = (1 - kx) / 2; }
+
+  const b = slot.box;
+  const out = { ...slot, box: [ox + b[0] * kx, oy + b[1] * ky, b[2] * kx, b[3] * ky] };
+  for (const k of ['size', 'max', 'min', 'pitch', 'step', 'lift', 'weight']) {
+    if (typeof slot[k] === 'number') out[k] = slot[k] * ky;
+  }
+  if (typeof slot.r === 'number') out.r = slot.r * ky;
+  return out;
+}
+
 /* -------------------------------------------------------------- drawing */
 
 function drawType(ctx, slot, copy, g, report) {
@@ -260,53 +293,6 @@ function drawType(ctx, slot, copy, g, report) {
       ctx.fillStyle = ink(span.fill, g);
       ctx.fillText(span.word, x + ctx.measureText(line.slice(0, at)).width, y);
       ctx.restore();
-    } else if (slot.glass) {
-      /*
-       * Frosted glass: a BLURRED PANE of the picture underneath, masked by
-       * the letterforms, with a bevelled edge.
-       *
-       * Not filled type and not an outline. Filling the letters with white
-       * at low alpha veils the picture; a pane refracts it — the image is
-       * still there inside the letter, softened and lifted, and the edge
-       * catches light on one side and shadow on the other because the
-       * glass has thickness. That difference is the whole effect the sheet
-       * is teaching.
-       */
-      const pad = Math.ceil(size * 0.35);
-      const gx = Math.max(0, Math.floor(x - pad));
-      const gy = Math.max(0, Math.floor(y - size * 0.82 - pad));
-      const gw = Math.min(W - gx, Math.ceil(lw + pad * 2));
-      const gh = Math.min(H - gy, Math.ceil(size * 1.10 + pad * 2));
-      if (gw > 2 && gh > 2) {
-        const pane = new OffscreenCanvas(gw, gh);
-        const pc = pane.getContext('2d');
-        // the picture as seen through the glass
-        pc.filter = `blur(${Math.max(2, size * (slot.blur ?? 0.055))}px) `
-          + `brightness(${slot.lift ?? 1.16}) saturate(${slot.sat ?? 0.88})`;
-        // sampled slightly off, because glass displaces what is behind it
-        const sh = size * (slot.shift ?? 0.022);
-        pc.drawImage(ctx.canvas, gx, gy, gw, gh, -sh, -sh, gw + sh * 2, gh + sh * 2);
-        pc.filter = 'none';
-        // a touch of frost, so it reads as a surface rather than a smudge
-        pc.fillStyle = `rgba(255,255,255,${slot.frost ?? 0.10})`;
-        pc.fillRect(0, 0, gw, gh);
-        // the letters are the pane
-        pc.globalCompositeOperation = 'destination-in';
-        pc.font = ctx.font;
-        pc.textBaseline = 'alphabetic';
-        if (slot.track) pc.letterSpacing = `${slot.track * size}px`;
-        pc.fillStyle = '#fff';
-        pc.fillText(line, x - gx, y - gy);
-        // bevel: light up-left, shadow down-right, kept inside the letters
-        const off = Math.max(1, size * (slot.bevel ?? 0.012));
-        pc.globalCompositeOperation = 'source-atop';
-        pc.lineWidth = off * 1.6;
-        pc.strokeStyle = `rgba(255,255,255,${slot.bevelLight ?? 0.55})`;
-        pc.strokeText(line, x - gx - off, y - gy - off);
-        pc.strokeStyle = `rgba(0,0,0,${slot.bevelDark ?? 0.30})`;
-        pc.strokeText(line, x - gx + off, y - gy + off);
-        ctx.drawImage(pane, gx, gy);
-      }
     } else if (slot.outline) {
       /*
        * Type as an outline, which several sheets use over a photograph.
@@ -751,12 +737,121 @@ function drawWash(ctx, slot, g) {
   ctx.restore();
 }
 
+/** Where a type slot's lines land. Shared so the frost panel and the type
+    itself cannot drift apart. */
+function typeLines(ctx, slot, copy) {
+  const { size, lines } = layOut(ctx, slot, copy);
+  const bx = px.x(slot.box[0]), by = px.y(slot.box[1]);
+  const bw = px.w(slot.box[2]), bh = px.h(slot.box[3]);
+  const leading = slot.leading ?? 0.94;
+  const blockH = size * (0.78 + (lines.length - 1) * leading);
+  const vAlign = slot.vAlign ?? 'top';
+  const y0 = vAlign === 'bottom' ? by + bh - blockH
+    : vAlign === 'middle' ? by + (bh - blockH) / 2 : by;
+  ctx.save();
+  ctx.font = fontAt(slot, size);
+  if (slot.track) ctx.letterSpacing = `${slot.track * size}px`;
+  const out = lines.map((line, i) => {
+    const lw = ctx.measureText(line).width;
+    const align = slot.align ?? 'left';
+    const x = align === 'right' ? bx + bw - lw
+      : align === 'center' ? bx + (bw - lw) / 2 : bx;
+    return { line, x, y: y0 + size * 0.78 + i * size * leading, w: lw };
+  });
+  ctx.restore();
+  return { size, font: fontAt(slot, size), track: slot.track, lines: out };
+}
+
+/**
+ * Rough glass: a frosted panel with the letters knocked OUT of it.
+ *
+ * The clear part is the type. Everything else in the panel is the picture
+ * seen through frosted glass, so the words are the only thing in focus —
+ * which is the opposite of filling the letters, and is the effect the
+ * sheet is actually teaching.
+ *
+ * Rough rather than smooth. A single gaussian reads as an out-of-focus
+ * photograph; real frosted glass scatters, so the blurred copy is drawn
+ * several times at small random offsets and then speckled. `knock` names
+ * the type slots whose copy cuts through.
+ */
+function drawFrost(ctx, slot, copy, g, spec, seed) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = Math.round(px.w(slot.box[2])), h = Math.round(px.h(slot.box[3]));
+  if (w < 4 || h < 4) return;
+  const rnd = rng(seed ^ 0x9e37);
+
+  const pane = new OffscreenCanvas(w, h);
+  const pc = pane.getContext('2d');
+  const blur = Math.max(3, px.h(slot.blur ?? 0.020));
+
+  // scattered, not merely soft
+  const taps = slot.taps ?? 5;
+  pc.filter = `blur(${blur}px) brightness(${slot.lift ?? 1.06}) saturate(${slot.sat ?? 0.94})`;
+  pc.globalAlpha = 1 / taps;
+  for (let i = 0; i < taps; i++) {
+    const dx = (rnd() - 0.5) * blur * 1.6;
+    const dy = (rnd() - 0.5) * blur * 1.6;
+    pc.drawImage(ctx.canvas, x, y, w, h, dx, dy, w, h);
+  }
+  pc.globalAlpha = 1;
+  pc.filter = 'none';
+
+  // the speckle that makes it read as ground glass rather than defocus
+  const spec2 = pc.getImageData(0, 0, w, h);
+  const d = spec2.data;
+  const amt = (slot.grit ?? 14);
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (rnd() - 0.5) * amt;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  pc.putImageData(spec2, 0, 0);
+
+  // knock the words out, so they are the only thing still sharp
+  const knock = (slot.knock ?? []).map((id) => spec.slots.find((t) => t.id === id))
+    .filter((t) => t && (copy[t.id] ?? t.text));
+  pc.globalCompositeOperation = 'destination-out';
+  pc.textBaseline = 'alphabetic';
+  const cut = [];
+  for (const t of knock) {
+    const geo = typeLines(ctx, refit(t, spec), copy[t.id] ?? t.text);
+    pc.font = geo.font;
+    if (geo.track) pc.letterSpacing = `${geo.track * geo.size}px`;
+    for (const l of geo.lines) {
+      pc.fillText(l.line, l.x - x, l.y - y);
+      cut.push({ ...l, size: geo.size, font: geo.font, track: geo.track });
+    }
+  }
+  pc.globalCompositeOperation = 'source-over';
+  ctx.drawImage(pane, x, y);
+
+  // a bevel on the cut edge: light on one side, shadow on the other, so
+  // the pane has thickness where the letters go through it
+  if (cut.length && slot.bevel !== false) {
+    const off = Math.max(1, px.h(slot.bevel ?? 0.0022));
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.textBaseline = 'alphabetic';
+    ctx.lineWidth = off * 1.8;
+    for (const l of cut) {
+      ctx.font = l.font;
+      if (l.track) ctx.letterSpacing = `${l.track * l.size}px`;
+      ctx.strokeStyle = `rgba(255,255,255,${slot.bevelLight ?? 0.30})`;
+      ctx.strokeText(l.line, l.x - off, l.y - off);
+      ctx.strokeStyle = `rgba(0,0,0,${slot.bevelDark ?? 0.22})`;
+      ctx.strokeText(l.line, l.x + off, l.y + off);
+    }
+    ctx.restore();
+  }
+}
+
 const DRAW = {
   rect: (ctx, s, _c, g) => drawRect(ctx, s, g),
   card: (ctx, s, _c, g) => drawCard(ctx, s, g),
   dots: (ctx, s, _c, g) => drawDots(ctx, s, g),
   globe: (ctx, s, _c, g) => drawGlobe(ctx, s, g),
   wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
+  frost: (ctx, s, c, g, _r, seed, spec) => drawFrost(ctx, s, c, g, spec, seed),
   grid: (ctx, s, _c, g) => drawGrid(ctx, s, g),
   barcode: (ctx, s, _c, g, _r, seed) => drawBarcode(ctx, s, g, seed),
 };
@@ -779,18 +874,22 @@ export function compose(ctx, spec, copy = {}, art = {}) {
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
 
-  for (const slot of spec.slots) {
+  for (const raw of spec.slots) {
+    const slot = refit(raw, spec);
     if (slot.when === 'copy' && !copy[slot.id]) continue;
 
     if (slot.t === 'art') { drawArt(ctx, slot, art[slot.id], g, report); continue; }
 
     const simple = DRAW[slot.t];
-    if (simple) { simple(ctx, slot, copy, g, report, seed); continue; }
+    if (simple) { simple(ctx, slot, copy, g, report, seed, spec); continue; }
 
     // type. The slot's own `text` is the fallback, so furniture — a
     // date, a category, the mark — does not need the agent to supply it.
     const text = copy[slot.id] ?? slot.text;
     if (text == null || text === '') continue;
+    // a slot another slot reads but nothing draws — the frost panel's
+    // knockout words are laid out, not painted
+    if (slot.hidden) continue;
 
     // type over a photograph decides its own polarity and veil, measured
     // against what is actually behind it rather than assumed
