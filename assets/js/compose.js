@@ -363,6 +363,11 @@ function drawRect(ctx, slot, g) {
 
   ctx.save();
   if (slot.alpha != null) ctx.globalAlpha = slot.alpha;
+  if (slot.rotate) {
+    ctx.translate(x + w / 2, y + h / 2);
+    ctx.rotate((slot.rotate * Math.PI) / 180);
+    ctx.translate(-(x + w / 2), -(y + h / 2));
+  }
   if (slot.lift) {
     ctx.shadowColor = 'rgba(0,0,0,.16)';
     ctx.shadowBlur = px.h(slot.lift);
