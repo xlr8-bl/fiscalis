@@ -31,5 +31,9 @@ grab 'Bodoni+Moda:opsz,wght@6..96,700' bodoni-700.woff2
 grab 'Bodoni+Moda:ital,opsz,wght@1,6..96,500' bodoni-italic.woff2
 # A grotesque heavy enough for the sheets where one word is the design.
 grab 'Archivo+Black' archivo-black.woff2
+# The circular geometric a run of the agency sheets set their claim in.
+grab 'Outfit:wght@100..900' outfit-var.woff2
+grab 'Archivo:wght@100..900' archivo-var.woff2
+grab 'Bricolage+Grotesque:wght@200..800' bricolage-var.woff2
 # A brush script, for the two sheets that turn on one.
 grab 'Yellowtail' yellowtail.woff2

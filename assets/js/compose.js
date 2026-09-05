@@ -51,6 +51,7 @@ export const H = 1350;
  */
 export const FACES = {
   display: 'Bricolage',          // geometric heavy: most statements
+  geometric: 'Outfit',           // the circular geometric the agency sheets set
   black: 'ArchivoBlack',         // when one word IS the sheet
   condensed: 'Anton',            // long line, still huge
   grotesque: 'Archivo',          // subheads, labels, UI
@@ -608,9 +609,18 @@ function drawArt(ctx, slot, img, g, report) {
   }
   ctx.clip();
   if (slot.treat === 'contain') {
+    /*
+     * `anchor` is which edge the picture stands on. A cut-out figure that
+     * runs off the bottom of the sheet has to keep its feet at the bottom
+     * of the box whatever its aspect; centring it leaves it floating and
+     * the sheet reads as a paste-up.
+     */
     const s = Math.min(w / img.width, h / img.height);
-    ctx.drawImage(img, x + (w - img.width * s) / 2, y + (h - img.height * s) / 2,
-                  img.width * s, img.height * s);
+    const iw = img.width * s, ih = img.height * s;
+    const a = slot.anchor ?? 'center';
+    const dx = a === 'left' ? 0 : a === 'right' ? w - iw : (w - iw) / 2;
+    const dy = a === 'top' ? 0 : a === 'bottom' ? h - ih : (h - ih) / 2;
+    ctx.drawImage(img, x + dx, y + dy, iw, ih);
   } else {
     /*
      * A duotone is named by its role, not by two hex values.
@@ -722,6 +732,37 @@ function drawDots(ctx, slot, g) {
       ctx.globalAlpha = 1;
     }
   }
+  ctx.restore();
+}
+
+/**
+ * A dial: a ring with one wedge filled and a hub at the centre.
+ *
+ * Half a dozen sheets in the corpus sign themselves with a small circular
+ * mark in a top corner. Drawn rather than set as a glyph because no font
+ * has this and substituting the nearest one (◒, ◔) gets the wedge angle
+ * wrong, which is the only thing the mark says.
+ */
+function drawDial(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const r = Math.min(w, h) / 2, cx = x + w / 2, cy = y + h / 2;
+  const rad = (d) => (d - 90) * Math.PI / 180;
+  const lw = Math.max(2, r * (slot.weight ?? 0.20));
+  ctx.save();
+  ctx.fillStyle = ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - lw / 2, 0, Math.PI * 2);
+  ctx.lineWidth = lw;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, r - lw, rad(slot.from ?? 20), rad(slot.to ?? 90));
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * (slot.hub ?? 0.18), 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -974,6 +1015,7 @@ const DRAW = {
   card: (ctx, s, _c, g) => drawCard(ctx, s, g),
   dots: (ctx, s, _c, g) => drawDots(ctx, s, g),
   globe: (ctx, s, _c, g) => drawGlobe(ctx, s, g),
+  dial: (ctx, s, _c, g) => drawDial(ctx, s, g),
   wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
   frost: (ctx, s, c, g, _r, seed, spec) => drawFrost(ctx, s, c, g, spec, seed),
   reprint: (ctx, s, c, g, _r, _seed, spec) => drawReprint(ctx, s, c, g, spec),

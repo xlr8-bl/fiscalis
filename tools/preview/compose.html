@@ -18,12 +18,32 @@ import { STOCK } from '/lib/hooks/stock.js';
 
 const ctx = document.getElementById('c').getContext('2d', { willReadFrequently: true });
 
-const FILES = { Bricolage:'bricolage.woff2', Anton:'anton.woff2', Archivo:'archivo-700.woff2',
-  ArchivoBlack:'archivo-black.woff2', Bodoni:'bodoni-700.woff2', BodoniItalic:'bodoni-italic.woff2',
-  Script:'yellowtail.woff2', Inter:'inter-500.woff2', InstrumentItalic:'instrument-italic.woff2',
-  PixelDisplay:'pixel.woff2' };
-await Promise.all(Object.entries(FILES).map(async ([n, f]) => {
-  const ff = new FontFace(n, `url(/assets/fonts/${f})`); await ff.load(); document.fonts.add(ff);
+/*
+ * Each face registers the weights it actually carries.
+ *
+ * A FontFace with no weight descriptor is registered at 400, so every
+ * `weight: '700'` in a layout was being FAUX-BOLDED on top of a file that
+ * was already bold — Bricolage's own weight class is 800 — and the whole
+ * corpus rendered a stop heavier and blunter than the references. The
+ * three faces layouts ask for more than one weight of are the variable
+ * cuts; the single-weight files declare the one weight they hold, so a
+ * layout asking for it gets the outline instead of a synthesis.
+ */
+const FILES = {
+  Bricolage: ['bricolage-var.woff2', { weight: '200 800' }],
+  Outfit: ['outfit-var.woff2', { weight: '100 900' }],
+  Archivo: ['archivo-var.woff2', { weight: '100 900' }],
+  Anton: ['anton.woff2', { weight: '400' }],
+  ArchivoBlack: ['archivo-black.woff2', { weight: '900' }],
+  Bodoni: ['bodoni-700.woff2', { weight: '700' }],
+  BodoniItalic: ['bodoni-italic.woff2', { weight: '500' }],
+  Script: ['yellowtail.woff2', { weight: '400' }],
+  Inter: ['inter-500.woff2', { weight: '500' }],
+  InstrumentItalic: ['instrument-italic.woff2', { weight: '400' }],
+  PixelDisplay: ['pixel.woff2', { weight: '400' }],
+};
+await Promise.all(Object.entries(FILES).map(async ([n, [f, d]]) => {
+  const ff = new FontFace(n, `url(/assets/fonts/${f})`, d); await ff.load(); document.fonts.add(ff);
 }));
 await document.fonts.ready;
 

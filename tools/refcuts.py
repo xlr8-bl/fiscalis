@@ -31,7 +31,9 @@ ASSIGN = {
     "objects":  ["h018-01", "h018-02", "h018-03"],
     "object":   ["h029-01", "h047-01", "h025-01", "h039-01",
                  "h058-01"],   # h046-01, h035-01 and h010-02 have type in them
-    "figure":   ["h055-01", "h076-01", "h055-02", "h012-01"],
+    # h012-01 carries the reference's own three-part credit; h076-01 has a
+    # word of the headline and a URL watermark burnt into it
+    "figure":   ["h055-01", "h055-02"],
     "portrait": ["h072-02", "h072-03", "h072-04"],
     "crowd":    ["h069-01"],
 }
