@@ -633,7 +633,8 @@ function drawArt(ctx, slot, img, g, report) {
     const tint = slot.tint === 'ground' ? [g.mark, g.ground]
       : slot.tint === 'accent' ? [g.mark, g.accent]
         : Array.isArray(slot.tint) ? slot.tint : null;
-    photoGround(ctx, img, { w, h, ox: x, oy: y, tint });
+    photoGround(ctx, img, { w, h, ox: x, oy: y, tint, key: slot.key ?? 0,
+                            contrast: slot.contrast ?? 1.0 });
   }
   ctx.restore();
 
@@ -763,6 +764,33 @@ function drawDial(ctx, slot, g) {
   ctx.beginPath();
   ctx.arc(cx, cy, r * (slot.hub ?? 0.18), 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * An asterisk: spokes from a centre, drawn rather than set.
+ *
+ * The typographic asterisk sits in the top third of the em, because its
+ * job is to hang off a word. The sheets that use one as a display mark
+ * want it centred on the line it interrupts, at a size no font's
+ * asterisk reaches. Same reasoning as the dial.
+ */
+function drawStar(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const cx = x + w / 2, cy = y + h / 2, r = Math.min(w, h) / 2;
+  const n = slot.count ?? 6;
+  ctx.save();
+  ctx.strokeStyle = ink(slot.fill ?? 'accent', g);
+  ctx.lineWidth = r * (slot.weight ?? 0.44);
+  ctx.lineCap = slot.cap ?? 'butt';
+  for (let i = 0; i < n / 2; i++) {
+    const a = (slot.turn ?? 0) * Math.PI / 180 + i * Math.PI / (n / 2);
+    ctx.beginPath();
+    ctx.moveTo(cx - Math.cos(a) * r, cy - Math.sin(a) * r);
+    ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -1016,6 +1044,7 @@ const DRAW = {
   dots: (ctx, s, _c, g) => drawDots(ctx, s, g),
   globe: (ctx, s, _c, g) => drawGlobe(ctx, s, g),
   dial: (ctx, s, _c, g) => drawDial(ctx, s, g),
+  star: (ctx, s, _c, g) => drawStar(ctx, s, g),
   wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
   frost: (ctx, s, c, g, _r, seed, spec) => drawFrost(ctx, s, c, g, spec, seed),
   reprint: (ctx, s, c, g, _r, _seed, spec) => drawReprint(ctx, s, c, g, spec),

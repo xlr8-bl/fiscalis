@@ -287,7 +287,7 @@ export function inkCoverage(canvas) {
  * leaving it looking borrowed. Pass null to keep it as shot.
  */
 export function photoGround(ctx, img, { w, h, tint = null, ox = 0, oy = 0,
-                                        contrast = 1.0 } = {}) {
+                                        contrast = 1.0, key = 0 } = {}) {
   const scale = Math.max(w / img.width, h / img.height);
   const iw = img.width * scale, ih = img.height * scale;
   ctx.drawImage(img, (w - iw) / 2 + ox, (h - ih) / 2 + oy, iw, ih);
@@ -302,8 +302,15 @@ export function photoGround(ctx, img, { w, h, tint = null, ox = 0, oy = 0,
   const ww = Math.max(1, Math.round(w));
   const hh = Math.max(1, Math.round(h));
   const d = ctx.getImageData(ox0, oy0, ww, hh), px = d.data;
-  const lo = [1, 3, 5].map((i) => parseInt(tint[0].slice(i, i + 2), 16));
   const hi = [1, 3, 5].map((i) => parseInt(tint[1].slice(i, i + 2), 16));
+  /* `key` lifts the dark end of the duotone toward the light end. A sheet
+     that prints dark type straight onto a photograph needs the plate to
+     be high-key or the type is gone; the alternative is a scrim, which is
+     a different design and one several of the references do not have. */
+  const lo = [1, 3, 5].map((i, j) => {
+    const v = parseInt(tint[0].slice(i, i + 2), 16);
+    return v + (hi[j] - v) * key;
+  });
   for (let i = 0; i < px.length; i += 4) {
     let l = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
     l = Math.min(1, Math.max(0, (l - 0.5) * contrast + 0.5));
