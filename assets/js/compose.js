@@ -176,6 +176,7 @@ function refit(slot, spec) {
   else { kx = a / OUT_ASPECT; ox = (1 - kx) / 2; }
 
   const b = slot.box;
+  if (!b) return slot;
   const out = { ...slot, box: [ox + b[0] * kx, oy + b[1] * ky, b[2] * kx, b[3] * ky] };
   for (const k of ['size', 'max', 'min', 'pitch', 'step', 'lift', 'weight']) {
     if (typeof slot[k] === 'number') out[k] = slot[k] * ky;
@@ -187,13 +188,29 @@ function refit(slot, spec) {
 /* -------------------------------------------------------------- drawing */
 
 function drawType(ctx, slot, copy, g, report) {
-  const { size, lines, over } = layOut(ctx, slot, copy);
+  /*
+   * A quarter turn swaps the box before anything is measured.
+   *
+   * A rail running up the right edge is a TALL box on the sheet and a WIDE
+   * one to the type inside it. Laying out against the box as filed gives
+   * the words a few pixels of width and shrinks them to nothing, which is
+   * why h007's rotated word drew nothing at all. So the box is swapped for
+   * the layout and the frame is rotated to put it back.
+   */
+  const turn = slot.rotate === 90 || slot.rotate === -90 ? slot.rotate : 0;
+  const boxW = turn ? px.h(slot.box[3]) : px.w(slot.box[2]);
+  const boxH = turn ? px.w(slot.box[2]) : px.h(slot.box[3]);
+  const laid = turn
+    ? { ...slot, box: [0, 0, boxW / W, boxH / H] }
+    : slot;
+
+  const { size, lines, over } = layOut(ctx, laid, copy);
   if (over) report.tight.push(slot.id);
 
-  const bx = px.x(slot.box[0]);
-  const by = px.y(slot.box[1]);
-  const bw = px.w(slot.box[2]);
-  const bh = px.h(slot.box[3]);
+  const bx = turn ? 0 : px.x(slot.box[0]);
+  const by = turn ? 0 : px.y(slot.box[1]);
+  const bw = boxW;
+  const bh = boxH;
   const leading = slot.leading ?? 0.94;
   const blockH = size * (0.78 + (lines.length - 1) * leading);
 
@@ -216,10 +233,13 @@ function drawType(ctx, slot, copy, g, report) {
    * The box stays the box: it is measured as it appears on the sheet, tall
    * and narrow, and the type is laid out along the long side of it.
    */
-  if (slot.rotate) {
-    ctx.translate(bx + bw / 2, by + bh / 2);
-    ctx.rotate((slot.rotate * Math.PI) / 180);
-    ctx.translate(-(bx + bh / 2), -(by + bw / 2));
+  if (turn) {
+    const ox = px.x(slot.box[0]);
+    const oy = px.y(slot.box[1]);
+    const ow = px.w(slot.box[2]);
+    const oh = px.h(slot.box[3]);
+    if (turn === -90) { ctx.translate(ox, oy + oh); ctx.rotate(-Math.PI / 2); }
+    else { ctx.translate(ox + ow, oy); ctx.rotate(Math.PI / 2); }
   }
 
   ctx.font = fontAt(slot, size);
@@ -292,6 +312,14 @@ function drawType(ctx, slot, copy, g, report) {
       ctx.save();
       ctx.fillStyle = ink(span.fill, g);
       ctx.fillText(span.word, x + ctx.measureText(line.slice(0, at)).width, y);
+      ctx.restore();
+    } else if (slot.soft) {
+      /* A sprayed edge. Several sheets set display type with no hard
+         boundary at all — it is stencilled rather than printed — and a
+         crisp glyph beside them looks like a different sheet. */
+      ctx.save();
+      ctx.filter = `blur(${Math.max(1, size * slot.soft)}px)`;
+      ctx.fillText(line, x, y);
       ctx.restore();
     } else if (slot.outline) {
       /*
@@ -845,6 +873,51 @@ function drawFrost(ctx, slot, copy, g, spec, seed) {
   }
 }
 
+/**
+ * Print words a second time, in another colour, only where they cross a
+ * shape.
+ *
+ * h007 sets its question in one colour on the paper and in another where
+ * it runs over the huge punctuation mark behind it. Two slots cannot do
+ * that — the switch happens inside a letter — so the mark is drawn over
+ * the words and the words are then reprinted, clipped to it.
+ */
+function drawReprint(ctx, slot, copy, g, spec) {
+  const of = (slot.of ?? []).map((id) => spec.slots.find((t) => t.id === id))
+    .filter((t) => t && (copy[t.id] ?? t.text));
+  const clip = spec.slots.find((t) => t.id === slot.clip);
+  if (!of.length || !clip) return;
+
+  const pane = new OffscreenCanvas(W, H);
+  const pc = pane.getContext('2d');
+  pc.textBaseline = 'alphabetic';
+
+  const put = (t, colour) => {
+    const geo = typeLines(ctx, refit(t, spec), copy[t.id] ?? t.text);
+    pc.save();
+    if (t.rotate === -90 || t.rotate === 90) {
+      const r = refit(t, spec);
+      const ox = px.x(r.box[0]), oy = px.y(r.box[1]);
+      const ow = px.w(r.box[2]), oh = px.h(r.box[3]);
+      if (t.rotate === -90) { pc.translate(ox, oy + oh); pc.rotate(-Math.PI / 2); }
+      else { pc.translate(ox + ow, oy); pc.rotate(Math.PI / 2); }
+    }
+    pc.font = geo.font;
+    if (geo.track) pc.letterSpacing = `${geo.track * geo.size}px`;
+    pc.fillStyle = colour;
+    for (const l of geo.lines) pc.fillText(l.line, l.x, l.y);
+    pc.restore();
+  };
+
+  /* All the words first, then ONE intersection with the shape. Setting
+     source-in and drawing them one by one intersects each with the last,
+     which leaves nothing after the second word. */
+  for (const t of of) put(t, ink(slot.fill ?? 'ground', g));
+  pc.globalCompositeOperation = 'destination-in';
+  put(clip, '#000');
+  ctx.drawImage(pane, 0, 0);
+}
+
 const DRAW = {
   rect: (ctx, s, _c, g) => drawRect(ctx, s, g),
   card: (ctx, s, _c, g) => drawCard(ctx, s, g),
@@ -852,6 +925,7 @@ const DRAW = {
   globe: (ctx, s, _c, g) => drawGlobe(ctx, s, g),
   wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
   frost: (ctx, s, c, g, _r, seed, spec) => drawFrost(ctx, s, c, g, spec, seed),
+  reprint: (ctx, s, c, g, _r, _seed, spec) => drawReprint(ctx, s, c, g, spec),
   grid: (ctx, s, _c, g) => drawGrid(ctx, s, g),
   barcode: (ctx, s, _c, g, _r, seed) => drawBarcode(ctx, s, g, seed),
 };
