@@ -521,6 +521,15 @@ function drawArt(ctx, slot, img, g, report) {
    */
   if (slot.mask === 'ellipse') {
     ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+  } else if (slot.r) {
+    // a screen in a collage has rounded corners; a photograph does not
+    const r = slot.r === 'pill' ? Math.min(w, h) / 2 : px.h(slot.r);
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
   } else {
     const b = slot.bleed ? [px.w(slot.box[2] * slot.bleed), px.h(slot.box[3] * slot.bleed)] : [0, 0];
     ctx.rect(x - b[0], y - b[1], w + b[0] * 2, h + b[1] * 2);
@@ -549,8 +558,121 @@ function drawArt(ctx, slot, img, g, report) {
 
 /* ---------------------------------------------------------------- draw */
 
+/**
+ * A panel: the interface furniture half the corpus is built out of.
+ *
+ * Drawn, not sourced. A browser card is a rounded rectangle with a bar and
+ * three dots, and no photograph of a laptop will ever be one — the sheets
+ * that use these are showing an interface, not a desk. `chrome` adds the
+ * bar; `shadow` lifts it off the sheet the way a collage does.
+ */
+function drawCard(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const r = slot.r === 'pill' ? Math.min(w, h) / 2 : px.h(slot.r ?? 0.010);
+
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  };
+
+  ctx.save();
+  if (slot.shadow !== false) {
+    ctx.shadowColor = 'rgba(0,0,0,.22)';
+    ctx.shadowBlur = px.h(0.016);
+    ctx.shadowOffsetY = px.h(0.006);
+  }
+  path();
+  ctx.fillStyle = ink(slot.fill ?? 'mark', g);
+  ctx.fill();
+  ctx.restore();
+
+  if (slot.stroke) {
+    ctx.save(); path();
+    ctx.strokeStyle = ink(slot.stroke, g);
+    ctx.lineWidth = px.h(slot.weight ?? 0.0014);
+    ctx.stroke(); ctx.restore();
+  }
+
+  if (slot.chrome) {
+    const bar = px.h(0.026);
+    const on = ink(slot.chromeInk ?? (slot.fill === 'ground' ? 'mark' : 'ground'), g);
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = on;
+    const d = bar * 0.20;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc(x + bar * 0.7 + i * d * 3, y + bar * 0.75, d, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // the address or menu line at the far end of the bar
+    ctx.fillRect(x + w - bar * 2.4, y + bar * 0.62, bar * 1.6, d * 0.8);
+    ctx.restore();
+  }
+}
+
+/** A run of dots, first one filled. A step indicator, not a grid. */
+function drawDots(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const n = slot.count ?? 5;
+  const down = h >= w;
+  const span = down ? h : w;
+  const r = Math.min(down ? w : h, span / (n * 2.6)) / 2;
+  ctx.save();
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    const cx = down ? x + w / 2 : x + r + t * (w - r * 2);
+    const cy = down ? y + r + t * (h - r * 2) : y + h / 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    if (i === (slot.on ?? 0)) { ctx.fillStyle = ink(slot.fill ?? 'accent', g); ctx.fill(); }
+    else {
+      ctx.strokeStyle = ink(slot.dim ?? 'mark', g);
+      ctx.globalAlpha = 0.45;
+      ctx.lineWidth = Math.max(1, r * 0.28);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+  ctx.restore();
+}
+
+/** A wireframe sphere: latitude and longitude, no fill. Corpus furniture. */
+function drawGlobe(ctx, slot, g) {
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const cx = x + w / 2, cy = y + h / 2, r = Math.min(w, h) / 2;
+  const n = slot.lines ?? 7;
+  ctx.save();
+  ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
+  ctx.lineWidth = Math.max(1, r * (slot.weight ?? 0.022));
+  if (slot.alpha != null) ctx.globalAlpha = slot.alpha;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  for (let i = 1; i < n; i++) {
+    const t = i / n;
+    // latitudes: circles foreshortened to ellipses
+    const yy = cy - r + 2 * r * t;
+    const rr = Math.sqrt(Math.max(0, r * r - (yy - cy) * (yy - cy)));
+    ctx.beginPath(); ctx.ellipse(cx, yy, rr, rr * 0.16, 0, 0, Math.PI * 2); ctx.stroke();
+    // longitudes: ellipses of varying width about the vertical axis
+    ctx.beginPath(); ctx.ellipse(cx, cy, r * Math.abs(Math.cos(Math.PI * t)), r, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 const DRAW = {
   rect: (ctx, s, _c, g) => drawRect(ctx, s, g),
+  card: (ctx, s, _c, g) => drawCard(ctx, s, g),
+  dots: (ctx, s, _c, g) => drawDots(ctx, s, g),
+  globe: (ctx, s, _c, g) => drawGlobe(ctx, s, g),
   grid: (ctx, s, _c, g) => drawGrid(ctx, s, g),
   barcode: (ctx, s, _c, g, _r, seed) => drawBarcode(ctx, s, g, seed),
 };

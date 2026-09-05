@@ -293,7 +293,15 @@ export function photoGround(ctx, img, { w, h, tint = null, ox = 0, oy = 0,
   ctx.drawImage(img, (w - iw) / 2 + ox, (h - ih) / 2 + oy, iw, ih);
   if (!tint) return;
 
-  const d = ctx.getImageData(0, 0, w, h), px = d.data;
+  /* At the slot's origin, not the canvas's. Reading and writing at 0,0
+     meant a tinted picture anywhere but the top-left corner repainted the
+     top-left corner instead — it turned the first digit of h003's hero
+     grey, and looked like a type bug. */
+  const ox0 = Math.max(0, Math.round(ox));
+  const oy0 = Math.max(0, Math.round(oy));
+  const ww = Math.max(1, Math.round(w));
+  const hh = Math.max(1, Math.round(h));
+  const d = ctx.getImageData(ox0, oy0, ww, hh), px = d.data;
   const lo = [1, 3, 5].map((i) => parseInt(tint[0].slice(i, i + 2), 16));
   const hi = [1, 3, 5].map((i) => parseInt(tint[1].slice(i, i + 2), 16));
   for (let i = 0; i < px.length; i += 4) {
@@ -303,7 +311,7 @@ export function photoGround(ctx, img, { w, h, tint = null, ox = 0, oy = 0,
     px[i + 1] = lo[1] + (hi[1] - lo[1]) * l;
     px[i + 2] = lo[2] + (hi[2] - lo[2]) * l;
   }
-  ctx.putImageData(d, 0, 0);
+  ctx.putImageData(d, ox0, oy0);
 }
 
 /** Mean WCAG relative luminance over a box of the canvas. */
