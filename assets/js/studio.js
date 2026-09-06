@@ -201,7 +201,8 @@ function renderNav() {
     ]) +
     (collections.length ? group('The site', collections) : '') +
     (settings.length ? group('Settings', settings) : '') +
-    group('Library', [['#/media', 'Pictures']]);
+    group('Library', [['#/media', 'Pictures']]) +
+    group('Maintenance', [['#/setup', 'Database']]);
 
   markActive();
 }
@@ -1263,11 +1264,20 @@ async function viewSetup(info) {
   // content" on that database is alarming and wrong.
   const upgrade = !missing && Array.isArray(info.columns) && info.columns.length > 0;
 
+  /* Ready is a real state now that this screen is reachable from the
+     menu at any time. It used to be unreachable the moment it succeeded,
+     which meant a correction shipped later could never be applied: the
+     only way in was a database that looked broken. */
+  const ready = !missing && !upgrade && info.ready;
+
   $('[data-setup-lede]').textContent = missing
     ? 'The site is live, but there is no database behind it yet.'
     : upgrade
       ? 'The database is a version behind. One press brings it up to date.'
-      : 'The database is connected. It just needs its tables and your content.';
+      : ready
+        ? 'The database is up to date. Running this again is safe: it adds '
+          + 'anything new and never writes over something you have edited.'
+        : 'The database is connected. It just needs its tables and your content.';
 
   $('[data-setup-steps]').innerHTML = missing
     ? `<li>In the Cloudflare dashboard, open <b>Storage &amp; Databases</b> &rarr; <b>D1 SQL Database</b> and create one called <code>web3ashley</code>.</li>
@@ -1276,11 +1286,16 @@ async function viewSetup(info) {
     : upgrade
       ? `<li>Missing: ${info.columns.map((c) => `<code>${c}</code>`).join(', ')}.</li>
          <li>Press the button. It adds them and leaves everything else alone.</li>
-         <li>Nothing you have written is touched — this only adds columns.</li>`
-      : `<li>Press the button. It creates the tables and loads everything the site currently says.</li>
-         <li>Nothing on the site changes — the page already says all of it. It just becomes editable.</li>`;
+         <li>Nothing you have written is touched. This only adds columns.</li>`
+      : ready
+        ? `<li>${info.counts.articles} articles, ${info.counts.entries} items, ${info.counts.settings} settings.</li>
+           <li>Press it after an update to pick up anything new: a column, a setting, a value that was seeded wrong.</li>
+           <li>It never overwrites an edit. A value you have changed is left exactly as you left it.</li>`
+        : `<li>Press the button. It creates the tables and loads everything the site currently says.</li>
+           <li>Nothing on the site changes. The page already says all of it, it just becomes editable.</li>`;
 
   $('[data-setup-run]').hidden = missing;
+  $('[data-setup-run]').textContent = ready ? 'Run it again' : 'Set up';
   showView('setup');
 }
 
@@ -1288,12 +1303,15 @@ $('[data-setup-run]').addEventListener('click', async () => {
   say('Setting up…');
   try {
     const r = await api('/setup', { method: 'POST' });
+    /* A re-run on an up-to-date database changes nothing, and saying
+       "done" with no detail leaves you wondering whether it worked. So
+       it says what it put right, or that there was nothing to. */
     const put = r.corrected?.length
-      ? ` ${r.corrected.length} value${r.corrected.length === 1 ? '' : 's'} put right.`
-      : '';
+      ? `${r.corrected.length} value${r.corrected.length === 1 ? '' : 's'} put right`
+      : 'nothing needed putting right';
     say(
-      `Done — ${r.counts.articles} articles, ${r.counts.entries} items, ` +
-      `${r.counts.settings} settings.${put}`,
+      `Done. ${r.counts.articles} articles, ${r.counts.entries} items, ` +
+      `${r.counts.settings} settings, ${put}.`,
       'ok'
     );
     schema = null;
@@ -2489,6 +2507,7 @@ async function route() {
     if (area === 'site' && a) return b ? await viewEntry(a, b) : await viewCollection(a);
     if (area === 'settings' && a) return await viewSettings(a);
     if (area === 'media') return await viewMedia();
+    if (area === 'setup') return await viewSetup(await api('/setup'));
     if (area === 'social') return a ? await viewCarousel(a) : await viewBoard();
     if (area === 'kit') {
       return a === 'accounts' ? await viewAccounts() : await viewKit(a || 'refs');

@@ -14,6 +14,7 @@
  * complex", and pressing Set up did nothing at all. Data fixes belong in
  * corrections.js, which is parameterised and swallows its own failures.
  */
+import { readFileSync } from 'node:fs';
 import { SCHEMA, SEED } from '../lib/seed.js';
 import { CORRECTIONS, applyCorrections } from '../lib/corrections.js';
 
@@ -78,5 +79,24 @@ console.log('\ncorrections repair without walking over an edit');
      (await applyCorrections(broken)).length === 0);
 }
 
-console.log(bad ? `\n${bad} failed` : '\nSet up creates tables, seeds rows, and repairs values, in that order');
+console.log('\nand it can be reached at any time');
+{
+  /* The failure this catches: Set up was only ever shown when the
+     database looked broken, so it hid itself the moment it succeeded —
+     and a correction shipped later could never be applied, because the
+     only way to the button was a database that needed it for a different
+     reason. It is a menu entry now. */
+  const studio = readFileSync('assets/js/studio.js', 'utf8');
+  ok('there is a permanent link to it in the menu',
+     /group\('Maintenance', \[\['#\/setup'/.test(studio));
+  ok('and a route that answers it', /area === 'setup'/.test(studio));
+  ok('an up-to-date database gets its own wording, not the first-run one',
+     /The database is up to date/.test(studio));
+  ok('and the button says what pressing it again means',
+     /Run it again/.test(studio));
+  ok('a run that changed nothing says so rather than just "done"',
+     /nothing needed putting right/.test(studio));
+}
+
+console.log(bad ? `\n${bad} failed` : '\nSet up creates tables, seeds rows, and repairs values, and is always reachable');
 process.exit(bad ? 1 : 0);
