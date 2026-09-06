@@ -354,12 +354,26 @@ the journal out of D1 and hands back three things Spark did not used to
 have:
 
     already_written   every article's title, slug, tags and date
-    subjects_left     a bank of eighteen angles, minus the ones covered
-    subjects_covered  the ones it matched
+    next_up           the next twenty briefs that are still free
+    bank              how many pairings there are, and how many are left
+    trades            the businesses a subject can be written about
 
 Without those it wrote the same article every time, which is what an
 empty brief plus a general subject will always produce. It is told to
-work down `subjects_left` in order rather than treat it as a menu.
+work down `next_up` in order rather than treat it as a menu.
+
+**A brief is a subject crossed with a trade.** Forty-three subjects on
+their own is four days at ten a day and one morning at forty, and a bank
+that empties on day two is a countdown rather than a bank. Adding more
+subjects only moves the countdown. What scales is the pair: "a page asked
+to do four things does none of them" is one article about a dental
+practice and a genuinely different one about a mobile mechanic, because
+the four things are different, the research goes to different pages and
+the photograph is of a different place. Forty-three by twenty-eight is
+1,204, and trades are the cheap axis to extend.
+
+The pairing is spent when its key appears in an article's tags, which is
+why every draft has to carry one.
 
 **Every subject carries its own research instruction**, and that is the
 part that matters. "Research local SEO" returns the same eleven blog

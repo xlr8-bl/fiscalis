@@ -59,7 +59,9 @@ console.log('\nsetting one');
      db.store['writing.every'] === 'weekly' && db.store['writing.count'] === '2');
 
   const said = inWords(p);
-  ok('it reads like a person said it', said === '2 articles every tue at 09:30, and spread them over the next 5 days.', said);
+  ok('it reads like a person said it, and names the window it will use',
+     said === '2 articles every tue at 09:30, and spread them over the next 5 days, '
+            + 'between 08:00 and 20:00.', said);
 
   const r = recurrence(p);
   ok('the cron is Tuesday at 09:30', r.cron === '30 9 * * 2', r.cron);
@@ -70,6 +72,41 @@ console.log('\nsetting one');
   ok('and changes what it was given', half.count === 3);
 }
 
+console.log('\nforty a day, round the clock');
+{
+  /* The standing order this has to express, in the words it was asked
+     for: "every morning write forty articles and schedule them at random
+     times during a 24 hour period and publish them." */
+  const db = settings();
+  const p = await setWritingPlan(db,
+    { every: 'daily', at: '06:00', count: 40, then: 'schedule', across: 1, from: 0, to: 24 });
+
+  ok('forty is accepted, not silently cut to twelve', p.count === 40, String(p.count));
+  ok('the window is the whole day', p.from === 0 && p.to === 24);
+  ok('it is stored where the studio can change it',
+     db.store['writing.count'] === '40' && db.store['writing.to'] === '24');
+
+  const said = inWords(p);
+  ok('and it reads back as what was asked for',
+     /40 articles every day at 06:00/.test(said)
+     && /across the day/.test(said)
+     && /any hour of the day or night/.test(said), said);
+
+  ok('the cron for it fires once, in the morning',
+     recurrence(p).cron === '0 6 * * *', recurrence(p).cron);
+}
+
+console.log('\na window that cannot exist is not stored');
+{
+  const db = settings();
+  // 20:00 to 06:00 is a night shift, and this does not model one: a
+  // window that ends before it starts would hand spread a negative day
+  // and come back with nothing scheduled and no reason anybody could act
+  // on. It is widened to the smallest window that works instead.
+  const p = await setWritingPlan(db, { from: 20, to: 6 });
+  ok('the end is pushed past the start', p.to > p.from, `${p.from} to ${p.to}`);
+}
+
 console.log('\nrubbish in is a default, not a crash');
 {
   const db = settings();
@@ -77,7 +114,7 @@ console.log('\nrubbish in is a default, not a crash');
   ok('an unknown cadence falls back', p.every === 'off');
   ok('a bad day falls back', p.day === 'tue');
   ok('a bad time falls back', p.at === '09:00');
-  ok('a silly count is clamped to the ceiling', p.count === 12, String(p.count));
+  ok('a silly count is clamped to the ceiling', p.count === 50, String(p.count));
   ok('an unknown "then" falls back to leaving it for a person', p.then === 'review');
 }
 
@@ -172,13 +209,23 @@ console.log('\na run spreads across pillars and researches now');
   };
 
   const brief = await writingBrief(db);
-  const pillars = new Set(brief.subjects_left.map((x) => x.pillar));
+  const pillars = new Set(brief.next_up.map((x) => x.pillar));
   ok('the bank covers six pillars, not one', pillars.size === 6, [...pillars].join(', '));
-  ok('and no pillar is more than a third of it',
-     [...pillars].every((k) => brief.subjects_left.filter((x) => x.pillar === k).length
-       <= brief.subjects_left.length / 3));
-  ok('every subject says what the photograph must show',
-     brief.subjects_left.every((x) => x.picture && x.picture.length > 20));
+  ok('every brief says what the photograph must show',
+     brief.next_up.every((x) => x.picture && x.picture.length > 20));
+
+  /* The bank is a cross product now, and the number that matters is
+     whether every square of it is reachable. The first version advanced
+     the subject and the trade on the same counter, which put 336 of the
+     1,204 pairings permanently out of reach on an empty database: they
+     were not written, they were unvisitable. */
+  ok('the bank is subjects crossed with trades',
+     brief.bank.pairings === brief.bank.subjects * brief.bank.trades,
+     `${brief.bank.subjects} x ${brief.bank.trades} = ${brief.bank.pairings}`);
+  ok('and on an empty journal every one of them is reachable',
+     brief.bank.left === brief.bank.pairings, `${brief.bank.left} left`);
+  ok('which is enough for a month at forty a day',
+     brief.bank.pairings / 40 >= 28, `${Math.floor(brief.bank.pairings / 40)} days`);
 
   const one = await writingRun(db, { force: true });
   const got = one.subjects.map((x) => x.pillar);

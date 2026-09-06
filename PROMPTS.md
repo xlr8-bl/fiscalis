@@ -58,10 +58,27 @@ Every subject belongs to one of six:
   local     small businesses and the people trying to find them
   tools     what gets used, honestly, including what got dropped
   noticing  design in the wild, away from screens
-Never two from the same pillar in one sitting. A journal that only ever
+Never two from the same pillar back to back. A journal that only ever
 says "your website is underperforming" makes the person behind it read
 as a funnel, and somebody you hire once. writing_run already picks this
 way; if you are choosing by hand, choose the same way.
+
+ONE SUBJECT, ONE TRADE. THAT PAIR IS THE ARTICLE.
+A subject on its own is an article about small business websites in
+general, which is the kind of article nobody finishes. Every brief comes
+with a trade attached: a dental practice, a plumber, a picture framer.
+Write about that one. The research goes to that trade's pages, the
+examples come from them, and the photograph is of their place, not of an
+office.
+
+The same subject written about a dentist and about a mobile mechanic is
+two different articles, because the answer is genuinely different. If
+two of your drafts would survive having their trades swapped, neither of
+them did the research, and both of them are the same article.
+
+Every brief carries a `key`, like `onejob-dentist`. Put it in that
+article's tags. It is the only record that the pairing is spent. Skip it
+and tomorrow's run hands you the same list again.
 
 TITLES
 Six to twelve words, under 70 characters. Promise, do not label: "Local
@@ -126,11 +143,12 @@ Never use publish_articles or schedule_articles to end a scheduled run:
 they would wait forever on a confirmation nobody is awake to give.
 
 IF THE BANK IS EMPTY
-writing_run can come back run: false because every subject has been
-written about. That is a real answer, not an error. Write nothing that
-day. Do not pad, do not rephrase an old post, and do not invent a
-subject to fill the count. A journal that repeats itself while nobody is
-watching is the exact failure all of this exists to prevent.
+writing_run can come back run: false, or hand back fewer briefs than the
+plan asked for, because every remaining pairing has been written. That is
+a real answer, not an error. Write what it gave you and stop. Do not pad,
+do not rephrase an old post, and do not invent a subject to fill the
+count. A journal that repeats itself while nobody is watching is the
+exact failure all of this exists to prevent.
 
 CAROUSELS
 progress, then brief, then design_brief once so you know what the
@@ -184,34 +202,88 @@ that recurring task exists.
 The same settings are in the studio under **Writing on a schedule**, so
 the cadence changes from a phone without going through Spark.
 
-### Five a day, unattended
+### Forty a day, round the clock
 
-> Write five articles every morning at six and publish them straight
-> away.
+> Every morning at six, write forty articles, spread them at random times
+> right through the next 24 hours, and publish them.
 
-That reads back as *5 articles every day at 06:00, and publish them
-straight away*, and it asks you to confirm once. That confirmation is
-the only one you will ever be asked for. After it, the run writes five,
-finishes with `finish_run`, and they go live with nobody there.
+That reads back as *40 articles every day at 06:00, and spread them
+across the day, at any hour of the day or night*, and it asks you to
+confirm once. That confirmation is the only one you will ever be asked
+for. After it the run writes forty, finishes with `finish_run`, and they
+appear through the day and night with nobody there.
 
-Two things to know before you set it that way.
+Everything that has to hold for that to work does hold, and each of these
+was a real limit that had to be lifted rather than a setting that already
+existed:
+
+**Forty is accepted.** The plan used to cap at twelve and cut anything
+above it without saying so. The ceiling is fifty now, which is what one
+`schedule_articles` call can place.
+
+**Forty times, all different.** Publishing times used to keep a fixed
+75 minute gap and clamp everything that would not fit to the last minute
+of the window. Forty in a day came back as eleven real times and
+twenty-nine articles stacked on one evening minute, and the check that
+was supposed to catch it counted the timestamps instead of looking at
+them. The gap bends to the day now: forty across 24 hours land about half
+an hour apart, irregularly, none of them on top of another. Ask for more
+than the day can hold and the run refuses and tells you what it does
+hold.
+
+**The window can be the whole day.** *Earliest* and *Latest* are in the
+studio under Writing on a schedule. Midnight to midnight is round the
+clock. A working day, 08:00 to 20:00, holds about nine at a natural
+spacing; round the clock holds about nineteen. Past that they start
+coming out close enough together to read as a machine, which is a real
+cost and not a technical one.
+
+One thing to be exact about, because it is a day short of what the words
+say. "The next 24 hours" for a run that fires at six in the morning is
+the rest of that day: six in the morning until midnight, eighteen hours,
+and forty articles land about twenty-five minutes apart through it. It
+does not run into tomorrow, deliberately. Tomorrow has its own forty
+arriving at six, and a batch that spilled over would be scheduling into
+a day that is already spoken for.
+
+**The site wakes up often enough to honour a time.** The poster used to
+run five times a day, which would have turned forty scattered times back
+into five heaps. It runs every five minutes now, which is exactly as
+precise as a scheduled time can be.
+
+**There is a month of things to write about.** This is the one that
+needed the most work. There were 43 subjects, which is one day at forty
+and then nothing. Subjects are now crossed with trades: 43 subjects by 28
+trades is 1,204 articles, about a month at this rate, and adding trades
+is the cheap way to extend it. It is still a floor rather than a horizon,
+and `writing_run` will still stop rather than repeat itself.
+
+Two things worth knowing before you set it this way.
 
 **One confirmation covers everything after it.** The question is real:
 articles go on your site without you reading them first. Every check
-still runs, and nothing that fails one goes out. But nobody reads them
-for sense. Turning it back to *Leave them for me to read* in the studio
-stops that immediately, in one tap, with no agent involved.
+still runs and nothing that fails one goes out, but nobody reads them for
+sense. Turning it back to *Leave them for me to read* in the studio stops
+it immediately, in one tap, with no agent involved.
 
-**Five a day empties the subject bank in a week.** There are 36 subjects
-in it. At five a day that is seven days, and then `writing_run` comes
-back `run: false` and writes nothing rather than repeating itself. That
-is the correct behaviour and it will look like a failure the first time
-you see it. If you want to keep going at that rate you have to feed it:
-add subjects, or drop to a rate the bank can sustain. One or two a day
-is a journal. Five a day is a content mill, and a content mill runs out
-of things to have found out.
+**Forty a day is a rate search engines have a name for.** Google calls it
+scaled content abuse, and the thing it looks at is whether each piece was
+made to help somebody or made to exist. The pairing is what stands
+between this and that: forty pieces of genuinely different research on
+forty different trades is not the same object as forty rewrites of one
+post, even at the same rate. It is also forty times the research budget
+every morning, and if a run starts producing pieces that would survive
+having their trades swapped, the rate is the thing to change.
 
-If you want the volume without the risk, use **space them out** rather
-than **publish straight away**: five written at six in the morning,
-appearing across the day, still going out on their own, and every one of
-them sitting in the studio where you can pull it before its turn comes.
+If you want the volume with a hand on it, use **space them out** rather
+than **publish straight away**, which is what the prompt above already
+does: written at six, appearing across the day, every one of them sitting
+in the studio where you can pull it before its turn comes.
+
+### A smaller version of the same thing
+
+> Write three articles every morning at six and space them out through
+> the day.
+
+Same machinery, a rate the research can carry, and a bank that lasts more
+than a year.

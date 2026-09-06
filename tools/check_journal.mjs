@@ -128,9 +128,11 @@ console.log('\nthe brief describes what is enforced');
   ok('the brief lists what has already been written',
      Array.isArray(b.already_written));
   ok('the brief hands over subjects that are still free',
-     Array.isArray(b.subjects_left) && b.subjects_left.length > 0);
+     Array.isArray(b.next_up) && b.next_up.length > 0);
   ok('every free subject says what to go and find out',
-     b.subjects_left.every((x) => x.research && x.research.length > 30));
+     b.next_up.every((x) => x.research && x.research.length > 30));
+  ok('and each one stands somewhere specific rather than in general',
+     b.next_up.every((x) => x.trade && /Written about a/.test(x.about)));
   ok('the brief forbids writing the same post twice',
      /do not write another post on a subject that is in there/i.test(JSON.stringify(b)));
   ok('the brief has real title rules', Array.isArray(b.title?.never) && b.title.never.length >= 4);

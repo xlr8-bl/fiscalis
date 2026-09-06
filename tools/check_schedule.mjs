@@ -10,7 +10,7 @@
  * nothing.
  */
 import {
-  spread, scheduleArticles, unscheduleArticle, timetable, dueArticles, runDueArticles,
+  spread, capacity, scheduleArticles, unscheduleArticle, timetable, dueArticles, runDueArticles,
 } from '../lib/schedule.js';
 import { TOOLS } from '../lib/mcp.js';
 
@@ -49,6 +49,48 @@ console.log('\nthe spread');
      spread({ count: 9, startIn: 1, days: 3, now: NOW, seed: 1 }).join() === t.join());
   ok('a different seed does not',
      spread({ count: 9, startIn: 1, days: 3, now: NOW, seed: 2 }).join() !== t.join());
+}
+
+console.log('\nforty in a day, which is what the gap used to quietly refuse');
+{
+  /* The failure this catches, exactly as it shipped: the 75 minute gap
+     was fixed, twelve hours holds ten posts at that spacing, and
+     everything past the tenth was clamped to the last minute of the
+     window. spread returned forty timestamps, eleven of them distinct
+     and twenty-nine of them the same evening minute, and the caller's
+     "did I get enough?" check passed because it counted rather than
+     looked. Forty articles then published in one lump at 18:55. */
+  const t = spread({ count: 40, days: 1, from: 0, to: 24, startIn: 1, now: NOW, seed: 7 });
+  ok('forty asked for, forty given', t.length === 40, String(t.length));
+  ok('and forty different times', new Set(t).size === 40, String(new Set(t).size));
+  ok('none of them stacked on the last minute of the window',
+     new Set(t.map((x) => x.slice(11, 16))).size === 40);
+
+  const gaps = t.slice(1).map((x, i) => (new Date(x) - new Date(t[i])) / 60000);
+  ok('the gap bent to fit rather than breaking', Math.min(...gaps) >= 5,
+     `smallest ${Math.min(...gaps)} minutes`);
+  ok('and it is still irregular, not a metronome',
+     new Set(gaps).size > 3, `${new Set(gaps).size} different gaps`);
+  ok('they run across the whole day, not one corner of it',
+     new Set(t.map((x) => x.slice(11, 13))).size >= 15);
+
+  ok('what the window holds is answerable without trying it',
+     capacity({ days: 1, from: 0, to: 24 }).comfortable === 19);
+  ok('and a working day holds far less, which is the honest number',
+     capacity({ days: 1, from: 8, to: 20 }).comfortable === 9);
+
+  /* The cap is on the call, not the day. Fifty is the most one
+     schedule_articles can place however wide the window is opened. */
+  ok('fifty is the ceiling on one call',
+     spread({ count: 80, days: 7, from: 0, to: 24, now: NOW, seed: 3 }).length === 50);
+
+  /* Asked for today, at ten past nine, there are only fifteen hours of
+     day left. It still has to fit and it still has to be distinct: what
+     it cannot be is as leisurely as a whole day. */
+  const today = spread({ count: 40, days: 1, from: 0, to: 24, startIn: 0, now: NOW, seed: 7 });
+  ok('forty today, from the middle of the morning, still fits',
+     today.length === 40 && new Set(today).size === 40, String(today.length));
+  ok('and none of them are in the past', today.every((x) => new Date(x) > NOW));
 }
 
 console.log('\nasking for today, at ten past ten');
@@ -114,7 +156,9 @@ console.log('\nscheduling refuses rather than dropping');
   const tight = await scheduleArticles(stub({ rows: two }),
     { slugs: ['a', 'b'], days: 1, perDay: 1 });
   ok('a window too small refuses and says so',
-     tight.ok === false && /only fits/.test(tight.reason), tight.reason);
+     tight.ok === false && /fits 1 of 2/.test(tight.reason), tight.reason);
+  ok('and says what the window does hold, which is the actionable part',
+     /at a natural spacing/.test(tight.reason) && /absolute limit/.test(tight.reason));
 
   const db = stub({ rows: two });
   const good = await scheduleArticles(db, { slugs: ['a', 'b'], startIn: 1 });

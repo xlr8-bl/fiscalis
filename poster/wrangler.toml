@@ -18,20 +18,21 @@ main = "index.js"
 compatibility_date = "2026-08-14"
 workers_dev = false
 
-# Five slots a day, in UTC. Cron is evaluated in UTC, so these are
-# 08:00, 11:30, 14:00, 17:30 and 20:00 in GMT+1.
+# Every five minutes, which is how precise a scheduled time can be.
 #
-# The Worker does not care what time it is: it posts whatever is due,
-# so a missed firing catches up on the next one rather than skipping a
-# post. Change these freely; the slots in the studio are just labels.
+# This used to be five fixed slots a day, and that was fine while it only
+# had carousels to post: a carousel's slot is a label, and posting it at
+# the next firing is close enough. It is wrong for articles. An article
+# gets a real time out of the spread, on a five minute grid, and a Worker
+# that only wakes five times a day turns forty times scattered across a
+# day into five heaps. The times would be in the database, correct, and
+# the site would publish in lumps anyway.
+#
+# The Worker does not care what time it is: it posts whatever is due, so
+# a missed firing catches up on the next one rather than skipping a post.
+# Waking often is what makes a scheduled time mean the time.
 [triggers]
-crons = [
-  "0 7 * * *",
-  "30 10 * * *",
-  "0 13 * * *",
-  "30 16 * * *",
-  "0 19 * * *",
-]
+crons = ["*/5 * * * *"]
 
 [[d1_databases]]
 binding = "DB"
