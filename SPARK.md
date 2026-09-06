@@ -78,21 +78,37 @@ the annotations.
 
 ### One thing asks
 
-Every tool on this server declares its MCP annotations explicitly,
-including the read-only ones — `destructiveHint` **defaults to true** in
-the MCP schema, so a client that reads the fields in the wrong order
-prompts on a tool that only reads a list. Stating all four hints on all
-of them is what stops that.
+Every tool declares all four MCP annotations explicitly.
+`destructiveHint` **defaults to true** in the MCP schema, so an unset one
+prompts on a client that reads the fields in the wrong order.
 
-Exactly two tools are declared destructive, and they are the two that
-make something public:
+Two tools ask you to confirm, and they are the two that put something in
+front of an audience:
 
-    post_due          posts an approved carousel to the platforms
+    post_due          pushes an approved carousel onto the platforms
     publish_article   puts an article on the site
 
-Everything else is additive and undoable from the studio, so nothing else
-should interrupt you. That is the point: a prompt still means something
-when it is the only one you see.
+Nothing else asks. Not `keep_photo`, not `write_article`, not
+`design_carousel`.
+
+**Why that took a specific flag.** Gemini asks for confirmation on every
+action by default and reads exactly one annotation to decide otherwise:
+`readOnlyHint`. Not `destructiveHint`, not `idempotentHint`, and there is
+no always-allow anywhere in the app — Google's own connector
+documentation says so, and so does the Gemini Apps help page. So every
+tool here except those two is annotated `readOnlyHint: true`.
+
+Several of them do write. On this server the flag means "does not need
+your confirmation", not "writes nothing", and the honest reason that is
+safe has nothing to do with the annotation — the spec says no client
+should trust it either way. It is safe because the agent credential
+cannot approve, schedule, decide to post or delete; because everything it
+writes lands in a private state no route renders; and because you can
+undo any of it from the studio in one tap.
+
+The alternative was a prompt on every photograph kept and every draft
+filed, which teaches you to tap yes without reading, and then the two
+that matter get tapped the same way.
 
 ## A day, in calls
 
@@ -196,6 +212,41 @@ Six tools, in this order.
     keep_photo             download the one you picked into the site's media
     write_article          the draft, checked before anything is stored
     publish_article        put it on the site
+
+**The brief knows what has already been written.** `writing_brief` reads
+the journal out of D1 and hands back three things Spark did not used to
+have:
+
+    already_written   every article's title, slug, tags and date
+    subjects_left     a bank of eighteen angles, minus the ones covered
+    subjects_covered  the ones it matched
+
+Without those it wrote the same article every time, which is what an
+empty brief plus a general subject will always produce. It is told to
+work down `subjects_left` in order rather than treat it as a menu.
+
+**Every subject carries its own research instruction**, and that is the
+part that matters. "Research local SEO" returns the same eleven blog
+posts on every run; "open three listings in one trade in one town and
+note what is missing on each" does not. The rule in the brief is that
+every post needs at least one thing in it that had to be looked up or
+counted, and that the reader can tell which part that was. A rule,
+threshold or limit from whoever sets it, quoted with the date. Something
+counted directly: steps in a flow, fields on a form, seconds to load.
+Three real examples side by side. What does **not** count: somebody
+else's listicle, a statistic with no named origin, advice that was true
+five years ago.
+
+**Titles have rules now**, not one line. Six to twelve words, under 70
+characters, and it has to promise rather than label — "Local SEO tips"
+labels, "The four listing fields that decide whether you show up"
+promises. A count in a title has to be the real count. Banned: a colon
+followed by a subtitle repeating the first half, a power word standing
+in for a fact, a question the post does not answer in two paragraphs,
+the business name, and "guide" unless it genuinely walks somebody
+through a procedure. The last test is against `already_written`: if a
+reader who had seen those could not tell what is new about this one, it
+is the wrong title, and usually the wrong post.
 
 **The voice rules are enforced, not suggested.** `write_article` runs a
 detector over the draft and stores **nothing** if it trips a hard

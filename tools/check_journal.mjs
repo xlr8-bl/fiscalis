@@ -104,14 +104,38 @@ console.log('\nwhat is a tell and what is not');
      judge('Text.\n\n```\nconst a = 1 — 2;\n```\n\nMore text.').ok);
 }
 
+/* A database that answers with two published articles, so the brief can
+   be checked for the thing it exists to do: notice what is taken. */
+const stubDb = () => ({
+  prepare: () => ({
+    all: async () => ({ results: [
+      { slug: 'the-listing-nobody-claimed', title: 'The listing nobody claimed',
+        tags: 'listing', status: 'published', published_at: '2026-08-01' },
+      { slug: 'four-seconds', title: 'Four seconds', tags: 'speed',
+        status: 'published', published_at: '2026-08-14' },
+    ] }),
+  }),
+});
+
 console.log('\nthe brief describes what is enforced');
 {
-  const b = writingBrief();
+  const b = await writingBrief(stubDb());
   ok('the brief says no dashes', JSON.stringify(b).includes('dash'));
   ok('the brief says no price language', /price|package/i.test(JSON.stringify(b)));
   ok('the brief names the cycle', Array.isArray(b.the_cycle) && b.the_cycle.length >= 4);
   ok('the brief tells you to search for a thing, not an idea',
      /a thing, not an idea|thing rather than an idea/i.test(JSON.stringify(b)));
+  ok('the brief lists what has already been written',
+     Array.isArray(b.already_written));
+  ok('the brief hands over subjects that are still free',
+     Array.isArray(b.subjects_left) && b.subjects_left.length > 0);
+  ok('every free subject says what to go and find out',
+     b.subjects_left.every((x) => x.research && x.research.length > 30));
+  ok('the brief forbids writing the same post twice',
+     /do not write another post on a subject that is in there/i.test(JSON.stringify(b)));
+  ok('the brief has real title rules', Array.isArray(b.title?.never) && b.title.never.length >= 4);
+  ok('the brief says what does not count as research',
+     Array.isArray(b.research?.what_does_not) && b.research.what_does_not.length >= 3);
 }
 
 console.log('\nexactly one thing asks');
@@ -129,6 +153,16 @@ console.log('\nexactly one thing asks');
   const asks = TOOLS.filter((t) => t.annotations.destructiveHint === true).map((t) => t.name).sort();
   ok('only the two publishing tools are destructive',
      asks.join(',') === 'post_due,publish_article', asks.join(', '));
+
+  /* Gemini reads readOnlyHint and nothing else to decide whether to ask
+     the account holder, and there is no always-allow in the app. So the
+     set of tools that will interrupt somebody is exactly the set with it
+     off, and it has to stay at these two — one prompt per little write
+     is what trains a person to tap yes without reading. */
+  const prompts = TOOLS.filter((t) => t.annotations.readOnlyHint !== true)
+    .map((t) => t.name).sort();
+  ok('only the two publishing tools interrupt a person',
+     prompts.join(',') === 'post_due,publish_article', prompts.join(', '));
 
   ok('publish_article is the destructive one on the journal side',
      byName.publish_article?.annotations?.destructiveHint === true);

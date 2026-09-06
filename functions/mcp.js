@@ -391,7 +391,7 @@ async function runTool(name, args, env) {
 
     /* ------------------------------------------------------- the journal */
     case 'writing_brief':
-      return toolResult(writingBrief());
+      return toolResult(await writingBrief(db));
 
     case 'voice_rules':
       return toolResult(await voiceRules());
