@@ -154,6 +154,53 @@ console.log('\npublishing in bulk');
   ok('the same slug three times publishes once', dupes.published.length === 1);
 }
 
+console.log('\na run spreads across pillars and researches now');
+{
+  const { writingRun, writingBrief } = await import('../lib/writing.js');
+  const store = { 'writing.every': 'daily', 'writing.count': '5', 'writing.then': 'publish' };
+  const db = {
+    prepare(q) {
+      const st = {
+        bind(...b) { st.b = b; return st; },
+        first: async () => (q.includes('SELECT value')
+          ? (store[st.b[0]] !== undefined ? { value: store[st.b[0]] } : null) : null),
+        run: async () => { store[st.b[0]] = st.b[1]; return { meta: { changes: 1 } }; },
+        all: async () => ({ results: [] }),
+      };
+      return st;
+    },
+  };
+
+  const brief = await writingBrief(db);
+  const pillars = new Set(brief.subjects_left.map((x) => x.pillar));
+  ok('the bank covers six pillars, not one', pillars.size === 6, [...pillars].join(', '));
+  ok('and no pillar is more than a third of it',
+     [...pillars].every((k) => brief.subjects_left.filter((x) => x.pillar === k).length
+       <= brief.subjects_left.length / 3));
+  ok('every subject says what the photograph must show',
+     brief.subjects_left.every((x) => x.picture && x.picture.length > 20));
+
+  const one = await writingRun(db, { force: true });
+  const got = one.subjects.map((x) => x.pillar);
+  ok('a run of five takes five different pillars', new Set(got).size === 5, got.join(', '));
+
+  const two = await writingRun(db, { force: true });
+  ok('and the next run starts somewhere else',
+     two.subjects[0].pillar !== one.subjects[0].pillar,
+     `${one.subjects[0].pillar} then ${two.subjects[0].pillar}`);
+
+  ok('the run tells it to research in this run, not from memory',
+     /not from what you already know/i.test(JSON.stringify(one.do_the_research_now)));
+  ok('and to look for what has changed',
+     /what has changed/i.test(JSON.stringify(one.do_the_research_now)));
+  ok('and to date the claim in the sentence',
+     /date you checked/i.test(JSON.stringify(one.do_the_research_now)));
+  ok('the photograph brief bans the stock defaults',
+     /person at a laptop/i.test(JSON.stringify(one.the_photograph)));
+  ok('and gives a test for whether it is specific enough',
+     /any of the other articles/i.test(JSON.stringify(one.the_photograph)));
+}
+
 console.log('\nfinishing a run without a person there');
 {
   /* The whole point: publish_articles and schedule_articles ask, so an

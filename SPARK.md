@@ -286,6 +286,26 @@ authorises, and it is narrow on purpose:
   the plan is one tap to change in the studio, with no agent involved:
     setting it to `review` or `off` ends this immediately
 
+### Can Spark really run on its own?
+
+Yes. Google's own documentation says Spark runs in the cloud rather than
+on your phone, and "keeps working even if your device is turned off". A
+schedule can be time-based (once, hourly, daily, weekly, monthly,
+yearly), or it can watch a Gmail filter, or it can watch a topic and fire
+when something happens in it. Fifty active schedules per account, fifteen
+tasks at once.
+
+Two things the documentation does NOT say, which is why the design here
+is what it is. It does not say what happens when an unattended task hits
+a confirmation, and it says high-stakes actions still need one. So
+anything on the writing path that would prompt is a task that stalls at
+six in the morning with nobody there, which is exactly what `finish_run`
+exists to avoid.
+
+The topic monitor is the interesting one for a journal. A schedule that
+fires when something happens in a named area, rather than on a clock, is
+a better trigger for a post about what changed than any calendar is.
+
 **An empty bank stops a run rather than filling it.** At five a day a
 thirty-six subject bank is gone in a week, and the failure mode of
 carrying on is the one this exists to prevent. `writing_run` comes back
