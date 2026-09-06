@@ -54,12 +54,18 @@ export async function onRequestPost({ request, env }) {
   const yes = `${base}/book/decide?t=${out.token}&do=confirm`;
   const no = `${base}/book/decide?t=${out.token}&do=decline`;
 
+  /* The subject carries it, because the whole point of asking is that
+     you know what to send before you open anything. */
+  const how = out.platform_label
+    ? `${out.platform_label}${out.phone ? `, ${out.phone}` : ''}`
+    : '';
+
   const mail = await send(env, {
     replyTo: out.email,
-    subject: `Booking request: ${out.name}, ${when}`,
+    subject: `Booking request: ${out.name}, ${when}${how ? ` (${how})` : ''}`,
     text:
       `${out.name} <${out.email}> asked for ${when}, ${out.minutes} minutes.\n` +
-      (out.phone ? `Phone: ${out.phone}\n` : '') +
+      (how ? `How: ${how}. ${out.platform_note || ''}\n` : '') +
       `\n${out.about || 'They did not say what it is about.'}\n\n` +
       `The hour is held for ${out.holdHours} hours and then lets go by itself.\n\n` +
       `Confirm:  ${yes}\nDecline:  ${no}\n\n` +
@@ -69,7 +75,7 @@ export async function onRequestPost({ request, env }) {
     html:
       `<p><b>${esc(out.name)}</b> &lt;${esc(out.email)}&gt; asked for ` +
       `<b>${esc(when)}</b>, ${out.minutes} minutes.</p>` +
-      (out.phone ? `<p>Phone: ${esc(out.phone)}</p>` : '') +
+      (how ? `<p><b>How:</b> ${esc(how)}. ${esc(out.platform_note || '')}</p>` : '') +
       `<p>${esc(out.about || 'They did not say what it is about.')}</p>` +
       `<p>Held for ${out.holdHours} hours, then it lets go by itself.</p>` +
       `<p><a href="${yes}">Confirm this time</a> &nbsp;|&nbsp; ` +

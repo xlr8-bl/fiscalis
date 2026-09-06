@@ -25,6 +25,7 @@ export async function onRequestGet({ env }) {
     return json({
       days,
       today,
+      platforms: shape.platforms,
       minutes: shape.minutes,
       window: shape.window,
       offset: shape.offset,

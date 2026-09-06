@@ -305,7 +305,8 @@ console.log('\nthe page reads as three steps, and nothing runs together');
      /\.bk__label:has\(\.bk__step\)[^{]*\{[^}]*gap:/.test(css)
      && /\.bk__label:has\(\.bk__step\) \.bk__hint[^{]*\{[^}]*auto/.test(css));
 
-  ok('the steps are numbered', (html.match(/class="bk__step"/g) || []).length === 3);
+  ok('the steps are numbered, all four of them',
+     (html.match(/class="bk__step"/g) || []).length === 4);
   ok('and the second one is on the page from the start, so it never reads 1 then 3',
      !/data-times-field[^>]*\bhidden\b/.test(html)
      && /bk__waiting/.test(html));
@@ -369,6 +370,55 @@ console.log('\na date on its own does not say which week it is');
        const today = plus(SUN, i);
        return [1, 2, 3, 4, 5, 6, 7].every((off) => weekOf(today, plus(today, off)) <= 1);
      }));
+}
+
+console.log('\nknowing which link to send');
+{
+  const js = readFileSync('assets/js/book.js', 'utf8');
+  const css = readFileSync('assets/css/book.css', 'utf8');
+  const html = readFileSync('book.html', 'utf8');
+  const req = readFileSync('lib/request.js', 'utf8');
+  const mail = readFileSync('functions/api/request.js', 'utf8');
+  const decide = readFileSync('functions/book/decide.js', 'utf8');
+  const studio = readFileSync('assets/js/studio.js', 'utf8');
+  const seed = readFileSync('lib/seed.js', 'utf8');
+
+  /* The page said "video call, link sent on confirmation" and never
+     asked which one, so confirming meant guessing between Meet and Zoom
+     or writing a second email to ask. */
+  ok('the request records how the call happens',
+     /ADD COLUMN platform/.test(seed) && /platform/.test(req));
+  ok('there is a step for it on the page', /data-step-field="how"/.test(html));
+  ok('and the ways are drawn from what the diary offers, not hard coded',
+     /state\.ways = j\.platforms/.test(js) && !/'Google Meet'/.test(js));
+  ok('which is a setting, so a way you do not use can be turned off',
+     SETTINGS.flatMap((g) => g.fields).some((f) => f.name === 'book.platforms'));
+
+  /* The one place the choice is more than a label: a WhatsApp call to an
+     email address does not exist. */
+  ok('a way that needs a number asks for one', /data-phone-field/.test(html)
+     && /function showPhone/.test(js));
+  ok('and the server refuses without it', /platform\.needs && phone/.test(req));
+
+  /* Falling back to the first offered looked kinder and was not: a stale
+     page offering WhatsApp would book somebody onto Google Meet without
+     either of them knowing, and they would find out at the hour. */
+  ok('a way that is not on offer is refused, not quietly swapped',
+     /That is not one of the ways I take calls/.test(req));
+  ok('but saying nothing at all still takes the first',
+     /wanted\s*\n?\s*\?\s*s0\.platforms\.find/.test(req));
+
+  ok('every place a decision is made says which way it is',
+     /platform_label/.test(mail) && /label\(row\.platform\)/.test(decide)
+     && /DIARY_WAYS/.test(studio));
+  ok('the subject line carries it, so it is answerable without opening anything',
+     /subject: `Booking request:[^`]*\$\{how/.test(mail));
+  ok('and the person who asked is told which way too', /const via = PLATFORMS/.test(req));
+
+  ok('the cards have a rule in the stylesheet', /\.bk__way-in\s*\{/.test(css));
+  ok('a row from before the column existed does not render as undefined',
+     /PLATFORMS\[id\] \? PLATFORMS\[id\]\.label : /.test(decide)
+     && /r\.platform \?/.test(studio));
 }
 
 console.log('\nthe diary in the studio');

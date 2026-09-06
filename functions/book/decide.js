@@ -20,8 +20,13 @@
  * decline one hour that you can then change in the studio.
  */
 import { byToken, decide, tellThem } from '../../lib/request.js';
+import { PLATFORMS } from '../../lib/booking.js';
 import { page, esc } from '../../lib/plainpage.js';
 import { send } from '../../lib/mail.js';
+
+/* A row written before the column existed has no platform on it, and
+   that is not a fault to render as "undefined". */
+const label = (id) => (PLATFORMS[id] ? PLATFORMS[id].label : 'whatever suits');
 
 const shell = (title, inner) => page(title, `
   <h1 class="jr_title u-text-style-h2">${esc(title)}</h1>
@@ -52,7 +57,8 @@ export async function onRequestGet({ request, env }) {
       ${row.minutes} minutes.
     </p>
     <p>${esc(row.about || 'They did not say what it is about.')}</p>
-    <p>Reply to: ${esc(row.email)}${row.phone ? ` &middot; ${esc(row.phone)}` : ''}</p>
+    <p>By ${esc(label(row.platform))}${row.phone ? ` on ${esc(row.phone)}` : ''}.</p>
+    <p>Reply to: ${esc(row.email)}</p>
     <form method="POST" action="/book/decide">
       <input type="hidden" name="t" value="${esc(t)}">
       <input type="hidden" name="do" value="${esc(want)}">

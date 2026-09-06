@@ -177,8 +177,39 @@ textarea { resize: vertical; min-height: 7rem; line-height: 1.55; }
 
 /* chips + slots: square, the way every other control on the site is */
 .bk__chips { display: flex; gap: .5rem; flex-wrap: wrap; }
-.bk__chip input, .bk__slot input, .bk__day input {
+.bk__chip input, .bk__slot input, .bk__day input, .bk__way input {
   position: absolute; opacity: 0; pointer-events: none;
+}
+
+/* --- how the call happens -----------------------------------------
+   Two lines to a card: the name of the thing, and what will follow from
+   picking it. "I send a link" against "I call you" is the whole
+   difference, and it is what tells somebody whether they are about to
+   be asked for a number. */
+.bk__ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: .4rem; }
+.bk__way { display: block; }
+.bk__way-in {
+  display: grid;
+  gap: .2rem;
+  cursor: pointer;
+  padding: .85rem 1rem;
+  min-height: 3.4rem;
+  align-content: center;
+  box-sizing: border-box;
+  background: var(--bk-surface);
+  border-radius: var(--bk-radius);
+  transition: background .22s ease, color .22s ease;
+}
+.bk__way-name { line-height: 1.2; }
+.bk__way-note { color: var(--bk-dim); font-size: .76rem; }
+.bk__way-in:hover { background: var(--bk-surface-hi); }
+.bk__way input:checked + .bk__way-in {
+  background: var(--swatch--beige-100, #e8e8e3);
+  color: var(--swatch--black-400, #080807);
+}
+.bk__way input:checked + .bk__way-in .bk__way-note { color: inherit; opacity: .65; }
+.bk__way input:focus-visible + .bk__way-in {
+  outline: 2px solid var(--swatch--beige-300, #d1d1c7); outline-offset: 2px;
 }
 
 /* --- picking a day ------------------------------------------------

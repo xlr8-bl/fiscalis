@@ -34,6 +34,8 @@
   var daysWrap = document.querySelector('[data-days]');
   var timesField = document.querySelector('[data-times-field]');
   var slotsWrap = document.querySelector('[data-slots]');
+  var waysWrap = document.querySelector('[data-ways]');
+  var phoneField = document.querySelector('[data-phone-field]');
   var msgEl = document.getElementById('bk-msg');
   var countEl = document.querySelector('[data-count]');
   var summary = document.querySelectorAll('[data-summary-duration]');
@@ -45,7 +47,8 @@
      The server is what enforces it, this only reports it. */
   if (openedAt) openedAt.value = String(Date.now());
 
-  var state = { days: [], today: '', day: '', start: '', minutes: 45, expanded: {} };
+  var state = { days: [], today: '', day: '', start: '', how: '',
+               ways: [], minutes: 45, expanded: {} };
 
   /* A step that is behind you looks different from one still ahead.
      Nothing here changes what the form does; it is the only feedback
@@ -60,6 +63,7 @@
     };
     mark('day', !!state.day);
     mark('time', !!state.start);
+    mark('how', !!state.how);
     var name = (form.querySelector('[name="name"]') || {}).value || '';
     var mail = (form.querySelector('[name="email"]') || {}).value || '';
     mark('you', !!(name.trim() && mail.trim()));
@@ -156,6 +160,7 @@
       .then(function (j) {
         state.days = j.days || [];
         state.today = j.today || '';
+        state.ways = j.platforms || [];
         state.minutes = j.minutes || 45;
         // the length is said twice on the page, once above the form and
         // once in the particulars below it
@@ -163,6 +168,7 @@
           summary[s].textContent = state.minutes + ' minutes';
         }
         drawDays();
+        drawWays();
       })
       .catch(function () {
         if (daysWrap) {
@@ -213,6 +219,49 @@
         '</span></label>';
     }
     daysWrap.innerHTML = html;
+  }
+
+  /* How the call happens. Drawn from what the diary offers rather than
+     hard coded, so turning Zoom off in the studio turns it off here. The
+     first one is picked for them: a required choice with nothing chosen
+     is a step somebody can walk past and then be told off for. */
+  function drawWays() {
+    if (!waysWrap) return;
+    if (!state.ways.length) { waysWrap.innerHTML = ''; return; }
+    if (!state.how) state.how = state.ways[0].id;
+
+    var html = '';
+    for (var i = 0; i < state.ways.length; i++) {
+      var w = state.ways[i];
+      html +=
+        '<label class="bk__way">' +
+        '<input type="radio" name="platform" value="' + w.id + '"' +
+        (w.id === state.how ? ' checked' : '') + '>' +
+        '<span class="bk__way-in">' +
+        '<span class="bk__way-name">' + w.label + '</span>' +
+        '<span class="bk__way-note">' + w.note + '</span>' +
+        '</span></label>';
+    }
+    waysWrap.innerHTML = html;
+    showPhone();
+  }
+
+  /* The number is asked for only when it is the thing I would dial, and
+     it is required then. A WhatsApp call to an email address does not
+     exist, and finding that out after confirming means another email. */
+  function showPhone() {
+    if (!phoneField) return;
+    var picked = null;
+    for (var i = 0; i < state.ways.length; i++) {
+      if (state.ways[i].id === state.how) picked = state.ways[i];
+    }
+    var need = !!(picked && picked.needs);
+    phoneField.hidden = !need;
+    var input = phoneField.querySelector('input');
+    if (input) {
+      input.required = need;
+      if (!need) input.value = '';
+    }
   }
 
   function drawTimes() {
@@ -275,6 +324,7 @@
       reveal(timesField);
     }
     if (t.name === 'start') { state.start = t.value; say(''); }
+    if (t.name === 'platform') { state.how = t.value; showPhone(); say(''); }
     markSteps();
   });
 
@@ -313,6 +363,8 @@
       name: (form.querySelector('[name="name"]') || {}).value || '',
       email: (form.querySelector('[name="email"]') || {}).value || '',
       about: (form.querySelector('[name="about"]') || {}).value || '',
+      platform: state.how,
+      phone: (form.querySelector('[name="phone"]') || {}).value || '',
       company: (form.querySelector('[name="company"]') || {}).value || '',
       opened_at: openedAt ? openedAt.value : ''
     };

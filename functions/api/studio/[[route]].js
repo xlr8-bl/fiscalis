@@ -205,7 +205,7 @@ export async function onRequest(context) {
         const { results } = await env.DB
           .prepare(
             `SELECT id, day, start, minutes, name, email, phone, about, state,
-                    note, expires_at, decided_at, created_at
+                    platform, note, expires_at, decided_at, created_at
              FROM appointments
              ORDER BY CASE state WHEN 'pending' THEN 0 WHEN 'confirmed' THEN 1 ELSE 2 END,
                       day, start

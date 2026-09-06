@@ -342,7 +342,9 @@ async function viewHome() {
         list.appendChild(row({
           title: `${fmtDay(a.day)}, ${a.start}`,
           note: a.about || a.name,
-          meta: [a.name || null, heldFor(a.expires_at)],
+          meta: [a.name || null,
+                 a.platform ? (DIARY_WAYS[a.platform] || a.platform) : null,
+                 heldFor(a.expires_at)],
           onClick: () => { location.hash = '#/bookings'; },
           tools: [
             { id: 'yes', label: '✓', title: 'Confirm this hour',
@@ -1507,6 +1509,13 @@ const DIARY_TABS = [
   ['', 'Everything'],
 ];
 
+/* What the confirmation has to carry, said the short way. The row is
+   where you decide, so it is where this belongs. */
+const DIARY_WAYS = {
+  meet: 'Google Meet', zoom: 'Zoom', teams: 'Teams',
+  whatsapp: 'WhatsApp', phone: 'Phone', facetime: 'FaceTime',
+};
+
 const DIARY_STATES = {
   pending:   'Held for you to decide',
   confirmed: 'Booked',
@@ -1628,6 +1637,9 @@ function paintDiary() {
         meta: [
           r.name || null,
           r.email || null,
+          // a row from before this was asked has no platform on it
+          r.platform ? (DIARY_WAYS[r.platform] || r.platform) : null,
+          r.phone || null,
           `${r.minutes} min`,
           r.state === 'pending' ? heldFor(r.expires_at) : DIARY_STATES[r.state] || r.state,
         ],
