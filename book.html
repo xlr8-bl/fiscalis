@@ -54,32 +54,32 @@
         you wanted. Need a different day as well? Send a second request.</p>
     </aside>
 
-    <form class="bk__form" data-book data-endpoint="/api/book" novalidate>
+    <form class="bk__form" data-book data-endpoint="/api/request" novalidate>
 
       <div class="bk__hp" aria-hidden="true">
         <label>Company<input name="company" type="text" tabindex="-1" autocomplete="off"></label>
+        <input name="opened_at" type="hidden" value="">
       </div>
 
-      <fieldset class="bk__field">
-        <legend class="bk__label u-text-style-main">How long do you need?</legend>
-        <div class="bk__chips" role="radiogroup">
-          <label class="bk__chip"><input type="radio" name="duration" value="30 minutes" checked><span class="u-text-style-small">30 min</span></label>
-          <label class="bk__chip"><input type="radio" name="duration" value="45 minutes"><span class="u-text-style-small">45 min</span></label>
-          <label class="bk__chip"><input type="radio" name="duration" value="60 minutes"><span class="u-text-style-small">60 min</span></label>
-        </div>
-      </fieldset>
-
+      <!-- Three steps: pick a day, pick a time, say who you are.
+           The research is unanimous that a booking page which takes more
+           than that loses people, and that five to eight times visible at
+           once is the band: fewer reads as shut, more is a decision
+           nobody wants to make. The days come from /api/slots, so what is
+           on the page is what is actually free. -->
       <div class="bk__field">
-        <label class="bk__label u-text-style-main" for="bk-date">Preferred date</label>
-        <input id="bk-date" name="date" type="date" required>
+        <div class="bk__label u-text-style-main">Pick a day</div>
+        <div class="bk__days" data-days role="radiogroup" aria-label="Available days">
+          <p class="bk__hint u-text-style-small" data-days-loading>Looking at the diary…</p>
+        </div>
       </div>
 
-      <fieldset class="bk__field">
-        <legend class="bk__label u-text-style-main">Preferred time
-          <span class="bk__hint u-text-style-small">GMT+1, up to <b data-max-slots>3</b>, on that one date</span>
-        </legend>
-        <div class="bk__slots" data-slots></div>
-      </fieldset>
+      <div class="bk__field" data-times-field hidden>
+        <div class="bk__label u-text-style-main">Pick a time
+          <span class="bk__hint u-text-style-small" data-tz>GMT+1</span>
+        </div>
+        <div class="bk__slots" data-slots role="radiogroup" aria-label="Available times"></div>
+      </div>
 
       <div class="bk__row">
         <div class="bk__field">
@@ -93,8 +93,8 @@
       </div>
 
       <div class="bk__field">
-        <label class="bk__label u-text-style-main" for="bk-msg">What is broken?</label>
-        <textarea id="bk-msg" name="message" rows="4" required placeholder="Two sentences is plenty."></textarea>
+        <label class="bk__label u-text-style-main" for="bk-msg">What is it about?</label>
+        <textarea id="bk-msg" name="about" rows="4" placeholder="Two sentences is plenty."></textarea>
         <div class="bk__meter"><span data-count>0</span></div>
       </div>
 
@@ -123,6 +123,6 @@
 <footer class="jr_footer site_footer"><div class="site_footer_grid"><div class="site_footer_col"><p class="site_footer_mark u-text-style-h6">Web3Ashley</p><p class="site_footer_line u-text-style-main">I work out what your business is losing online, then build the thing that fixes it.</p></div><div class="site_footer_col"><p class="site_footer_head u-text-style-main">Pages</p><a href="/" class="footer_legal_link u-text-style-main">Home</a><a href="/journal/" class="footer_legal_link u-text-style-main">Journal</a><a href="/book" class="footer_legal_link u-text-style-main">Book a call</a></div><div class="site_footer_col"><p class="site_footer_head u-text-style-main">Elsewhere</p><a href="https://instagram.com/we3.ashley" rel="me noopener" class="footer_legal_link u-text-style-main">Instagram</a><a href="https://tiktok.com/@web3ashley" rel="me noopener" class="footer_legal_link u-text-style-main">TikTok</a><a href="https://x.com/xlr8_bl_" rel="me noopener" class="footer_legal_link u-text-style-main">X</a></div><div class="site_footer_col"><p class="site_footer_head u-text-style-main">Legal</p><a href="/privacy" class="footer_legal_link u-text-style-main">Privacy</a><a href="/terms" class="footer_legal_link u-text-style-main">Terms</a><a href="/feed.xml" class="footer_legal_link u-text-style-main">RSS</a></div></div><p class="site_footer_base u-text-style-main">© 2026 Web3Ashley · GMT+1 · Working worldwide</p></footer>
 <!-- footer:end -->
 
-<script src="assets/js/book.js?v=a0379fff61" defer></script><script src="assets/js/site.js?v=71ad198561" defer></script>
+<script src="assets/js/book.js?v=e2f207d030" defer></script><script src="assets/js/site.js?v=71ad198561" defer></script>
 </body>
 </html>
