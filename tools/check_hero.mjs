@@ -8,8 +8,10 @@
  * feature working until somebody opens it on a phone.
  */
 import { readFileSync } from 'node:fs';
-import { isHeroOnly, isBookingOnly, bookingOnlyRedirect } from '../lib/content.js';
-import { SETTINGS } from '../lib/collections.js';
+import {
+  isHeroOnly, isBookingOnly, bookingOnlyRedirect, hiddenSections,
+} from '../lib/content.js';
+import { SETTINGS, SECTIONS } from '../lib/collections.js';
 
 let bad = 0;
 const ok = (what, cond, extra = '') => {
@@ -33,7 +35,10 @@ console.log('\nthe switch');
 
 console.log('\nwhat a visitor is left with');
 {
-  const tagged = [...index.matchAll(/<[a-z]+\s[^>]*data-off-when="heroOnly"[^>]*>/g)]
+  // the attribute holds a list now, so heroOnly is one of the modes on a
+  // tag rather than the whole of its value
+  const tagged = [...index.matchAll(/<[a-z]+\s[^>]*data-off-when="([^"]+)"[^>]*>/g)]
+    .filter((m) => m[1].trim().split(/\s+/).includes('heroOnly'))
     .map((m) => (/(?:id|class)="([^"]{0,40})/.exec(m[0]) || [])[1] || '?');
   ok('the navbar goes', tagged.some((t) => /navbar/.test(t)), tagged.join(' | '));
   ok('the questions go', tagged.some((t) => /faq/.test(t)));
@@ -43,6 +48,67 @@ console.log('\nwhat a visitor is left with');
   const heroTag = /<section[^>]*class="[^"]*hero_home_wrap/.exec(index);
   ok('the hero itself is not tagged, or nothing would be left',
      !!heroTag && !/data-off-when/.test(heroTag[0]));
+}
+
+console.log('\none section at a time, which is what is usually wanted');
+{
+  /* Hero only and booking only are both all-or-nothing. Between them is
+     the site with its menu, its way to book and its footer intact, minus
+     the sections still showing work that does not exist yet. */
+  const tagged = [...index.matchAll(/<([a-z]+)\s[^>]*data-off-when="([^"]+)"[^>]*>/g)]
+    .map((m) => ({
+      modes: m[2].trim().split(/\s+/),
+      href: (/href="([^"]*)/.exec(m[0]) || [])[1] || '',
+      what: (/class="([^"]*)/.exec(m[0]) || [])[1] || '',
+    }));
+
+  ok('nothing set removes nothing', hiddenSections({}).length === 0);
+  ok('and a switch left on removes nothing either',
+     hiddenSections(Object.fromEntries(SECTIONS.map((s) => [`show.${s.key}`, 'on']))).length === 0);
+
+  ok('every section has a switch, and every switch a section',
+     SECTIONS.every((s) => tagged.some((t) => t.modes.includes(s.mode))),
+     SECTIONS.filter((s) => !tagged.some((t) => t.modes.includes(s.mode)))
+       .map((s) => s.key).join(', ') || 'all present');
+
+  ok('the switches are in the studio',
+     SECTIONS.every((s) => SETTINGS.flatMap((g) => g.fields)
+       .some((f) => f.name === `show.${s.key}`)));
+
+  /* An attribute holds several modes now, because the nav link to the
+     work section goes both when the site is booking only and when the
+     work itself is switched off. A rewriter comparing the whole
+     attribute would match neither. */
+  ok('an element can be removed for more than one reason',
+     tagged.some((t) => t.modes.length > 1));
+  ok('and the rewriter reads all of them, not the attribute whole',
+     /getAttribute\('data-off-when'\)[^;]*\.split\(\/\\s\+\/\)/.test(worker)
+     && /\.some\(\(m\) => this\.modes\.has\(m\)\)/.test(worker));
+
+  /* A menu item that scrolls to a section which is no longer there is a
+     dead control, and a visitor reads a dead control as a broken site
+     rather than a deliberate one. */
+  for (const [key, href] of [['work', '#work'], ['services', '#services'],
+                             ['process', '#process'], ['journal', '/journal/']]) {
+    const mode = SECTIONS.find((s) => s.key === key).mode;
+    const links = tagged.filter((t) => t.href === href);
+    ok(`switching off ${key} takes its links with it`,
+       links.length > 0 && links.every((t) => t.modes.includes(mode)),
+       `${links.length} links`);
+  }
+
+  // the combination actually asked for
+  const off = new Set(hiddenSections({
+    'show.work': 'off', 'show.services': 'off',
+    'show.process': 'off', 'show.statement': 'off',
+  }));
+  const survives = (cls) => tagged
+    .filter((t) => t.what.includes(cls))
+    .every((t) => !t.modes.some((m) => off.has(m)));
+  ok('the stock sections can go while the menu stays', survives('navbar_wrap'));
+  ok('and the closing invitation to book stays', survives('cta_home_wrap'));
+  ok('and the footer stays', survives('footer_wrap_main'));
+  ok('and the questions stay', survives('faq_home_wrap'));
 }
 
 console.log('\nthe two things that break it on a phone');

@@ -32,7 +32,9 @@
  * the markup and this file.
  */
 
-import { getSettings, listAllEntries, isBookingOnly, isHeroOnly } from '../lib/content.js';
+import {
+  getSettings, listAllEntries, isBookingOnly, isHeroOnly, hiddenSections,
+} from '../lib/content.js';
 import { COLLECTIONS } from '../lib/collections.js';
 import { escapeHtml } from '../assets/js/markdown.js';
 
@@ -169,10 +171,20 @@ addEventListener('load', function () {
 });
 </script>`;
 
+/*
+ * An element can be removed for more than one reason.
+ *
+ * The nav link to #work goes when the site is booking only AND when the
+ * work section itself is switched off, and those are two different
+ * settings. One attribute, several modes, any of them enough: that is
+ * what makes a per-section switch expressible without inventing a second
+ * attribute or tagging the same link twice.
+ */
 class OffWhen {
   constructor(modes) { this.modes = modes; }
   element(el) {
-    if (this.modes.has(el.getAttribute('data-off-when'))) el.remove();
+    const on = String(el.getAttribute('data-off-when') || '').trim().split(/\s+/);
+    if (on.some((m) => this.modes.has(m))) el.remove();
   }
 }
 
@@ -323,6 +335,8 @@ export async function onRequestGet(context) {
     modes.add('heroOnly');
     head += HERO_ONLY_CSS + HERO_ONLY_FAILSAFE;
   }
+  // and whatever has been switched off one section at a time
+  for (const mode of hiddenSections(settings)) modes.add(mode);
 
   const filled = new HTMLRewriter()
     .on('[data-cms]', new TextSlot(values))
