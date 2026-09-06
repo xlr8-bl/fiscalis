@@ -18,6 +18,8 @@
  *   GET    /api/studio/articles/:slug/history              -> past versions
  *   GET    /api/studio/articles/:slug/history/:id          -> one, with body
  *   POST   /api/studio/articles/:slug/restore { id }       -> put one back
+ *   GET    /api/studio/appointments                        -> the diary
+ *   POST   /api/studio/appointments/:id/decide { verdict }  -> confirm/decline/cancel
  *   POST   /api/studio/media          (multipart)          -> upload to R2
  *   GET    /api/studio/media                               -> list uploads
  *   PUT    /api/studio/media/:key     { alt }              -> describe one
@@ -32,6 +34,9 @@ import {
 } from '../../../lib/auth.js';
 import { SITE } from '../../../lib/templates.js';
 import * as history from '../../../lib/revisions.js';
+import { availability, releaseStale } from '../../../lib/booking.js';
+import { decideById, tellThem } from '../../../lib/request.js';
+import { send } from '../../../lib/mail.js';
 
 /** The fields a revision of an article keeps. */
 const snapshot = (a) => ({
@@ -173,6 +178,60 @@ export async function onRequest(context) {
     }
 
     return json({ error: 'Not a bookings route.' }, 404);
+  }
+
+  /* ----------------------------------------------------------- the diary */
+  /*
+   * Held hours, and what happens to them.
+   *
+   * The email link can confirm and decline. This can also cancel, which
+   * the link deliberately cannot: giving back an hour you already promised
+   * is not something a forwarded email should be able to do.
+   *
+   * Stale holds are released on the way in rather than on a timer, so what
+   * you are looking at is what a visitor would be offered at that moment.
+   *
+   * A person only, for the same reason as the enquiries above.
+   */
+  if (head === 'appointments') {
+    if (who.kind !== 'studio') {
+      return json({ error: 'The diary is not something the agent token can read.' }, 403);
+    }
+
+    try {
+      await releaseStale(env.DB);
+
+      if (method === 'GET' && !rest.length) {
+        const { results } = await env.DB
+          .prepare(
+            `SELECT id, day, start, minutes, name, email, phone, about, state,
+                    note, expires_at, decided_at, created_at
+             FROM appointments
+             ORDER BY CASE state WHEN 'pending' THEN 0 WHEN 'confirmed' THEN 1 ELSE 2 END,
+                      day, start
+             LIMIT 200`
+          )
+          .all();
+        const { shape: pattern, days } = await availability(env.DB);
+        return json({ appointments: results ?? [], shape: pattern, free: days });
+      }
+
+      if (method === 'POST' && rest.length === 2 && rest[1] === 'decide') {
+        const body = await request.json().catch(() => ({}));
+        const out = await decideById(env, rest[0], String(body.verdict ?? ''), {
+          note: body.note,
+        });
+        if (out.ok) await tellThem(send, env, out.appointment, out.state);
+        return json(out, out.ok ? 200 : 409);
+      }
+    } catch (err) {
+      if (/no such table/i.test(String(err?.message ?? err))) {
+        return json({ appointments: [], free: [], setup_needed: true });
+      }
+      throw err;
+    }
+
+    return json({ error: 'Not a diary route.' }, 404);
   }
 
   /* ----------------------------------------------------------------- media */

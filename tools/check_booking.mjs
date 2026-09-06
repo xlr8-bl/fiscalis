@@ -244,8 +244,54 @@ console.log('\ndeciding by email');
 
   const mail = readFileSync('functions/api/request.js', 'utf8');
   ok('the notification carries both links', /do=confirm/.test(mail) && /do=decline/.test(mail));
-  ok('and the person who asked is told when it is decided',
-     /send\(env, \{\s*to: a\.email/.test(decidePage));
+  /* Both doors into the decision have to tell them. The wording lives in
+     one place so the second door cannot quietly grow a different one, or
+     none: a booking confirmed in the studio that the person never hears
+     about is the same failure as one confirmed by email and never sent. */
+  const shared = readFileSync('lib/request.js', 'utf8');
+  const studioApi = readFileSync('functions/api/studio/[[route]].js', 'utf8');
+  ok('the wording lives in one place', /export async function tellThem/.test(shared));
+  ok('and it does send', /await send\(env, \{ to: a\.email/.test(shared));
+  ok('the email link tells them', /await tellThem\(send, env/.test(decidePage));
+  ok('and so does deciding it in the studio', /await tellThem\(send, env/.test(studioApi));
+  ok('a decline and a cancellation are both written, not just the confirmation',
+     /declined:/.test(shared) && /cancelled:/.test(shared));
+
+  /* The email link can confirm and decline. Only the studio can give back
+     an hour that is already confirmed, and that asymmetry is deliberate:
+     a forwarded email should not be able to unbook somebody. */
+  ok('only the studio can cancel a confirmed hour',
+     /cancel: 'cancelled'/.test(shared)
+     && /want === 'cancelled' \? \['pending', 'confirmed'\]/.test(shared)
+     && !/cancel/.test(decidePage));
+
+  /* Reading the row and then writing it is two statements with a gap, and
+     the email link can decide in the gap. The state read has to be a
+     condition of the write. */
+  ok('deciding twice at once cannot both win',
+     /WHERE id = \?1 AND state = \?5/.test(shared));
+}
+
+console.log('\nthe diary in the studio');
+{
+  const studioApi = readFileSync('functions/api/studio/[[route]].js', 'utf8');
+  const studioJs = readFileSync('assets/js/studio.js', 'utf8');
+  const studioHtml = readFileSync('studio.html', 'utf8');
+  const decidePage = readFileSync('functions/book/decide.js', 'utf8');
+
+  ok('the link the decide page offers goes somewhere',
+     /\/studio#\/bookings/.test(decidePage)
+     && /area === 'bookings'/.test(studioJs));
+  ok('there is a screen for it', /data-view="bookings"/.test(studioHtml));
+  ok('and a way into it from the menu', /#\/bookings', 'Times'/.test(studioJs));
+  ok('the diary route exists', /head === 'appointments'/.test(studioApi));
+  ok('the agent token cannot read it',
+     /The diary is not something the agent token can read/.test(studioApi));
+  ok('stale holds are let go before you are shown what is free',
+     /await releaseStale\(env\.DB\)/.test(studioApi));
+  ok('held hours are shown on the overview, above everything else',
+     /Times held/.test(studioJs));
+  ok('and each one says how long is left on it', /function heldFor/.test(studioJs));
 }
 
 console.log('\nthe page offers what is free, and says so');

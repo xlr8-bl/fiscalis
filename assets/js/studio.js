@@ -6,6 +6,7 @@
  * back gesture does what you expect instead of leaving the studio.
  *
  *   #/                     the overview
+ *   #/bookings             the diary: hours held, booked and let go
  *   #/journal              the articles
  *   #/journal/<slug>       one article
  *   #/site/<collection>    the work cards, services, stages, FAQs…
@@ -55,6 +56,7 @@ let entryCtx = null;     // the entry or settings group being edited
 let dirty = false;
 let listCtx = null;      // what the list view is showing, and how it is filtered
 let socialWaiting = 0;   // carousels sitting in review, for the menu badge
+let diaryWaiting = 0;    // hours held and undecided, for the menu badge
 
 /* --------------------------------------------------------------- plumbing */
 
@@ -192,6 +194,7 @@ function renderNav() {
 
   $('[data-nav-links]').innerHTML =
     group('Studio', [['#/', 'Overview']]) +
+    group('Diary', [['#/bookings', 'Times', diaryWaiting || null]]) +
     group('Journal', [['#/journal', 'Articles', waiting || null]]) +
     group('Social', [
       ['#/social', 'Carousels', socialWaiting || null],
@@ -314,7 +317,47 @@ async function viewHome() {
   host.innerHTML = '';
 
   /*
-   * Enquiries first, above everything.
+   * Held hours above everything, including enquiries.
+   *
+   * A pending request is not a message waiting for a reply, it is an hour
+   * taken out of the diary that nobody has been given yet. It costs you
+   * something every hour it sits there, and it lets go on its own if you
+   * never look, so it goes at the very top.
+   */
+  try {
+    const { appointments = [] } = await api('/appointments');
+    const held = appointments.filter((a) => a.state === 'pending');
+    diaryWaiting = held.length;
+    renderNav();
+    if (held.length) {
+      const sec = document.createElement('section');
+      sec.className = 'st-group';
+      sec.innerHTML =
+        '<h2 class="st-group__head">Times held ' +
+        `<span class="st-group__count">${held.length}</span></h2>` +
+        '<p class="st-note u-text-style-main">Each of these is an hour nobody else can '
+        + 'book. They let go on their own if you leave them.</p><ul class="st-rows"></ul>';
+      const list = sec.querySelector('.st-rows');
+      for (const a of held.slice(0, 6)) {
+        list.appendChild(row({
+          title: `${fmtDay(a.day)}, ${a.start}`,
+          note: a.about || a.name,
+          meta: [a.name || null, heldFor(a.expires_at)],
+          onClick: () => { location.hash = '#/bookings'; },
+          tools: [
+            { id: 'yes', label: '✓', title: 'Confirm this hour',
+              onClick: () => settle(a, 'confirm') },
+            { id: 'no', label: '×', title: 'Decline it',
+              onClick: () => settle(a, 'decline') },
+          ],
+        }));
+      }
+      host.appendChild(sec);
+    }
+  } catch { /* a database from before the diary shipped; setup adds it */ }
+
+  /*
+   * Enquiries next.
    *
    * They were not shown anywhere at all before, because they were not
    * stored anywhere at all: /api/book logged them and returned 200. So
@@ -1444,6 +1487,195 @@ $('[data-upload]').addEventListener('change', async (e) => {
   viewMedia();
 });
 
+/* =================================================================== diary
+ *
+ * The hours somebody has asked for, and what you do about them.
+ *
+ * The email you get when a request comes in has confirm and decline links
+ * in it, and for one request at a time that is the whole job. This screen
+ * is for the other cases: several waiting at once, a hold you want to see
+ * before it lets go, and cancelling something you already confirmed,
+ * which the email link deliberately cannot do.
+ *
+ * Pending is first because pending is the only state that is costing you
+ * anything: an hour held out of the diary that nobody has yet been given.
+ */
+
+const DIARY_TABS = [
+  ['pending', 'Waiting on you'],
+  ['confirmed', 'Booked'],
+  ['', 'Everything'],
+];
+
+const DIARY_STATES = {
+  pending:   'Held for you to decide',
+  confirmed: 'Booked',
+  declined:  'You said no',
+  cancelled: 'You gave it back',
+  expired:   'Let go on its own',
+};
+
+let diaryCtx = { state: 'pending', rows: [], shape: null, free: [] };
+
+/** "in 4 hours", "in 2 days", or that it has already gone. */
+function heldFor(iso) {
+  const left = new Date(iso).getTime() - Date.now();
+  if (!Number.isFinite(left)) return '';
+  if (left <= 0) return 'hold is up';
+  const hours = Math.round(left / 3600000);
+  if (hours < 1) return 'less than an hour left';
+  if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'} left`;
+  return `${Math.round(hours / 24)} days left`;
+}
+
+const fmtDay = (day) => {
+  const d = new Date(`${day}T12:00:00Z`);
+  return isNaN(d) ? day : d.toLocaleDateString(undefined, {
+    weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC',
+  });
+};
+
+async function viewBookings() {
+  // renderNav below rebuilds the whole menu from the schema, and without
+  // this a deep link straight to the diary would draw a menu with the
+  // site's collections missing
+  await ensureSchema();
+  showView('bookings');
+  let data;
+  try {
+    data = await api('/appointments');
+  } catch (e) {
+    $('[data-diary-body]').innerHTML =
+      `<p class="st-lede u-text-style-h4">${escapeHtml(e.message)}</p>`;
+    return;
+  }
+
+  diaryCtx.rows = data.appointments ?? [];
+  diaryCtx.shape = data.shape ?? null;
+  diaryCtx.free = data.free ?? [];
+
+  const waiting = diaryCtx.rows.filter((r) => r.state === 'pending').length;
+  const booked = diaryCtx.rows.filter((r) => r.state === 'confirmed').length;
+  diaryWaiting = waiting;
+  renderNav();
+  const open = diaryCtx.free.reduce((n, d) => n + d.times.length, 0);
+
+  $('[data-diary-lede]').textContent = data.setup_needed
+    ? 'The diary table is not there yet. Maintenance, Database, run it once.'
+    : waiting
+      ? `${waiting} ${waiting === 1 ? 'hour is' : 'hours are'} held, waiting on you. `
+        + `${booked} booked, ${open} still free.`
+      : `Nothing waiting. ${booked} booked, ${open} times still free.`;
+
+  const tabs = $('[data-diary-tabs]');
+  tabs.innerHTML = DIARY_TABS.map(
+    ([value, label]) =>
+      `<button type="button" role="tab" class="st-toggle__btn${
+        value === diaryCtx.state ? ' is-on' : ''
+      }" data-tab="${value}" aria-selected="${value === diaryCtx.state}">${label}${
+        value === 'pending' && waiting ? ` <span class="st-toggle__n">${waiting}</span>` : ''
+      }</button>`
+  ).join('');
+  $$('[data-tab]', tabs).forEach((b) =>
+    b.addEventListener('click', () => { diaryCtx.state = b.dataset.tab; paintDiary(); })
+  );
+
+  paintDiary();
+}
+
+function paintDiary() {
+  $$('[data-tab]', $('[data-diary-tabs]')).forEach((b) => {
+    const on = b.dataset.tab === diaryCtx.state;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+
+  const host = $('[data-diary-body]');
+  const shown = diaryCtx.state
+    ? diaryCtx.rows.filter((r) => r.state === diaryCtx.state)
+    : diaryCtx.rows;
+
+  if (!shown.length) {
+    host.innerHTML =
+      `<p class="st-lede u-text-style-h4">${
+        diaryCtx.state === 'pending' ? 'Nothing is waiting on you.' : 'Nothing here.'
+      }</p>`;
+    return;
+  }
+
+  const list = document.createElement('ul');
+  list.className = 'st-rows';
+  shown.forEach((r) => {
+    const tools = [];
+    if (r.state === 'pending') {
+      tools.push(
+        { id: 'yes', label: 'Confirm', title: 'Give them this hour',
+          onClick: () => settle(r, 'confirm') },
+        { id: 'no', label: 'Decline', title: 'Put the hour back on the page',
+          onClick: () => settle(r, 'decline') },
+      );
+    } else if (r.state === 'confirmed') {
+      tools.push(
+        { id: 'off', label: 'Cancel', title: 'Give the hour back',
+          onClick: () => settle(r, 'cancel') },
+      );
+    }
+
+    list.append(
+      row({
+        title: `${fmtDay(r.day)}, ${r.start}`,
+        note: r.about || 'They did not say what it is about.',
+        meta: [
+          r.name || null,
+          r.email || null,
+          `${r.minutes} min`,
+          r.state === 'pending' ? heldFor(r.expires_at) : DIARY_STATES[r.state] || r.state,
+        ],
+        onClick: () => {
+          if (r.email) location.href = `mailto:${r.email}?subject=${
+            encodeURIComponent(`About ${r.day} at ${r.start}`)}`;
+        },
+        tools,
+      })
+    );
+  });
+  host.replaceChildren(list);
+}
+
+/**
+ * Decide one, and say what the person on the other end will be told.
+ *
+ * Every one of these sends them an email, so the question names that
+ * rather than asking "are you sure" about something invisible.
+ */
+async function settle(r, verdict) {
+  const when = `${fmtDay(r.day)} at ${r.start}`;
+  const asking = {
+    confirm: { title: `Confirm ${when}?`, yes: 'Confirm it', danger: false,
+               body: `${r.name || 'They'} will be told the hour is theirs.` },
+    decline: { title: `Decline ${when}?`, yes: 'Decline it', danger: true,
+               body: `${r.name || 'They'} will be told, and pointed at the other times. `
+                   + 'The hour goes back on the page.' },
+    cancel:  { title: `Give back ${when}?`, yes: 'Give it back', danger: true,
+               body: `${r.name || 'They'} were told this was booked. They will be told `
+                   + 'it is not, and the hour goes back on the page.' },
+  }[verdict];
+
+  if (!await sure(asking.title, asking)) return;
+
+  try {
+    await api(`/appointments/${r.id}/decide`, {
+      method: 'POST',
+      body: JSON.stringify({ verdict }),
+    });
+    say('Done, and they have been told.', 'ok');
+    // this is reachable from the overview as well as from the diary, and
+    // redrawing the other one leaves you looking at a screen you did not
+    // ask for
+    await (location.hash === '#/bookings' ? viewBookings() : viewHome());
+  } catch (e) { say(e.message, 'err'); }
+}
+
 /* ----------------------------------------------------------------- router */
 
 /* ================================================================== social
@@ -2507,6 +2739,7 @@ async function route() {
     if (area === 'site' && a) return b ? await viewEntry(a, b) : await viewCollection(a);
     if (area === 'settings' && a) return await viewSettings(a);
     if (area === 'media') return await viewMedia();
+    if (area === 'bookings') return await viewBookings();
     if (area === 'setup') return await viewSetup(await api('/setup'));
     if (area === 'social') return a ? await viewCarousel(a) : await viewBoard();
     if (area === 'kit') {

@@ -19,7 +19,7 @@
  * random bytes, one use, and the worst a leaked one can do is confirm or
  * decline one hour that you can then change in the studio.
  */
-import { byToken, decide } from '../../lib/request.js';
+import { byToken, decide, tellThem } from '../../lib/request.js';
 import { page, esc } from '../../lib/plainpage.js';
 import { send } from '../../lib/mail.js';
 
@@ -80,22 +80,7 @@ export async function onRequestPost({ request, env }) {
   const a = out.appointment;
   const confirmed = out.state === 'confirmed';
 
-  /* Tell the person who asked. A confirmation nobody receives is a
-     booking that only exists on your side, and they will book somebody
-     else while it sits there. */
-  await send(env, {
-    to: a.email,
-    subject: confirmed
-      ? `Confirmed: ${a.day} at ${a.start}`
-      : `About ${a.day} at ${a.start}`,
-    text: confirmed
-      ? `That time is yours: ${a.day} at ${a.start}, ${a.minutes} minutes.\n\n`
-        + 'I will send the joining details nearer the time. If something changes, '
-        + 'reply to this and I will move it.'
-      : `I cannot do ${a.day} at ${a.start}, sorry.\n\n`
-        + 'The other times on the page are still open, so pick another and it is '
-        + 'yours. Or reply to this and tell me what suits you.',
-  });
+  await tellThem(send, env, a, out.state);
 
   return shell(confirmed ? 'Confirmed' : 'Declined', `
     <p class="jr_lede u-text-style-h4">
