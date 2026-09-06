@@ -152,7 +152,7 @@ console.log('\nexactly one thing asks');
 
   const asks = TOOLS.filter((t) => t.annotations.destructiveHint === true).map((t) => t.name).sort();
   ok('only the publishing tools are destructive',
-     asks.join(',') === 'post_due,publish_article,schedule_articles', asks.join(', '));
+     asks.join(',') === 'post_due,publish_article,publish_articles,schedule_articles,set_writing_schedule', asks.join(', '));
 
   /* Gemini reads readOnlyHint and nothing else to decide whether to ask
      the account holder, and there is no always-allow in the app. So the
@@ -162,7 +162,7 @@ console.log('\nexactly one thing asks');
   const prompts = TOOLS.filter((t) => t.annotations.readOnlyHint !== true)
     .map((t) => t.name).sort();
   ok('only the publishing tools interrupt a person',
-     prompts.join(',') === 'post_due,publish_article,schedule_articles', prompts.join(', '));
+     prompts.join(',') === 'post_due,publish_article,publish_articles,schedule_articles,set_writing_schedule', prompts.join(', '));
 
   ok('publish_article is the destructive one on the journal side',
      byName.publish_article?.annotations?.destructiveHint === true);

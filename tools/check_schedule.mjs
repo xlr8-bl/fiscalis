@@ -191,8 +191,8 @@ console.log('\nwhat asks');
 
   const prompts = TOOLS.filter((t) => t.annotations.readOnlyHint !== true)
     .map((t) => t.name).sort();
-  ok('three tools interrupt a person, and all three publish something',
-     prompts.join(',') === 'post_due,publish_article,schedule_articles', prompts.join(', '));
+  ok('everything that interrupts a person publishes, or decides that it will',
+     prompts.join(',') === 'post_due,publish_article,publish_articles,schedule_articles,set_writing_schedule', prompts.join(', '));
 }
 
 console.log(bad ? `\n${bad} failed` : '\nthe queue spreads, refuses, claims once and publishes itself');

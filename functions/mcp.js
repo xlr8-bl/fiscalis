@@ -36,6 +36,7 @@ import { problems as brandProblems } from '../assets/js/brand.js';
 import { send as sendMail } from '../lib/mail.js';
 import { gather, compose } from '../lib/digest.js';
 import { scheduleArticles, unscheduleArticle, timetable, runDueArticles } from '../lib/schedule.js';
+import { writingPlan, setWritingPlan, inWords, recurrence } from '../lib/routine.js';
 import { runDue } from '../lib/publish.js';
 import { addReference } from '../lib/references.js';
 import { progress } from '../lib/progress.js';
@@ -45,6 +46,7 @@ import { apiKey, imageModel, drawProvider } from '../lib/imagen.js';
 import { getSetting } from '../lib/tokens.js';
 import {
   writingBrief, voiceRules, checkDraft, writeArticle, publishArticle,
+  publishArticles, writingRun,
   findPhotos, keepPhoto,
 } from '../lib/writing.js';
 import { purgeArticle } from '../lib/articles.js';
@@ -398,6 +400,34 @@ async function runTool(name, args, env) {
     /* ------------------------------------------------------- the journal */
     case 'writing_brief':
       return toolResult(await writingBrief(db));
+
+    case 'publish_articles': {
+      const out = await publishArticles({ ...env, SITE },
+                                        Array.isArray(a.slugs) ? a.slugs : []);
+      return out.published ? toolResult(out) : toolFailed(out.error);
+    }
+
+    case 'set_writing_schedule': {
+      const plan = await setWritingPlan(db, {
+        every: a.every, day: a.day, at: a.at, count: a.count,
+        then: a.then, across: a.across_days,
+      });
+      return toolResult({
+        plan, in_words: inWords(plan), set_this_up: recurrence(plan),
+        note: 'Stored. Nothing fires it until you set the recurring task above.',
+      });
+    }
+
+    case 'writing_schedule': {
+      const plan = await writingPlan(db);
+      return toolResult({
+        plan, in_words: inWords(plan), should_be_firing: recurrence(plan),
+        last_run: plan.last || 'never',
+      });
+    }
+
+    case 'writing_run':
+      return toolResult(await writingRun(db, { force: a.force === true }));
 
     case 'schedule_articles': {
       const out = await scheduleArticles(db, {

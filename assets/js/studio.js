@@ -1002,6 +1002,14 @@ function fieldHtml(f, value) {
       '<span class="st-switch__track"><span class="st-switch__dot"></span></span>' +
       `<span class="st-switch__state u-text-style-main" data-toggle-state>${value === 'on' ? 'On' : 'Off'}</span>` +
       '</label>';
+  } else if (f.type === 'select') {
+    // a fixed set of answers, so a cadence cannot be typed wrong
+    control =
+      `<select id="${id}" class="st-input" data-field="${f.name}">` +
+      f.options.map(([v, lbl]) =>
+        `<option value="${escapeAttr(v)}"${String(value ?? '') === v ? ' selected' : ''}>` +
+        `${escapeHtml(lbl)}</option>`).join('') +
+      '</select>';
   } else if (f.type === 'media') {
     control =
       '<div class="st-media-field">' +

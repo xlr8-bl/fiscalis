@@ -211,10 +211,66 @@ Six tools, in this order.
     find_photo             search a stock library, store nothing
     keep_photo             download the one you picked into the site's media
     write_article          the draft, checked before anything is stored
-    publish_article        put it on the site now
+    publish_article        put one on the site now
+    publish_articles       put several on the site now, in one call
     schedule_articles      put a batch out over the next few days
     scheduled_articles     what is queued
     unschedule_article     take one back off the queue
+    set_writing_schedule   write on a cadence, without being asked
+    writing_schedule       what the standing order says
+    writing_run            the one call a recurring task makes
+
+**Publishing several is one call.** `publish_articles { slugs: [...] }`
+rather than one `publish_article` each. Every article still goes through
+the full check against its stored row, so a batch is not a way round
+anything. Unlike scheduling, it does not refuse the batch whole: one
+refusal does not stop the rest, and the answer lists what went live and
+what did not with the reason. A half-applied schedule leaves a timetable
+nobody can read; a half-applied publish leaves some articles live and a
+list saying which, which is the truth and is actionable.
+
+## Writing without being asked
+
+    set_writing_schedule { every: 'weekly', day: 'tue', at: '09:00',
+                           count: 2, then: 'schedule', across_days: 5 }
+
+Reads back as: *2 articles every tue at 09:00, and spread them over the
+next 5 days.*
+
+**This stores the plan. It does not fire it.** There is no cron for the
+journal on this deployment, so the honest division is that the plan says
+what and how often, and Spark's own recurring task fires it. The call
+hands back the exact recurrence to set, in words and as cron, because a
+plan nobody fires is worse than no plan: it looks like it is working.
+
+Point that recurring task at **one call**:
+
+    writing_run
+
+It answers, in one round trip, the four things a run needs to know: is
+this due, what am I writing about, what do I go and find out, and what do
+I do with the drafts. So a task does not burn half its budget deciding
+whether it should be running.
+
+**The guard is the last run, not the clock.** Whatever fires it may fire
+twice: a retried task, a person testing it, or a fortnightly plan on a
+weekly cron, because cron has no fortnightly. A second run inside the
+plan's own gap comes back `run: false` with the reason. `force: true` is
+there for the one legitimate case, which is a person asking for a run now.
+
+`then` decides what happens when the drafts pass:
+
+    review      left for you to read. The default.
+    schedule    one schedule_articles call, spread over across_days
+    publish     one publish_articles call, straight onto the site
+
+The run tells the agent to make ONE call, not one per article.
+
+**The same seven settings are fields in the studio**, under *Writing on
+a schedule*, so the cadence changes from a phone without going through
+Spark. `set_writing_schedule` asks before it writes, because setting
+`then: publish` is deciding that articles go live unread from then on,
+which is a bigger call than publishing one.
 
 **Writing several and spacing them out is one call.** "Write four and put
 them out over the next three days" means four `write_article` calls and
