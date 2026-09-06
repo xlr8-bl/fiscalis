@@ -261,10 +261,35 @@ there for the one legitimate case, which is a person asking for a run now.
 `then` decides what happens when the drafts pass:
 
     review      left for you to read. The default.
-    schedule    one schedule_articles call, spread over across_days
-    publish     one publish_articles call, straight onto the site
+    schedule    spread over the next across_days, publishing themselves
+    publish     straight onto the site
 
-The run tells the agent to make ONE call, not one per article.
+The run tells the agent to make ONE call to finish, not one per article.
+
+**Unattended runs end with `finish_run`, which does not ask.** That is
+the whole difference between a schedule that works and one that does
+not. `publish_articles` and `schedule_articles` stop and ask the account
+holder, which is right when somebody is there and useless at six in the
+morning: the run writes its drafts, reaches the publish step, and waits
+forever on a confirmation nobody is awake to give.
+
+The consent moved rather than disappeared. `set_writing_schedule` asks,
+once, and the question it asks is the real one: from now on, may articles
+go live without you reading them first? `finish_run` is what that yes
+authorises, and it is narrow on purpose:
+
+  no standing order, and it refuses
+  a plan set to `review`, and it refuses
+  what it does comes from the PLAN, never from the caller, so nothing
+    can talk it into publishing when the plan says schedule
+  every article still passes the full check at its own moment
+  the plan is one tap to change in the studio, with no agent involved:
+    setting it to `review` or `off` ends this immediately
+
+**An empty bank stops a run rather than filling it.** At five a day a
+thirty-six subject bank is gone in a week, and the failure mode of
+carrying on is the one this exists to prevent. `writing_run` comes back
+`run: false` and says so.
 
 **The same seven settings are fields in the studio**, under *Writing on
 a schedule*, so the cadence changes from a phone without going through

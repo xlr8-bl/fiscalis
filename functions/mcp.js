@@ -36,7 +36,7 @@ import { problems as brandProblems } from '../assets/js/brand.js';
 import { send as sendMail } from '../lib/mail.js';
 import { gather, compose } from '../lib/digest.js';
 import { scheduleArticles, unscheduleArticle, timetable, runDueArticles } from '../lib/schedule.js';
-import { writingPlan, setWritingPlan, inWords, recurrence } from '../lib/routine.js';
+import { writingPlan, setWritingPlan, inWords, recurrence, finishRun } from '../lib/routine.js';
 import { runDue } from '../lib/publish.js';
 import { addReference } from '../lib/references.js';
 import { progress } from '../lib/progress.js';
@@ -416,6 +416,12 @@ async function runTool(name, args, env) {
         plan, in_words: inWords(plan), set_this_up: recurrence(plan),
         note: 'Stored. Nothing fires it until you set the recurring task above.',
       });
+    }
+
+    case 'finish_run': {
+      const out = await finishRun({ ...env, SITE },
+                                  Array.isArray(a.slugs) ? a.slugs : []);
+      return out.ok === false && out.reason ? toolFailed(out.reason) : toolResult(out);
     }
 
     case 'writing_schedule': {

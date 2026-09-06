@@ -68,13 +68,29 @@ THING, not an idea: "menu on a table" finds a photograph, "digital
 transformation" does not.
 
 BATCHES ARE ONE CALL, NOT MANY
-If you have written several, do not publish or schedule them one at a
+If you have written several, never publish or schedule them one at a
 time.
+
+When a PERSON asked for them:
   publish_articles  { slugs: [...] }                     all at once, now
   schedule_articles { slugs: [...], start_in_days, across_days }  over time
 Both ask the account holder to confirm, and both ask ONCE for the whole
 list. Check scheduled_articles first so you do not stack two batches onto
 the same afternoon.
+
+When writing_run started the session, nobody is there:
+  finish_run { slugs: [...] }
+That one does not ask, because there is nobody to ask. It does exactly
+what the standing order says and refuses if there is no standing order.
+Never use publish_articles or schedule_articles to end a scheduled run:
+they would wait forever on a confirmation nobody is awake to give.
+
+IF THE BANK IS EMPTY
+writing_run can come back run: false because every subject has been
+written about. That is a real answer, not an error. Write nothing that
+day. Do not pad, do not rephrase an old post, and do not invent a
+subject to fill the count. A journal that repeats itself while nobody is
+watching is the exact failure all of this exists to prevent.
 
 CAROUSELS
 progress, then brief, then design_brief once so you know what the
@@ -127,3 +143,35 @@ that recurring task exists.
 
 The same settings are in the studio under **Writing on a schedule**, so
 the cadence changes from a phone without going through Spark.
+
+### Five a day, unattended
+
+> Write five articles every morning at six and publish them straight
+> away.
+
+That reads back as *5 articles every day at 06:00, and publish them
+straight away*, and it asks you to confirm once. That confirmation is
+the only one you will ever be asked for. After it, the run writes five,
+finishes with `finish_run`, and they go live with nobody there.
+
+Two things to know before you set it that way.
+
+**One confirmation covers everything after it.** The question is real:
+articles go on your site without you reading them first. Every check
+still runs, and nothing that fails one goes out. But nobody reads them
+for sense. Turning it back to *Leave them for me to read* in the studio
+stops that immediately, in one tap, with no agent involved.
+
+**Five a day empties the subject bank in a week.** There are 36 subjects
+in it. At five a day that is seven days, and then `writing_run` comes
+back `run: false` and writes nothing rather than repeating itself. That
+is the correct behaviour and it will look like a failure the first time
+you see it. If you want to keep going at that rate you have to feed it:
+add subjects, or drop to a rate the bank can sustain. One or two a day
+is a journal. Five a day is a content mill, and a content mill runs out
+of things to have found out.
+
+If you want the volume without the risk, use **space them out** rather
+than **publish straight away**: five written at six in the morning,
+appearing across the day, still going out on their own, and every one of
+them sitting in the studio where you can pull it before its turn comes.

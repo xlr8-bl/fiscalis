@@ -8,7 +8,7 @@
  * of them, because the interesting question is what happens to the rest.
  */
 import {
-  writingPlan, setWritingPlan, inWords, recurrence, isDue, markRun,
+  writingPlan, setWritingPlan, inWords, recurrence, isDue, markRun, finishRun,
 } from '../lib/routine.js';
 import { publishArticles } from '../lib/writing.js';
 import { TOOLS } from '../lib/mcp.js';
@@ -77,7 +77,7 @@ console.log('\nrubbish in is a default, not a crash');
   ok('an unknown cadence falls back', p.every === 'off');
   ok('a bad day falls back', p.day === 'tue');
   ok('a bad time falls back', p.at === '09:00');
-  ok('a silly count is clamped', p.count === 8, String(p.count));
+  ok('a silly count is clamped to the ceiling', p.count === 12, String(p.count));
   ok('an unknown "then" falls back to leaving it for a person', p.then === 'review');
 }
 
@@ -154,10 +154,61 @@ console.log('\npublishing in bulk');
   ok('the same slug three times publishes once', dupes.published.length === 1);
 }
 
+console.log('\nfinishing a run without a person there');
+{
+  /* The whole point: publish_articles and schedule_articles ask, so an
+     unattended run using them waits forever. finish_run does not ask, and
+     everything below is what makes that safe. */
+  const env = (plan) => ({
+    DB: {
+      prepare(q) {
+        const st = {
+          bind(...b) { st.b = b; return st; },
+          first: async () => (q.includes('SELECT value')
+            ? (plan[st.b[0]] !== undefined ? { value: plan[st.b[0]] } : null)
+            : { id: 1, slug: st.b[0], title: 'T', description: 'd'.repeat(150),
+                body: '## h\n' + 'word '.repeat(600), tags: '', status: 'review',
+                cover: '/media/x.jpg' }),
+          run: async () => ({ meta: { changes: 1 } }),
+          all: async () => ({ results: [
+            { slug: 'a', title: 'A', status: 'review', cover: '/media/a.jpg' },
+            { slug: 'b', title: 'B', status: 'review', cover: '/media/b.jpg' },
+          ] }),
+        };
+        return st;
+      },
+      batch: async (x) => x.map(() => ({ meta: { changes: 1 } })),
+    },
+  });
+
+  const none = await finishRun(env({}), ['a']);
+  ok('with no standing order it refuses', none.ok === false);
+  ok('and says to use the tools that ask a person',
+     /publish_articles or schedule_articles/.test(none.reason), none.reason);
+
+  const review = await finishRun(env({ 'writing.every': 'daily', 'writing.then': 'review' }), ['a']);
+  ok('a plan that leaves drafts for a person refuses', review.ok === false);
+  ok('and says where they are', /in review/.test(review.reason));
+
+  const pub = await finishRun(
+    env({ 'writing.every': 'daily', 'writing.then': 'publish' }), ['a', 'b']);
+  ok('a publish plan publishes', pub.did === 'published' && pub.published.length === 2);
+  ok('and says what it was acting under', /every day/.test(pub.under), pub.under);
+
+  const sched = await finishRun(
+    env({ 'writing.every': 'daily', 'writing.then': 'schedule', 'writing.across': '2' }),
+    ['a', 'b']);
+  ok('a schedule plan schedules', sched.did === 'scheduled' && sched.ok === true);
+
+  ok('no slugs is a refusal',
+     (await finishRun(env({ 'writing.every': 'daily', 'writing.then': 'publish' }), [])).ok === false);
+}
+
 console.log('\nthe tools, and what asks');
 {
   const byName = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
-  for (const n of ['publish_articles', 'set_writing_schedule', 'writing_schedule', 'writing_run']) {
+  for (const n of ['publish_articles', 'set_writing_schedule', 'writing_schedule',
+                   'writing_run', 'finish_run']) {
     ok(`${n} exists`, !!byName[n]);
   }
   ok('publishing a batch asks, like publishing one',
@@ -170,6 +221,10 @@ console.log('\nthe tools, and what asks');
      byName.writing_schedule.annotations.readOnlyHint === true);
   ok('a scheduled run does not ask, or it could never run unattended',
      byName.writing_run.annotations.readOnlyHint === true);
+  ok('nor does finishing one, for the same reason',
+     byName.finish_run.annotations.readOnlyHint === true);
+  ok('and its description says where the consent went instead',
+     /set_writing_schedule asks/.test(byName.finish_run.description));
 
   const prompts = TOOLS.filter((t) => t.annotations.readOnlyHint !== true)
     .map((t) => t.name).sort().join(',');
