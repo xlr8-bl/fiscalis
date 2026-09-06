@@ -21,9 +21,10 @@ export async function onRequestGet({ env }) {
   if (!env.DB) return json({ days: [], reason: 'No database on this deployment.' });
   try {
     await releaseStale(env.DB);
-    const { days, shape } = await availability(env.DB);
+    const { days, shape, today } = await availability(env.DB);
     return json({
       days,
+      today,
       minutes: shape.minutes,
       window: shape.window,
       offset: shape.offset,

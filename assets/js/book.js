@@ -45,7 +45,7 @@
      The server is what enforces it, this only reports it. */
   if (openedAt) openedAt.value = String(Date.now());
 
-  var state = { days: [], day: '', start: '', minutes: 45, expanded: {} };
+  var state = { days: [], today: '', day: '', start: '', minutes: 45, expanded: {} };
 
   /* A step that is behind you looks different from one still ahead.
      Nothing here changes what the form does; it is the only feedback
@@ -82,12 +82,71 @@
     status.className = 'bk__status' + (kind ? ' is-' + kind : '');
   };
 
+  /* --- saying which day, so nobody has to work it out ---------------
+
+     "Mon, Sep 7" on its own asks a question it does not answer: which
+     week is that? A person reading a list of five dates has to hold
+     today's date in their head and count, and the whole point of the
+     page is that it does the counting.
+
+     So the rows are grouped under This week and Next week, and the two
+     that have names get them: Today and Tomorrow, with the date still
+     beside them rather than instead of them.
+
+     All of it against the diary's own clock, which comes down with the
+     slots. A visitor in another timezone reading their own device would
+     get labels that disagree with the dates beside them. */
+
+  var atNoon = function (ymd) { return new Date(ymd + 'T12:00:00Z'); };
+  var daysApart = function (a, b) {
+    return Math.round((atNoon(b) - atNoon(a)) / 86400000);
+  };
+
   var pretty = function (ymd) {
-    var d = new Date(ymd + 'T12:00:00Z');
-    return d.toLocaleDateString(undefined, {
+    return atNoon(ymd).toLocaleDateString(undefined, {
       weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC'
     });
   };
+
+  /** "Tomorrow, 8 Sep", or "Tue 8 Sep" once it stops having a name. */
+  function dayLabel(ymd) {
+    var date = atNoon(ymd).toLocaleDateString(undefined, {
+      day: 'numeric', month: 'short', timeZone: 'UTC'
+    });
+    if (!state.today) return pretty(ymd);
+    var off = daysApart(state.today, ymd);
+    if (off === 0) return 'Today, ' + date;
+    if (off === 1) return 'Tomorrow, ' + date;
+    return pretty(ymd);
+  }
+
+  /**
+   * 0 for the week today is in, 1 for the one after, and so on.
+   *
+   * Weeks start on SUNDAY here, and not because of any calendar
+   * convention. Monday-start weeks put Sunday at the end of the week it
+   * is in, so on a Sunday tomorrow falls into the next one and the page
+   * says "Next week" above a row that says "Tomorrow". Nobody on a
+   * Sunday evening thinks of the next morning as next week.
+   *
+   * Sunday-start gets both edges right: tomorrow is this week on a
+   * Sunday, and a Monday three days out is next week on a Friday.
+   */
+  function weekOf(ymd) {
+    if (!state.today) return 0;
+    var t = atNoon(state.today);
+    t.setUTCDate(t.getUTCDate() - t.getUTCDay());
+    return Math.floor((atNoon(ymd) - t) / (7 * 86400000));
+  }
+
+  function weekLabel(n, ymd) {
+    if (n <= 0) return 'This week';
+    if (n === 1) return 'Next week';
+    // past that, counting weeks stops meaning anything: name the days
+    return 'The week of ' + atNoon(ymd).toLocaleDateString(undefined, {
+      day: 'numeric', month: 'short', timeZone: 'UTC'
+    });
+  }
 
   /* --- what is free ------------------------------------------------ */
 
@@ -96,6 +155,7 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         state.days = j.days || [];
+        state.today = j.today || '';
         state.minutes = j.minutes || 45;
         // the length is said twice on the page, once above the form and
         // once in the particulars below it
@@ -131,15 +191,24 @@
        what lets the count sit at the end of the row where a person
        reads it as a property of the day rather than as part of it. */
     var html = '';
+    var week = null;
     for (var i = 0; i < state.days.length; i++) {
       var d = state.days[i];
       var n = d.times.length;
+
+      var w = weekOf(d.day);
+      if (w !== week) {
+        week = w;
+        html += '<p class="bk__week u-text-style-small">' +
+                weekLabel(w, d.day) + '</p>';
+      }
+
       html +=
         '<label class="bk__day">' +
         '<input type="radio" name="day" value="' + d.day + '"' +
         (d.day === state.day ? ' checked' : '') + '>' +
         '<span class="bk__day-in">' +
-        '<span class="bk__day-when">' + pretty(d.day) + '</span>' +
+        '<span class="bk__day-when">' + dayLabel(d.day) + '</span>' +
         '<span class="bk__day-n">' + n + ' free</span>' +
         '</span></label>';
     }

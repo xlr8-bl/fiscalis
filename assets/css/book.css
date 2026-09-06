@@ -191,6 +191,14 @@ textarea { resize: vertical; min-height: 7rem; line-height: 1.55; }
    easier to hit and the count has somewhere to sit. Tall enough to be a
    comfortable touch target on its own. */
 .bk__days { display: grid; gap: .4rem; }
+
+/* "This week", "Next week". The rows carry the date; this carries the
+   thing a date alone cannot say, which is how far off it is. */
+.bk__week {
+  color: var(--bk-dim);
+  margin: .85rem 0 .15rem;
+}
+.bk__week:first-child { margin-top: 0; }
 .bk__day { display: block; }
 .bk__day-in {
   display: flex;

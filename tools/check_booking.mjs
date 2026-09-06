@@ -324,6 +324,53 @@ console.log('\nthe page reads as three steps, and nothing runs together');
      html.indexOf('bk__meta') > html.indexOf('data-step-field="day"'));
 }
 
+console.log('\na date on its own does not say which week it is');
+{
+  const js = readFileSync('assets/js/book.js', 'utf8');
+  const slots = readFileSync('functions/api/slots.js', 'utf8');
+
+  ok('the rows are grouped by week', /bk__week/.test(js) && /weekOf\(/.test(js));
+  ok('and the near days are named as well as dated',
+     /'Today, ' \+ date/.test(js) && /'Tomorrow, ' \+ date/.test(js));
+
+  /* Which week a day falls in is answered against the DIARY's clock,
+     not the visitor's device. The days offered are days in the owner's
+     timezone; a visitor six hours behind working it out from their own
+     phone gets labels that disagree with the dates beside them. */
+  ok('today comes down with the slots', /today/.test(slots));
+  ok('and the page uses that rather than the browser',
+     /state\.today = j\.today/.test(js) && !/new Date\(\)\.getDay/.test(js));
+
+  /* Weeks start on Sunday, and that is a decision rather than an
+     oversight. Monday-start weeks put Sunday at the end of its week, so
+     on a Sunday tomorrow lands in the next one and the page prints
+     "Next week" directly above a row that says "Tomorrow". */
+  ok('weeks start on Sunday, for the Sunday case',
+     /t\.getUTCDate\(\) - t\.getUTCDay\(\)/.test(js));
+
+  // the grouping itself, run the way the page runs it
+  const atNoon = (d) => new Date(d + 'T12:00:00Z');
+  const weekOf = (today, day) => {
+    const t = atNoon(today);
+    t.setUTCDate(t.getUTCDate() - t.getUTCDay());
+    return Math.floor((atNoon(day) - t) / (7 * 86400000));
+  };
+  const plus = (d, n) => {
+    const x = atNoon(d); x.setUTCDate(x.getUTCDate() + n);
+    return x.toISOString().slice(0, 10);
+  };
+  const SUN = '2026-09-06';
+  ok('on a Sunday, tomorrow is this week', weekOf(SUN, plus(SUN, 1)) === 0);
+  ok('on a Friday, the coming Monday is next week',
+     weekOf(plus(SUN, 5), plus(SUN, 8)) === 1);
+  ok('and a fortnight out is neither', weekOf(SUN, plus(SUN, 14)) === 2);
+  ok('every weekday agrees that a day inside the next seven is at most next week',
+     [0, 1, 2, 3, 4, 5, 6].every((i) => {
+       const today = plus(SUN, i);
+       return [1, 2, 3, 4, 5, 6, 7].every((off) => weekOf(today, plus(today, off)) <= 1);
+     }));
+}
+
 console.log('\nthe diary in the studio');
 {
   const studioApi = readFileSync('functions/api/studio/[[route]].js', 'utf8');
