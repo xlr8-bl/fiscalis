@@ -32,7 +32,7 @@
  * the markup and this file.
  */
 
-import { getSettings, listAllEntries, isBookingOnly } from '../lib/content.js';
+import { getSettings, listAllEntries, isBookingOnly, isHeroOnly } from '../lib/content.js';
 import { COLLECTIONS } from '../lib/collections.js';
 import { escapeHtml } from '../assets/js/markdown.js';
 
@@ -88,6 +88,49 @@ class HideEmpty {
  * the removal happens on the way out, which means the switch is a setting
  * he can throw from his phone and not a deploy.
  */
+/*
+ * One screen, and the whole of it.
+ *
+ * THREE THINGS GO WRONG ON A PHONE and all three are about the viewport.
+ *
+ * 100vh is the LARGEST viewport, the one you get after the browser bars
+ * have retracted. On iOS Safari the page is that tall from the moment it
+ * loads, so the bottom of the hero sits behind the address bar until you
+ * scroll, and a page with nothing to scroll never gets the chance. 100svh
+ * is the smallest viewport, the one with every bar showing, which is what
+ * "fits on screen without scrolling" actually means. It is the one to
+ * design to; 100dvh is here only as the fallback for a browser that has
+ * svh but is mid-transition.
+ *
+ * The wordmark then has to clear whatever the browser is drawing over the
+ * page: the notch and the status bar at the top, the home indicator and
+ * Safari's floating address bar at the bottom. env(safe-area-inset-*)
+ * reports those, and it reports 0 where there are none, so the same rule
+ * is correct on a desktop. viewport-fit=cover is what makes the browser
+ * report them at all, and without it the insets are all zero and this
+ * silently does nothing.
+ *
+ * The extra 3rem at the bottom is not padding for its own sake. Safari's
+ * floating bar is not part of the safe-area inset while it is showing, so
+ * the inset alone leaves the last line under it.
+ */
+const HERO_ONLY_CSS = `<style>
+  html, body { overflow-x: hidden; }
+  .page_main { min-height: 100svh; min-height: 100dvh; display: flex; }
+  .hero_home_wrap {
+    min-height: 100svh; min-height: 100dvh;
+    display: flex; flex-direction: column; justify-content: center;
+    width: 100%;
+    padding-top: max(1.5rem, env(safe-area-inset-top));
+    padding-bottom: max(3rem, calc(env(safe-area-inset-bottom) + 3rem));
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
+    box-sizing: border-box;
+  }
+  /* nothing below it, so nothing should suggest there is */
+  .hero_home_wrap [data-scroll-cue], .hero_home_wrap .hero_scroll { display: none; }
+</style>`;
+
 class OffWhen {
   constructor(modes) { this.modes = modes; }
   element(el) {
@@ -230,12 +273,17 @@ export async function onRequestGet(context) {
 
   const modes = new Set();
   let head = faqLd(entries);
-  if (isBookingOnly(settings)) {
+  const hero = isHeroOnly(settings);
+  if (isBookingOnly(settings) || hero) {
     modes.add('bookingOnly');
     // the anchor goes, and the list item it sat in is then empty. Closing
     // the gap in CSS rather than in the rewriter avoids having to know
     // which of the three navs wraps its links in what
     head += '<style>li:empty{display:none}</style>';
+  }
+  if (hero) {
+    modes.add('heroOnly');
+    head += HERO_ONLY_CSS;
   }
 
   const filled = new HTMLRewriter()
