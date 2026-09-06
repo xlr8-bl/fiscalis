@@ -10,7 +10,7 @@
  * its own: see lib/request.js for why a GET that confirms a booking is a
  * booking confirmed by a mail scanner.
  */
-import { requestBooking } from '../../lib/request.js';
+import { requestBooking, sendReceipt } from '../../lib/request.js';
 import { send } from '../../lib/mail.js';
 import { SITE } from '../../lib/templates.js';
 
@@ -59,6 +59,12 @@ export async function onRequestPost({ request, env }) {
   const how = out.platform_label
     ? `${out.platform_label}${out.phone ? `, ${out.phone}` : ''}`
     : '';
+
+  /* The person who asked gets something in writing straight away. They
+     filled in a form, watched it succeed, and until now had nothing at
+     all until a human got round to answering: that is the point at which
+     somebody wonders whether it went through. */
+  await sendReceipt(send, env, out);
 
   const mail = await send(env, {
     replyTo: out.email,

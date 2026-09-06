@@ -19,7 +19,8 @@
  *   GET    /api/studio/articles/:slug/history/:id          -> one, with body
  *   POST   /api/studio/articles/:slug/restore { id }       -> put one back
  *   GET    /api/studio/appointments                        -> the diary
- *   POST   /api/studio/appointments/:id/decide { verdict }  -> confirm/decline/cancel
+ *   POST   /api/studio/appointments/:id/decide { verdict, link } -> decide it
+ *   POST   /api/studio/appointments/:id/link   { link }     -> send the joining link
  *   POST   /api/studio/media          (multipart)          -> upload to R2
  *   GET    /api/studio/media                               -> list uploads
  *   PUT    /api/studio/media/:key     { alt }              -> describe one
@@ -35,7 +36,7 @@ import {
 import { SITE } from '../../../lib/templates.js';
 import * as history from '../../../lib/revisions.js';
 import { availability, releaseStale } from '../../../lib/booking.js';
-import { decideById, tellThem } from '../../../lib/request.js';
+import { decideById, tellThem, setLink } from '../../../lib/request.js';
 import { send } from '../../../lib/mail.js';
 
 /** The fields a revision of an article keeps. */
@@ -205,7 +206,7 @@ export async function onRequest(context) {
         const { results } = await env.DB
           .prepare(
             `SELECT id, day, start, minutes, name, email, phone, about, state,
-                    platform, note, expires_at, decided_at, created_at
+                    platform, link, note, expires_at, decided_at, created_at
              FROM appointments
              ORDER BY CASE state WHEN 'pending' THEN 0 WHEN 'confirmed' THEN 1 ELSE 2 END,
                       day, start
@@ -219,9 +220,19 @@ export async function onRequest(context) {
       if (method === 'POST' && rest.length === 2 && rest[1] === 'decide') {
         const body = await request.json().catch(() => ({}));
         const out = await decideById(env, rest[0], String(body.verdict ?? ''), {
-          note: body.note,
+          note: body.note, link: body.link,
         });
         if (out.ok) await tellThem(send, env, out.appointment, out.state);
+        return json(out, out.ok ? 200 : 409);
+      }
+
+      /* Confirming and having the link to hand are not always the same
+         moment. This is the second half on its own: paste it, and it
+         goes to them. */
+      if (method === 'POST' && rest.length === 2 && rest[1] === 'link') {
+        const body = await request.json().catch(() => ({}));
+        const out = await setLink(env, rest[0], body.link);
+        if (out.ok) await tellThem(send, env, out.appointment, 'confirmed');
         return json(out, out.ok ? 200 : 409);
       }
     } catch (err) {

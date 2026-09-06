@@ -27,6 +27,9 @@ import { send } from '../../lib/mail.js';
 /* A row written before the column existed has no platform on it, and
    that is not a fault to render as "undefined". */
 const label = (id) => (PLATFORMS[id] ? PLATFORMS[id].label : 'whatever suits');
+/* Meet, Zoom and Teams are a link. Phone, WhatsApp and FaceTime are a
+   number I ring, so there is nothing for them to open. */
+const needsLink = (id) => !!(PLATFORMS[id] && !PLATFORMS[id].needs);
 
 const shell = (title, inner) => page(title, `
   <h1 class="jr_title u-text-style-h2">${esc(title)}</h1>
@@ -62,6 +65,18 @@ export async function onRequestGet({ request, env }) {
     <form method="POST" action="/book/decide">
       <input type="hidden" name="t" value="${esc(t)}">
       <input type="hidden" name="do" value="${esc(want)}">
+      ${want === 'confirm' ? `
+      <p style="margin:1.5rem 0 .4rem"><label for="lk">${
+        needsLink(row.platform)
+          ? `The ${esc(label(row.platform))} link, if you have it to hand`
+          : 'Anything to send with it'}</label></p>
+      <input id="lk" name="link" type="text" style="width:100%;max-width:34rem;padding:.7rem;
+             font:inherit;background:#141412;color:inherit;border:0;border-radius:2px"
+             placeholder="${needsLink(row.platform) ? 'https://…' : 'Optional'}">
+      <p style="color:#888;font-size:14px;margin:.5rem 0 1.5rem">
+        It goes out with the confirmation. Leave it blank and you can add it
+        from the studio later, and send it then.
+      </p>` : ''}
       <button type="submit" class="g_btn_main">${verb} it</button>
     </form>
     <p style="color:#888;font-size:14px;margin-top:2rem">
@@ -78,7 +93,7 @@ export async function onRequestPost({ request, env }) {
 
   if (!env.DB) return shell('Not set up', '<p>There is no database on this deployment.</p>');
 
-  const out = await decide(env, t, want);
+  const out = await decide(env, t, want, { link: String(form.get('link') || '') });
   if (!out.ok) {
     return shell('Nothing to do', `<p class="jr_lede u-text-style-h4">${esc(out.reason)}</p>`);
   }
@@ -92,7 +107,10 @@ export async function onRequestPost({ request, env }) {
     <p class="jr_lede u-text-style-h4">
       ${esc(a.name)}, ${esc(a.day)} at ${esc(a.start)}.
       ${confirmed
-        ? 'The hour is booked and out of the diary. They have been told.'
+        ? (a.link
+            ? 'The hour is booked and out of the diary. They have been told, with the link.'
+            : 'The hour is booked and out of the diary. They have been told. '
+              + 'Add the link in the studio when you have it and it goes to them.')
         : 'The hour is back on the page for somebody else. They have been told, '
           + 'and pointed at the other times.'}
     </p>

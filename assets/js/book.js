@@ -106,6 +106,29 @@
     return Math.round((atNoon(b) - atNoon(a)) / 86400000);
   };
 
+  var esc = function (v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  };
+  var row = function (label, value) {
+    return '<div><dt>' + label + '</dt><dd>' + value + '</dd></div>';
+  };
+
+  /** "Wednesday 9 September", for the one place there is room for it. */
+  var longDay = function (ymd) {
+    return atNoon(ymd).toLocaleDateString(undefined, {
+      weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC'
+    });
+  };
+
+  /** When the hour ends, so they can see it against their own diary. */
+  var endsAt = function (hhmm) {
+    var bits = String(hhmm).split(':');
+    var m = (Number(bits[0]) * 60 + Number(bits[1]) + state.minutes) % 1440;
+    var h = Math.floor(m / 60);
+    return (h < 10 ? '0' : '') + h + ':' + (m % 60 < 10 ? '0' : '') + (m % 60);
+  };
+
   var pretty = function (ymd) {
     return atNoon(ymd).toLocaleDateString(undefined, {
       weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC'
@@ -384,15 +407,37 @@
       .then(function (out) {
         if (button) button.disabled = false;
         if (out.j && out.j.ok) {
+          /* What they get for filling it in. It used to be two
+             sentences and no facts: the whole point of the hold is that
+             the hour is theirs while I read it, and saying so is what
+             turns "sent" into "done". Everything here is what they just
+             chose, said back to them, because that is the moment a
+             mistake is cheap to catch. */
+          var how = null;
+          for (var k = 0; k < state.ways.length; k++) {
+            if (state.ways[k].id === state.how) how = state.ways[k];
+          }
+          var number = (form.querySelector('[name="phone"]') || {}).value || '';
           form.innerHTML =
-            // jr_lede belongs to the journal's stylesheet, which is not
-            // loaded here either
             '<div class="bk__done">' +
-            '<p class="bk__done-when u-text-style-h4">' + pretty(state.day) + ', ' +
+            '<p class="bk__done-when u-text-style-h4">' + longDay(state.day) + ' at ' +
             state.start + ' is held for you.</p>' +
-            '<p>I read these myself, so the answer comes from me and not from a ' +
-            'robot. If it does not suit me I will say so and the time goes back ' +
-            'on the page for somebody else.</p></div>';
+            '<dl class="bk__done-list">' +
+            row('When', longDay(state.day) + ', ' + state.start +
+                ' to ' + endsAt(state.start) + ', GMT+1') +
+            row('How', how
+              ? (how.needs
+                  ? how.label + '. I ring you on ' + esc(number) + '.'
+                  : how.label + '. I send you the link when I confirm.')
+              : 'I will send the details.') +
+            row('Next', 'I read these myself, once a day, so give it until ' +
+                'this time tomorrow. You get an email either way.') +
+            row('If I cannot', 'The hour goes back on the page and I point you ' +
+                'at the times that are still open.') +
+            '</dl>' +
+            '<p class="bk__done-foot u-text-style-small">Nothing else to do. ' +
+            'A receipt is on its way to your inbox with all of this in it.</p>' +
+            '</div>';
           return;
         }
         /* A slot that went while the page was open is not an error the

@@ -1625,6 +1625,9 @@ function paintDiary() {
       );
     } else if (r.state === 'confirmed') {
       tools.push(
+        { id: 'link', label: r.link ? '↻' : 'Link',
+          title: r.link ? 'Send a different link' : 'Send them the joining link',
+          onClick: () => sendLink(r) },
         { id: 'off', label: 'Cancel', title: 'Give the hour back',
           onClick: () => settle(r, 'cancel') },
       );
@@ -1640,6 +1643,9 @@ function paintDiary() {
           // a row from before this was asked has no platform on it
           r.platform ? (DIARY_WAYS[r.platform] || r.platform) : null,
           r.phone || null,
+          // a confirmed hour nobody can reach is the one thing on this
+          // screen that needs doing, so it says so on the row
+          r.state === 'confirmed' && needsLink(r) && !r.link ? 'no link sent' : null,
           `${r.minutes} min`,
           r.state === 'pending' ? heldFor(r.expires_at) : DIARY_STATES[r.state] || r.state,
         ],
@@ -1673,20 +1679,73 @@ async function settle(r, verdict) {
                    + 'it is not, and the hour goes back on the page.' },
   }[verdict];
 
-  if (!await sure(asking.title, asking)) return;
+  /* Confirming asks for the link at the same moment, because that is the
+     moment you know it. A confirmation that goes out without one is a
+     time somebody has committed to and no way to get there, and it takes
+     a second message to put right. Blank is still allowed: the link can
+     follow from the row. */
+  let link;
+  if (verdict === 'confirm') {
+    const want = needsLink(r);
+    link = await ask(asking.title, {
+      body: asking.body,
+      value: r.link || '',
+      label: want ? `${DIARY_WAYS[r.platform] || 'Joining'} link` : 'Anything to send with it',
+      placeholder: want ? 'https://…' : 'Optional',
+      yes: 'Confirm and send',
+    });
+    if (link === null) return;
+  } else if (!await sure(asking.title, asking)) return;
 
   try {
     await api(`/appointments/${r.id}/decide`, {
       method: 'POST',
-      body: JSON.stringify({ verdict }),
+      body: JSON.stringify({ verdict, link: link || '' }),
     });
-    say('Done, and they have been told.', 'ok');
+    say(verdict === 'confirm' && !link
+      ? 'Confirmed, and they have been told. Add the link when you have it.'
+      : 'Done, and they have been told.', 'ok');
     // this is reachable from the overview as well as from the diary, and
     // redrawing the other one leaves you looking at a screen you did not
     // ask for
     await (location.hash === '#/bookings' ? viewBookings() : viewHome());
   } catch (e) { say(e.message, 'err'); }
 }
+
+/**
+ * Send the joining link for an hour already confirmed.
+ *
+ * The other half of the job, and the reason this screen exists: the
+ * confirmation can be given from a phone with nothing to paste, and the
+ * Zoom room often does not exist until afterwards. Pasting it here sends
+ * it, rather than storing it somewhere nobody sees.
+ */
+async function sendLink(r) {
+  const want = needsLink(r);
+  const link = await ask(`${fmtDay(r.day)} at ${r.start}`, {
+    body: want
+      ? `${r.name || 'They'} will get this straight away, with the time again.`
+      : `I am ringing ${r.phone || 'them'}. Anything here goes with the reminder.`,
+    value: r.link || '',
+    label: want ? `${DIARY_WAYS[r.platform] || 'Joining'} link` : 'What to send',
+    placeholder: want ? 'https://…' : 'A number, a note',
+    yes: 'Send it',
+  });
+  if (link === null || !link.trim()) return;
+
+  try {
+    await api(`/appointments/${r.id}/link`, {
+      method: 'POST',
+      body: JSON.stringify({ link: link.trim() }),
+    });
+    say('Sent.', 'ok');
+    await (location.hash === '#/bookings' ? viewBookings() : viewHome());
+  } catch (e) { say(e.message, 'err'); }
+}
+
+/* Meet, Zoom and Teams are a link to open. Phone, WhatsApp and FaceTime
+   are a number I ring, so there is nothing for them to click. */
+const needsLink = (r) => !!r.platform && !['whatsapp', 'phone', 'facetime'].includes(r.platform);
 
 /* ----------------------------------------------------------------- router */
 

@@ -344,7 +344,14 @@ textarea { resize: vertical; min-height: 7rem; line-height: 1.55; }
   gap: 1rem;
 }
 .bk__done-when { text-wrap: balance; }
-.bk__done p:last-child { color: var(--swatch--beige-400, #bfbfb1); max-width: 46ch; }
+.bk__done-list { display: grid; gap: .9rem; margin: .4rem 0 0; }
+.bk__done-list > div { display: grid; grid-template-columns: 5.5rem 1fr; gap: 1rem; }
+.bk__done-list dt { color: var(--bk-dim); }
+.bk__done-list dd { margin: 0; max-width: 46ch; }
+.bk__done-foot { color: var(--bk-dim); max-width: 46ch; }
+@media (max-width: 30rem) {
+  .bk__done-list > div { grid-template-columns: 1fr; gap: .15rem; }
+}
 
 /* character meter */
 .bk__meter { display: flex; justify-content: flex-end; margin-top: .45rem; }

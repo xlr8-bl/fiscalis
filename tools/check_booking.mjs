@@ -82,7 +82,7 @@ console.log('\nwhat is offered');
   const { days } = await availability(db(), { now: NOW });
   ok('some days come back', days.length > 0);
   ok('no more than the window', days.length <= 5, String(days.length));
-  ok('nothing today, because the lead time is a day',
+  ok('nothing today, because the lead time is two days',
      !days.some((d) => d.day === '2026-09-07'), days.map((d) => d.day).join(' '));
   ok('and no weekends', !days.some((d) => ['sat', 'sun'].includes(d.weekday)),
      days.map((d) => d.weekday).join(' '));
@@ -413,12 +413,84 @@ console.log('\nknowing which link to send');
      && /DIARY_WAYS/.test(studio));
   ok('the subject line carries it, so it is answerable without opening anything',
      /subject: `Booking request:[^`]*\$\{how/.test(mail));
-  ok('and the person who asked is told which way too', /const via = PLATFORMS/.test(req));
+  ok('and the person who asked is told which way too',
+     /const how = PLATFORMS\[a\.platform\]/.test(req)
+     && /I will ring you on/.test(req) && /We are on \$\{how\.label\}/.test(req));
 
   ok('the cards have a rule in the stylesheet', /\.bk__way-in\s*\{/.test(css));
   ok('a row from before the column existed does not render as undefined',
      /PLATFORMS\[id\] \? PLATFORMS\[id\]\.label : /.test(decide)
      && /r\.platform \?/.test(studio));
+}
+
+console.log('\nwhat the person who asked actually hears');
+{
+  const req = readFileSync('lib/request.js', 'utf8');
+  const api = readFileSync('functions/api/request.js', 'utf8');
+  const js = readFileSync('assets/js/book.js', 'utf8');
+  const studio = readFileSync('assets/js/studio.js', 'utf8');
+  const studioApi = readFileSync('functions/api/studio/[[route]].js', 'utf8');
+  const decidePage = readFileSync('functions/book/decide.js', 'utf8');
+  const seed = readFileSync('lib/seed.js', 'utf8');
+
+  /* Somebody filled in a form, watched it succeed, and had nothing in
+     writing until a human got round to answering. That is the point at
+     which a person wonders whether it went through at all. */
+  ok('a receipt goes out the moment a request is taken',
+     /export async function sendReceipt/.test(req) && /await sendReceipt\(send, env, out\)/.test(api));
+  ok('it says the hour is held, which is the whole point of holding it',
+     /that hour is held for you/i.test(req));
+  ok('and it says when to expect an answer', /once a day/.test(req));
+  ok('the page says the same, rather than just "sent"',
+     /bk__done-list/.test(js) && /I read these myself, once a day/.test(js));
+  ok('including when the hour ends, so it can go in their own diary',
+     /var endsAt = function/.test(js));
+
+  /* A confirmed hour nobody can reach is half an answer: it commits
+     somebody to a time and leaves them waiting to be told the rest. */
+  ok('the booking has somewhere to keep the joining link',
+     /ADD COLUMN link/.test(seed));
+  ok('confirming from the studio asks for it in the same breath',
+     /Confirm and send/.test(studio));
+  ok('confirming from the email can carry it too',
+     /name="link"/.test(decidePage) && /link: String\(form\.get\('link'\)/.test(decidePage));
+  ok('and it can be sent afterwards on its own, which is the usual case',
+     /export async function setLink/.test(req)
+     && /rest\[1\] === 'link'/.test(studioApi)
+     && /async function sendLink/.test(studio));
+  ok('sending it tells them, rather than filing it somewhere nobody sees',
+     /await tellThem\(send, env, out\.appointment, 'confirmed'\)/.test(studioApi));
+  ok('a confirmed hour with no link says so on the row', /no link sent/.test(studio));
+  ok('the confirmation carries the link when there is one',
+     /here is the link/.test(req));
+  ok('and says it is coming when there is not',
+     /I will send the link before then/.test(req));
+
+  /* A number I ring has nothing to open, so it must not be asked for a
+     link and must not be marked as missing one. */
+  ok('a call I make is not treated as needing a link',
+     /\['whatsapp', 'phone', 'facetime'\]/.test(studio)
+     && /!PLATFORMS\[id\]\.needs/.test(decidePage));
+}
+
+console.log('\nlong enough notice to answer at all');
+{
+  /* Email read once a day and an hour bookable tomorrow is a request
+     that can be answered after the hour it asked for has gone. */
+  const s = await shape(db());
+  ok('nothing is bookable before the day after tomorrow', s.lead === 2, String(s.lead));
+
+  const { days } = await availability(db(), { now: NOW });   // NOW is a Monday
+  ok('so a Monday morning offers Wednesday first',
+     days[0].day === '2026-09-09', days[0].day);
+  ok('and never tomorrow', !days.some((d) => d.day === '2026-09-08'));
+
+  ok('the setting says why, because two days looks like an accident',
+     SETTINGS.flatMap((g) => g.fields).find((f) => f.name === 'book.lead')
+       ?.help?.includes('reading your'));
+  ok('and it can still be set back to today or tomorrow',
+     SETTINGS.flatMap((g) => g.fields).find((f) => f.name === 'book.lead')
+       .options.some(([v]) => v === '0'));
 }
 
 console.log('\nthe diary in the studio');
