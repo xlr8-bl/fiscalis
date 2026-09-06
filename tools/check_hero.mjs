@@ -79,6 +79,30 @@ console.log('\nthe two things that break it on a phone');
   }
 }
 
+console.log('\nthe page does not need JavaScript to be visible');
+{
+  /* This is the one that actually shipped broken. Every [data-animate]
+     section is visibility:hidden in the stylesheet and revealed by the
+     intro timeline, and the whole init chain is a single barba once()
+     hook. #to-top lives in the footer, hero only removes the footer, and
+     document.querySelector("#to-top") came back null: the hook threw, the
+     reveal never ran, and the site served a page that was entirely
+     present and entirely invisible. */
+  const app = readFileSync('assets/js/app.js', 'utf8');
+  ok('the back-to-top button is looked up safely',
+     /querySelector\("#to-top"\)\?\.addEventListener/.test(app));
+  ok('and nothing else in app.js dereferences a querySelector unguarded',
+     !/querySelector\([^)]*\)\.(addEventListener|classList|style|setAttribute|textContent)/
+       .test(app));
+
+  ok('there is a net under it', /HERO_ONLY_FAILSAFE/.test(worker));
+  ok('which is injected, not merely defined', /HERO_ONLY_CSS \+ HERO_ONLY_FAILSAFE/.test(worker));
+  ok('it only acts when the hero is still hidden',
+     /getComputedStyle\(hero\)\.visibility !== 'hidden'\) return/.test(worker));
+  ok('and it reveals what is inside the hero too, not just the section',
+     /\[data-animate\], \.split-line/.test(worker));
+}
+
 console.log('\nnothing suggests there is more below');
 {
   ok('the scroll cue is hidden', /data-scroll-cue\][^}]*display: none/.test(worker));

@@ -131,6 +131,44 @@ const HERO_ONLY_CSS = `<style>
   .hero_home_wrap [data-scroll-cue], .hero_home_wrap .hero_scroll { display: none; }
 </style>`;
 
+/**
+ * The last line of defence, and the reason it exists.
+ *
+ * Every [data-animate] section is `visibility: hidden` in the stylesheet
+ * and is revealed by the intro timeline. That is fine while the timeline
+ * always runs. It stops being fine the moment a mode removes sections,
+ * because the whole init chain is one barba `once()` hook: one null
+ * dereference anywhere in it and nothing after it runs, including the
+ * reveal. The site then serves a page that is entirely present, entirely
+ * correct, and entirely invisible. A black screen.
+ *
+ * That is exactly what shipped: `#to-top` lives in the footer, hero only
+ * takes the footer, and `document.querySelector("#to-top")` came back
+ * null. The guard is in app.js now, but the shape of the failure is what
+ * matters, not that one instance of it: hiding the page until JavaScript
+ * says otherwise means any future slip blanks the site.
+ *
+ * So this reveals the hero if nothing else has after two seconds. It does
+ * nothing at all in the ordinary case, where the intro has already set an
+ * inline visibility long before the timer fires.
+ */
+const HERO_ONLY_FAILSAFE = `<script>
+addEventListener('load', function () {
+  setTimeout(function () {
+    var hero = document.querySelector('.hero_home_wrap');
+    if (!hero || getComputedStyle(hero).visibility !== 'hidden') return;
+    hero.style.visibility = 'visible';
+    hero.style.opacity = '1';
+    var inside = hero.querySelectorAll('[data-animate], .split-line');
+    for (var i = 0; i < inside.length; i++) {
+      inside[i].style.visibility = 'visible';
+      inside[i].style.opacity = '1';
+      inside[i].style.transform = 'none';
+    }
+  }, 2000);
+});
+</script>`;
+
 class OffWhen {
   constructor(modes) { this.modes = modes; }
   element(el) {
@@ -283,7 +321,7 @@ export async function onRequestGet(context) {
   }
   if (hero) {
     modes.add('heroOnly');
-    head += HERO_ONLY_CSS;
+    head += HERO_ONLY_CSS + HERO_ONLY_FAILSAFE;
   }
 
   const filled = new HTMLRewriter()

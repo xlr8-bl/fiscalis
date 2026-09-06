@@ -75,7 +75,12 @@ var OdynCode = (() => {
         (b?.raf(r * 1e3), K?.raf(r * 1500));
       }),
       gsap.ticker.lagSmoothing(0),
-      document.querySelector("#to-top").addEventListener("click", () => {
+      // the back-to-top button lives in the footer, and hero only takes the
+      // footer away. Without the guard this throws, barba's once() dies with
+      // it, and NOTHING on the page initialises: every [data-animate] section
+      // is hidden by the stylesheet until the intro reveals it, so a missing
+      // button rendered the whole site a black screen.
+      document.querySelector("#to-top")?.addEventListener("click", () => {
         b.scrollTo(0, {
           duration: 1,
         });
