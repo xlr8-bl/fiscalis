@@ -272,6 +272,58 @@ console.log('\ndeciding by email');
      /WHERE id = \?1 AND state = \?5/.test(shared));
 }
 
+console.log('\nthe page reads as three steps, and nothing runs together');
+{
+  const js = readFileSync('assets/js/book.js', 'utf8');
+  const css = readFileSync('assets/css/book.css', 'utf8');
+  const html = readFileSync('book.html', 'utf8');
+
+  /* THE ROOT CAUSE, not the symptom. book.js invented bk__day and
+     bk__day-n and book.css had never heard of either, so the day picker
+     rendered with no rules at all: the date and the count sat in one
+     span with nothing between them and every row read "Mon, Sep 76
+     times", a number that does not exist. A class the script writes and
+     the stylesheet has never seen is the shape of that bug, so this
+     checks for the shape. */
+  const emitted = new Set(
+    [...js.matchAll(/class="((?:bk__|st-)[^"]*)"/g)]
+      .flatMap((m) => m[1].split(/\s+/))
+      .filter((c) => c.startsWith('bk__'))
+  );
+  const unstyled = [...emitted].filter((c) => !new RegExp(`\\.${c}\\b`).test(css));
+  ok('every class the script writes has a rule in the stylesheet',
+     unstyled.length === 0, unstyled.join(', ') || 'all styled');
+
+  ok('the date and the count are separate elements, not one string',
+     /bk__day-when"[^]*?<\/span>[^]*?bk__day-n/.test(js));
+  ok('and the row lays them out at opposite ends',
+     /\.bk__day-in\s*\{[^}]*justify-content:\s*space-between/.test(css));
+
+  /* Same fault, one line further down: the timezone hint sat hard
+     against the label and read as "Pick a timeGMT+1". */
+  ok('a step heading keeps its hint away from its label',
+     /\.bk__label:has\(\.bk__step\)[^{]*\{[^}]*gap:/.test(css)
+     && /\.bk__label:has\(\.bk__step\) \.bk__hint[^{]*\{[^}]*auto/.test(css));
+
+  ok('the steps are numbered', (html.match(/class="bk__step"/g) || []).length === 3);
+  ok('and the second one is on the page from the start, so it never reads 1 then 3',
+     !/data-times-field[^>]*\bhidden\b/.test(html)
+     && /bk__waiting/.test(html));
+
+  /* A day picked, on a phone, puts the times below the fold. Without
+     this the control appears to do nothing at all. */
+  ok('picking a day brings the times onto the screen', /reveal\(timesField\)/.test(js));
+  ok('and it leaves alone anybody who can already see them',
+     /box\.top >= 0 && box\.bottom <= \(window\.innerHeight/.test(js));
+
+  /* The shared navbar is fixed and transparent, which is right over the
+     home page's photograph and wrong over a page of text. */
+  ok('the navbar gets a ground on this page', /\.navbar_wrap\s*\{[^}]*background:/.test(css));
+
+  ok('the particulars sit below the form, not in front of the first choice',
+     html.indexOf('bk__meta') > html.indexOf('data-step-field="day"'));
+}
+
 console.log('\nthe diary in the studio');
 {
   const studioApi = readFileSync('functions/api/studio/[[route]].js', 'utf8');

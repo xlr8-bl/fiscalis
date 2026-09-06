@@ -36,7 +36,7 @@
   var slotsWrap = document.querySelector('[data-slots]');
   var msgEl = document.getElementById('bk-msg');
   var countEl = document.querySelector('[data-count]');
-  var summary = document.querySelector('[data-summary-duration]');
+  var summary = document.querySelectorAll('[data-summary-duration]');
   var openedAt = form.querySelector('[name="opened_at"]');
   var endpoint = form.getAttribute('data-endpoint') || '/api/request';
 
@@ -46,6 +46,35 @@
   if (openedAt) openedAt.value = String(Date.now());
 
   var state = { days: [], day: '', start: '', minutes: 45, expanded: {} };
+
+  /* A step that is behind you looks different from one still ahead.
+     Nothing here changes what the form does; it is the only feedback
+     between picking a day and reaching the button, and without it the
+     three numbered headings are decoration. */
+  function markSteps() {
+    var mark = function (which, done) {
+      var el = form.querySelector('[data-step-field="' + which + '"]');
+      if (!el) return;
+      if (done) el.setAttribute('data-done', '');
+      else el.removeAttribute('data-done');
+    };
+    mark('day', !!state.day);
+    mark('time', !!state.start);
+    var name = (form.querySelector('[name="name"]') || {}).value || '';
+    var mail = (form.querySelector('[name="email"]') || {}).value || '';
+    mark('you', !!(name.trim() && mail.trim()));
+  }
+
+  /* Bring the next step onto the screen, gently and only when it is not
+     already there. Scrolling somebody who can see the thing already is
+     as disorienting as not scrolling them at all. */
+  var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function reveal(el) {
+    if (!el || el.hidden) return;
+    var box = el.getBoundingClientRect();
+    if (box.top >= 0 && box.bottom <= (window.innerHeight || 0)) return;
+    el.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
+  }
 
   var say = function (text, kind) {
     if (!status) return;
@@ -68,7 +97,11 @@
       .then(function (j) {
         state.days = j.days || [];
         state.minutes = j.minutes || 45;
-        if (summary) summary.textContent = state.minutes + ' minutes';
+        // the length is said twice on the page, once above the form and
+        // once in the particulars below it
+        for (var s = 0; s < summary.length; s++) {
+          summary[s].textContent = state.minutes + ' minutes';
+        }
         drawDays();
       })
       .catch(function () {
@@ -88,16 +121,26 @@
         'Email me and we will find something.</p>';
       return;
     }
+    /* The date and the count are two separate elements, and they were
+       not. Both went into one span, the count immediately after the
+       date, with nothing between them and no rule to separate them:
+       "Mon, Sep 7" followed by "6 times" read on the page as
+       "Mon, Sep 76 times". Every row said a number that did not exist.
+
+       They are laid out now rather than concatenated, which is also
+       what lets the count sit at the end of the row where a person
+       reads it as a property of the day rather than as part of it. */
     var html = '';
     for (var i = 0; i < state.days.length; i++) {
       var d = state.days[i];
       var n = d.times.length;
       html +=
-        '<label class="bk__chip bk__day">' +
+        '<label class="bk__day">' +
         '<input type="radio" name="day" value="' + d.day + '"' +
         (d.day === state.day ? ' checked' : '') + '>' +
-        '<span class="u-text-style-small">' + pretty(d.day) +
-        '<b class="bk__day-n">' + n + (n === 1 ? ' time' : ' times') + '</b>' +
+        '<span class="bk__day-in">' +
+        '<span class="bk__day-when">' + pretty(d.day) + '</span>' +
+        '<span class="bk__day-n">' + n + ' free</span>' +
         '</span></label>';
     }
     daysWrap.innerHTML = html;
@@ -109,9 +152,20 @@
     for (var i = 0; i < state.days.length; i++) {
       if (state.days[i].day === state.day) day = state.days[i];
     }
-    if (!day) { timesField.hidden = true; return; }
+    /* Step two stays on the page with nothing in it yet, rather than
+       being hidden until step one is done. Hiding it numbered the form
+       1, 3: a person saw two steps, did the first, and a third appeared
+       between them. Showing it empty says what the whole job is before
+       anybody starts, which is the only reason to number steps at all. */
+    if (!day) {
+      timesField.removeAttribute('data-picked');
+      slotsWrap.innerHTML =
+        '<p class="bk__waiting u-text-style-small">Pick a day and the times ' +
+        'will show here.</p>';
+      return;
+    }
+    timesField.setAttribute('data-picked', '');
 
-    timesField.hidden = false;
     var all = day.times;
     var open = state.expanded[day.day];
     var show = open ? all : all.slice(0, SHOW_TIMES);
@@ -126,7 +180,10 @@
     }
     if (!open && all.length > SHOW_TIMES) {
       html +=
-        '<button type="button" class="st-link bk__more" data-more>' +
+        // st-link is a studio class and the studio's stylesheet is not
+        // loaded here, so this button used to render as a raw browser
+        // control on a dark page
+        '<button type="button" class="bk__more" data-more>' +
         (all.length - SHOW_TIMES) + ' more</button>';
     }
     slotsWrap.innerHTML = html;
@@ -142,9 +199,17 @@
       state.start = '';
       drawTimes();
       say('');
+      /* The times appear below the fold on a phone, so without this you
+         tap a day and the screen does not change: the next step is
+         there, it is just off the bottom. Nothing looks more broken
+         than a control that appears to do nothing. */
+      reveal(timesField);
     }
     if (t.name === 'start') { state.start = t.value; say(''); }
+    markSteps();
   });
+
+  form.addEventListener('input', markSteps);
 
   form.addEventListener('click', function (e) {
     var more = e.target.closest ? e.target.closest('[data-more]') : null;
@@ -199,8 +264,10 @@
         if (button) button.disabled = false;
         if (out.j && out.j.ok) {
           form.innerHTML =
+            // jr_lede belongs to the journal's stylesheet, which is not
+            // loaded here either
             '<div class="bk__done">' +
-            '<p class="jr_lede u-text-style-h4">' + pretty(state.day) + ', ' +
+            '<p class="bk__done-when u-text-style-h4">' + pretty(state.day) + ', ' +
             state.start + ' is held for you.</p>' +
             '<p>I read these myself, so the answer comes from me and not from a ' +
             'robot. If it does not suit me I will say so and the time goes back ' +
