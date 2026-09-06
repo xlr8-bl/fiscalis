@@ -14,10 +14,16 @@
  */
 
 import { runDue, due } from '../lib/publish.js';
+import { runDueArticles, dueArticles } from '../lib/schedule.js';
 
 export default {
+  /* Both queues on every firing: approved carousels onto the platforms,
+     scheduled articles onto the journal. The cron slots are the same
+     because neither run cares what time it is — each publishes whatever
+     is past its own slot, so a missed firing catches up rather than
+     skipping anything. */
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runDue(env));
+    ctx.waitUntil(Promise.all([runDue(env), runDueArticles(env)]));
   },
 
   /** The same run on demand, so a slot can be tested without waiting. */
@@ -29,11 +35,15 @@ export default {
 
     if (url.pathname === '/run' && request.method === 'POST') {
       if (!allowed) return new Response('Unauthorized', { status: 401 });
-      return Response.json(await runDue(env));
+      const [carousels, articles] = await Promise.all([runDue(env), runDueArticles(env)]);
+      return Response.json({ carousels, articles });
     }
     if (url.pathname === '/due' && request.method === 'GET') {
       if (!allowed) return new Response('Unauthorized', { status: 401 });
-      return Response.json({ due: await due(env.DB) });
+      return Response.json({
+        carousels: await due(env.DB),
+        articles: await dueArticles(env.DB),
+      });
     }
     return new Response('web3ashley-poster', { status: 200 });
   },

@@ -35,6 +35,7 @@ import {
 import { problems as brandProblems } from '../assets/js/brand.js';
 import { send as sendMail } from '../lib/mail.js';
 import { gather, compose } from '../lib/digest.js';
+import { scheduleArticles, unscheduleArticle, timetable, runDueArticles } from '../lib/schedule.js';
 import { runDue } from '../lib/publish.js';
 import { addReference } from '../lib/references.js';
 import { progress } from '../lib/progress.js';
@@ -251,13 +252,18 @@ async function runTool(name, args, env) {
       });
     }
 
+    /* One poke, both queues. A deployment that schedules this every few
+       hours gets carousels posted and scheduled articles published
+       without a second recurring task to forget about. */
     case 'post_due': {
       const out = await runDue({ ...env, SITE });
+      const journal = await runDueArticles({ ...env, SITE });
       return toolResult({
         ...out,
-        note: out.ran
-          ? 'Anything that failed is back in Approved with the reason against it.'
-          : 'Nothing was due.',
+        articles: journal,
+        note: out.ran || journal.ran
+          ? 'Anything that failed is back where a person can see it, with the reason.'
+          : 'Nothing was due, on either side.',
       });
     }
 
@@ -392,6 +398,30 @@ async function runTool(name, args, env) {
     /* ------------------------------------------------------- the journal */
     case 'writing_brief':
       return toolResult(await writingBrief(db));
+
+    case 'schedule_articles': {
+      const out = await scheduleArticles(db, {
+        slugs: Array.isArray(a.slugs) ? a.slugs : [],
+        startIn: a.start_in_days ?? 0,
+        days: a.across_days ?? 3,
+        perDay: a.per_day ?? null,
+        from: a.from_hour ?? 8,
+        to: a.to_hour ?? 20,
+        minGap: a.min_gap ?? 75,
+        offset: a.offset_hours ?? 1,
+      });
+      return out.ok ? toolResult(out) : toolFailed(out.reason);
+    }
+
+    case 'scheduled_articles':
+      return toolResult({ queued: await timetable(db) });
+
+    case 'unschedule_article': {
+      const out = await unscheduleArticle(db, a.slug);
+      return out.ok
+        ? toolResult({ ...out, note: 'Off the queue. It is an ordinary draft again.' })
+        : toolFailed(`There is nothing scheduled called "${a.slug}".`);
+    }
 
     case 'voice_rules':
       return toolResult(await voiceRules());

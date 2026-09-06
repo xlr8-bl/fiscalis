@@ -206,12 +206,47 @@ arrived.
 The other half of the machine, and the one that ends in something public.
 Six tools, in this order.
 
-    writing_brief          what the journal is, how it sounds, the cycle
+    writing_brief          what the journal is, what is written, what is left
     voice_rules            every pattern that will be refused, and why
     find_photo             search a stock library, store nothing
     keep_photo             download the one you picked into the site's media
     write_article          the draft, checked before anything is stored
-    publish_article        put it on the site
+    publish_article        put it on the site now
+    schedule_articles      put a batch out over the next few days
+    scheduled_articles     what is queued
+    unschedule_article     take one back off the queue
+
+**Writing several and spacing them out is one call.** "Write four and put
+them out over the next three days" means four `write_article` calls and
+then one `schedule_articles` with all four slugs in it.
+
+    schedule_articles { slugs: [...], start_in_days: 1, across_days: 3 }
+
+Times are not evenly spaced. Each lands in its own band of the day and is
+then jittered, with at least 75 minutes between any two and nothing
+outside the daily window, which is 08:00 to 20:00 local by default. A run
+at 09:00, 12:00 and 15:00 on the dot reads as a machine. Everything is
+stored and returned as UTC; `offset_hours` says how far ahead the local
+clock is, and defaults to 1.
+
+A scheduled article is one in `review` with a `publish_at` on it. There
+is no fourth status: adding one to a SQLite CHECK means rebuilding the
+table on a live database, and "in review, with a time" is exactly what it
+is. The studio shows it as **Goes out Tue, 14:15** rather than as
+something waiting for you, and clearing the time puts it straight back to
+an ordinary draft.
+
+The batch is refused whole rather than partly applied: an unknown slug,
+one already published, one with no cover picture, or a window too small
+for the count all come back as a reason with nothing written. Each
+article still passes the full check at its own firing time, so one edited
+into a refusal after being scheduled does not go out — it comes off the
+queue with the reason against it.
+
+**What fires it.** Either the `post_due` tool, which now runs both queues
+in one call, or the `poster` Worker's cron, which does the same on every
+slot. Neither cares what time it is: each publishes whatever is past its
+own slot, so a missed firing catches up instead of skipping a post.
 
 **The brief knows what has already been written.** `writing_brief` reads
 the journal out of D1 and hands back three things Spark did not used to

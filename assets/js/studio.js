@@ -515,6 +515,19 @@ async function viewJournal() {
 
 const STATUS_WORD = { review: 'Waiting for you', draft: 'Draft', published: 'Live' };
 
+/* A scheduled article is one in review with a time on it. The list has to
+   say so, or a batch queued from Spark reads as eleven things waiting for
+   you to read and you go looking for the ones you already dealt with. */
+const fmtSlot = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(+d)) return '';
+  const day = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return `${day}, ${time}`;
+};
+const queuedAt = (a) => (a.status !== 'published' && a.publish_at ? a.publish_at : '');
+
 function paintJournal() {
   const { filter, term } = listCtx;
   const shown = articles.filter(
@@ -539,7 +552,8 @@ function paintJournal() {
       title: a.title,
       note: a.description || 'No description yet.',
       meta: [
-        filter === 'all' ? STATUS_WORD[a.status] : '',
+        queuedAt(a) ? `Goes out ${fmtSlot(queuedAt(a))}`
+          : (filter === 'all' ? STATUS_WORD[a.status] : ''),
         fmtDate(a.published_at || String(a.updated_at || '').slice(0, 10)),
         by,
       ],
@@ -575,8 +589,10 @@ function fillArticle(a) {
   showCover();
 
   const live = a.status === 'published';
+  const queued = queuedAt(a);
   const parts = [];
   if (live) parts.push(`Live since ${fmtDate(a.published_at)}`);
+  else if (queued) parts.push(`Goes out on its own, ${fmtSlot(queued)}`);
   else if (a.status === 'review') parts.push('Drafted by Spark, waiting for you');
   else if (a.slug) parts.push('Draft');
   else parts.push('New article');

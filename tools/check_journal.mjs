@@ -151,8 +151,8 @@ console.log('\nexactly one thing asks');
      TOOLS.every((t) => t.annotations.openWorldHint !== undefined));
 
   const asks = TOOLS.filter((t) => t.annotations.destructiveHint === true).map((t) => t.name).sort();
-  ok('only the two publishing tools are destructive',
-     asks.join(',') === 'post_due,publish_article', asks.join(', '));
+  ok('only the publishing tools are destructive',
+     asks.join(',') === 'post_due,publish_article,schedule_articles', asks.join(', '));
 
   /* Gemini reads readOnlyHint and nothing else to decide whether to ask
      the account holder, and there is no always-allow in the app. So the
@@ -161,8 +161,8 @@ console.log('\nexactly one thing asks');
      is what trains a person to tap yes without reading. */
   const prompts = TOOLS.filter((t) => t.annotations.readOnlyHint !== true)
     .map((t) => t.name).sort();
-  ok('only the two publishing tools interrupt a person',
-     prompts.join(',') === 'post_due,publish_article', prompts.join(', '));
+  ok('only the publishing tools interrupt a person',
+     prompts.join(',') === 'post_due,publish_article,schedule_articles', prompts.join(', '));
 
   ok('publish_article is the destructive one on the journal side',
      byName.publish_article?.annotations?.destructiveHint === true);
