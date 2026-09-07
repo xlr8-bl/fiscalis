@@ -50,11 +50,36 @@ const px = { w: (v) => v * W, h: (v) => v * H, size: (v) => v * H };
 export const M = {
   rail:     { h: 0.0553, pad: 0.038, size: 0.0175 },  // 57px of 1030
   margin:   0.085,                                    // the text column's inset
-  title:    { size: 0.078, lead: 0.0883 / 0.078 },    // line pitch 0.0883
-  say:      { size: 0.0224, lead: 0.0310 / 0.0224 },  // line pitch 0.0310
-  chip:     { h: 0.0400, pitch: 0.0505, padX: 0.020, r: 0.004 },
-  icons:    { h: 0.0740, gap: 0.014 },
-  action:   { label: 0.0260, body: 0.0210, lead: 1.32, padX: 0.022, padY: 0.016 },
+
+  /* The headline, re-measured. The first pass had it at 0.078 with loose
+     leading and the sheets came out timid beside the reference. Its caps
+     run 0.0816 of the frame — H's cap top to the baseline on "How to" —
+     which is 0.113 em, and its lines sit 0.0893 apart, which is LESS
+     than one em. That negative leading is most of why the original reads
+     as a poster and the first version read as a document. */
+  title:    { size: 0.1133, lead: 0.0893 / 0.1133 },
+  say:      { size: 0.0208, lead: 0.0330 / 0.0208 },  // line pitch 0.0330
+
+  /* Chips: 0.036 tall on a 0.0495 pitch, and centred — measured across
+     three sheets, whose centres land on 0.4964, 0.4964 and 0.4970. Each
+     is only as wide as its own words: 0.4806 for a long one, 0.2646 for
+     a short one, on the same sheet. */
+  chip:     { h: 0.0360, pitch: 0.0495, padX: 0.020, r: 0.004 },
+
+  /* The row is 0.0796 tall and 0.4806 wide for six, so the icons very
+     nearly touch. The first version put a 0.014 gap between them and
+     they read as six separate marks instead of one band. */
+  icons:    { h: 0.0796, gap: 0.004 },
+
+  /* The instruction, measured on three sheets that all agree: the panel
+     is a FIXED box at x 0.3386 and 0.4612 wide, not one sized to its
+     copy, and the label sits at x 0.1893 and 0.2075 wide. The label's
+     right quarter laps over the panel's left edge, and the panel's top
+     starts 63% of the way down the label. */
+  action:   { label: 0.0355, body: 0.0195, lead: 1.14,
+              labelX: 0.1893, panelX: 0.3386, panelW: 0.4612,
+              padX: 0.018, padY: 0.016 },
+
   /* The gaps between blocks, as a fraction of the frame's height. Read
      off the reference's own runs: 0.0631 from the headline to the first
      paragraph, 0.0339 between a paragraph and a chip stack, 0.036 from
@@ -74,8 +99,12 @@ export const M = {
 
 const CAP = 0.72;          // cap height as a fraction of the em, measured
 
-function lines(ctx, text, font, maxW) {
+function lines(ctx, text, font, maxW, track = '0px') {
   ctx.font = font;
+  /* Measured with the tracking on. Wrapping without it and then drawing
+     with it makes every line the wrong length — long ones on tight type,
+     short ones on loose — and the error grows with the line. */
+  ctx.letterSpacing = track;
   const words = String(text ?? '').split(/\s+/).filter(Boolean);
   const out = [];
   let line = '';
@@ -99,12 +128,12 @@ export const BLOCKS = {
     what: 'The headline. Three to six words, sentence case, and it has to '
         + 'work as the whole slide if somebody reads nothing else.',
     height(ctx, block, g, col) {
-      const n = lines(ctx, block.text, face(g, 'title'), col).length;
+      const n = lines(ctx, block.text, face(g, 'title'), col, trackOf('title')).length;
       return M.title.size * CAP + (n - 1) * M.title.size * M.title.lead;
     },
     draw(ctx, block, g, box) {
       setType(ctx, g, 'title');
-      const ls = lines(ctx, block.text, face(g, 'title'), box.w);
+      const ls = lines(ctx, block.text, face(g, 'title'), box.w, trackOf('title'));
       ls.forEach((line, i) => {
         const y = box.y + px.size(M.title.size) * CAP
           + i * px.size(M.title.size * M.title.lead);
@@ -122,12 +151,12 @@ export const BLOCKS = {
     what: 'A short paragraph, two to four lines. This is where the thing is '
         + 'actually explained, so it is the one block allowed to be prose.',
     height(ctx, block, g, col) {
-      const n = lines(ctx, block.text, face(g, 'say'), col).length;
+      const n = lines(ctx, block.text, face(g, 'say'), col, trackOf('say')).length;
       return M.say.size * CAP + (n - 1) * M.say.size * M.say.lead;
     },
     draw(ctx, block, g, box) {
       setType(ctx, g, 'say');
-      const ls = lines(ctx, block.text, face(g, 'say'), box.w);
+      const ls = lines(ctx, block.text, face(g, 'say'), box.w, trackOf('say'));
       ls.forEach((line, i) => {
         const y = box.y + px.size(M.say.size) * CAP
           + i * px.size(M.say.size * M.say.lead);
@@ -212,11 +241,14 @@ export const BLOCKS = {
       const gap = px.w(M.icons.gap);
       const total = names.length * s + (names.length - 1) * gap;
       let x = box.x + (box.w - total) / 2;
+      ctx.save();
+      ctx.filter = iconFilter(g);
       for (const name of names) {
         const img = art?.icons?.[name];
         if (img) ctx.drawImage(img, x, box.y, s, s);
         x += s + gap;
       }
+      ctx.restore();
     },
   },
 
@@ -238,9 +270,9 @@ export const BLOCKS = {
     what: 'The one thing to actually do, in a sentence or two. Every slide '
         + 'ends with one and it is always in the same place, so a reader '
         + 'who only wants the instruction knows where to look.',
-    height(ctx, block, g, col) {
-      const inner = col * 0.66 - px.w(M.action.padX) * 2;
-      const n = lines(ctx, block.text, face(g, 'action'), inner).length;
+    height(ctx, block, g) {
+      const inner = px.w(M.action.panelW) - px.w(M.action.padX) * 2;
+      const n = lines(ctx, block.text, face(g, 'action'), inner, trackOf('action')).length;
       return M.action.label + 0.006
         + M.action.body * CAP + (n - 1) * M.action.body * M.action.lead
         + M.action.padY * 2;
@@ -248,91 +280,153 @@ export const BLOCKS = {
     draw(ctx, block, g, box) {
       const label = block.label || 'DO THIS:';
       /*
-       * The label is placed first, because the panel hangs off it.
+       * Both boxes are fixed, which is what the reference does and what
+       * the first version got wrong.
        *
-       * The overlap is the device, and it is easy to lose. Sizing the
-       * panel to its copy and right-aligning it pulled the two apart on
-       * a short instruction, and a label sitting alone beside a panel is
-       * a heading — the thing this is specifically not. So the panel
-       * starts inside the label's right end and grows rightward, and the
-       * label is drawn last so it laps over.
+       * I sized the panel to its copy, so a one-line instruction gave a
+       * narrow box that had drifted off the label. Measuring three of
+       * their sheets: the panel sits at x 0.3386 and 0.4612 wide on all
+       * three, whatever the copy. The overlap is the device, and a fixed
+       * box is what guarantees it — the label's right quarter laps the
+       * panel's left edge every time.
        */
-      const labelX = box.x + px.w(0.10);
-      const labelW = chipWidth(ctx, label, M.action.label);
-      const panelX = labelX + labelW * 0.62;
-      const panelY = box.y + px.h(M.chip.h) * 0.62;
+      const labelX = px.w(M.action.labelX);
+      const panelX = px.w(M.action.panelX);
+      const panelW = px.w(M.action.panelW);
+      const panelY = box.y + px.h(M.chip.h) * 0.63;
 
-      /* The label laps the panel's CORNER, never its words. The text box
-         therefore starts clear of the label's right edge rather than at
-         the panel's own padding: without that the first line of the
-         shortest instruction reads "his is the kind of thing I fix". */
-      const textL = Math.max(panelX + px.w(M.action.padX),
-                             labelX + labelW + px.w(0.012));
-      const textR = box.x + box.w - px.w(M.action.padX);
-      ctx.font = face(g, 'action');
-      const ls = lines(ctx, block.text, face(g, 'action'), textR - textL);
-      const widest = Math.max(...ls.map((l) => ctx.measureText(l).width));
-      const panelW = Math.min(box.x + box.w - panelX,
-                              (textL - panelX) + widest + px.w(M.action.padX));
+      const ls = lines(ctx, block.text, face(g, 'action'),
+                       panelW - px.w(M.action.padX) * 2, trackOf('action'));
       const panelH = px.h(M.action.padY) * 2
-        + px.size(M.action.body) * CAP
+        + sizeOf('action') * CAP
         + (ls.length - 1) * px.size(M.action.body * M.action.lead);
+
+      const halo = px.h(0.0035);
+      ctx.fillStyle = g.halo ?? g.ground;
+      round(ctx, panelX - halo, panelY - halo,
+            panelW + halo * 2, panelH + halo * 2, px.h(M.chip.r));
+      ctx.fill();
 
       ctx.fillStyle = g.accentSoft2 ?? g.accentSoft;
       round(ctx, panelX, panelY, panelW, panelH, px.h(M.chip.r));
       ctx.fill();
 
-      ctx.fillStyle = g.mark;
+      ctx.fillStyle = g.chipInk ?? g.mark;
       ctx.font = face(g, 'action');
+      ctx.letterSpacing = trackOf('action');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      const textMid = textL + (panelX + panelW - px.w(M.action.padX) - textL) / 2;
       ls.forEach((line, i) => {
-        ctx.fillText(line, textMid,
-          panelY + px.h(M.action.padY) + px.size(M.action.body) * CAP
+        ctx.fillText(line, panelX + panelW / 2,
+          panelY + px.h(M.action.padY) + sizeOf('action') * CAP
           + i * px.size(M.action.body * M.action.lead));
       });
 
       // the label last, so it laps OVER the panel rather than under it
       chip(ctx, g, label, labelX, box.y,
-           { fill: 'accentSoft', size: M.action.label, align: 'left' });
+           { fill: 'accentSoft', role: 'label', align: 'left' });
     },
   },
 };
 
 export const BLOCK_NAMES = Object.keys(BLOCKS);
 
+/*
+ * Making the icons read on whatever they are standing on.
+ *
+ * The pack is one set of pale objects with a red accent, and its body
+ * sits at luminance 205. Measured against the grounds: on ink the
+ * difference is 187 and they are brilliant; on paper it is 31; on amber
+ * it is 13, which is to say invisible. That is not something to fix by
+ * eye per ground, because the grounds can change and the pack cannot.
+ *
+ * So the filter is computed. Aim for a difference of about 95, darken
+ * when the ground is light and leave alone when it is dark, and clamp so
+ * that no ground can crush the icons into silhouettes. A little extra
+ * contrast goes with the darkening, because scaling brightness alone
+ * flattens the red accent into the grey.
+ */
+const ICON_LUM = 205;      // measured across all sixteen
+const WANT = 95;           // the difference that makes them read
+
+function iconFilter(g) {
+  const l = luminance(g.ground);
+  if (l < 128) {
+    // dark ground: they already stand out, and brightening blows the
+    // pale structure out to a flat white shape
+    return 'none';
+  }
+  const k = Math.max(0.42, Math.min(1, (l - WANT) / ICON_LUM));
+  /* Saturation is put back as brightness is taken away. Scaling
+     brightness alone darkens the pale structure AND the red accent, and
+     on amber that turned the red to maroon: the icons read but stopped
+     being these icons. Compensating keeps the accent the accent. */
+  return `brightness(${k.toFixed(3)}) saturate(${(1 / k).toFixed(2)}) contrast(1.12)`;
+}
+
+function luminance(hex) {
+  const h = String(hex).replace('#', '');
+  const [r, gg, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  return 0.2126 * r + 0.7152 * gg + 0.0722 * b;
+}
+
 /* --------------------------------------------------------------- paint */
 
+/*
+ * THE TYPE, RE-READ OFF THE REFERENCE AT 5x.
+ *
+ * I had this backwards twice. The headline is not a serif at all — "How
+ * to Calculate" has no serifs anywhere, it is a heavy grotesque set very
+ * tight, and I set it first in Bodoni and then in Schola. What IS a
+ * serif is the small thing I had in a grotesque: "DO THIS:". So the mix
+ * is one serif accent on a grotesque sheet, and it is the label.
+ *
+ * The tightness is a display move and not a house style. Measured, the
+ * headline runs 86-88% of Helvetica's natural width, which is about
+ * -0.07 em of tracking, and its lines sit closer together than one em.
+ * The body and the chips are NOT tracked tight: they measure wider than
+ * natural, which I do not believe — it is my ink-height-to-em assumption
+ * being wrong on lowercase, not a real +0.16 em — so they are left at
+ * nothing rather than given a number I cannot defend.
+ *
+ * Termes rather than Schola for the label: Schola is Century
+ * Schoolbook and very wide, needing -0.18 em to reach the reference's
+ * proportions, which is past where letters collide. Termes is Times and
+ * lands at -0.12. Same GUST licence, already read.
+ */
+export const TYPE = {
+  title:  { family: 'Helvetica', weight: '800', track: -0.070 },
+  say:    { family: 'Helvetica', weight: '500', track: 0 },
+  chip:   { family: 'Helvetica', weight: '700', track: 0 },
+  label:  { family: 'Termes',    weight: '700', track: -0.050 },
+  action: { family: 'Helvetica', weight: '500', track: 0 },
+  rail:   { family: 'Helvetica', weight: '700', track: 0 },
+};
+
+const sizeOf = (role) => px.size(
+  role === 'title' ? M.title.size
+    : role === 'action' ? M.action.body
+      : role === 'label' ? M.action.label
+        : role === 'rail' ? M.rail.size
+          : role === 'chip' ? M.chip.h * 0.52
+            : M.say.size
+);
+
 const face = (g, role) => {
-  const size = px.size(
-    role === 'title' ? M.title.size
-      : role === 'action' ? M.action.body
-        : M.say.size
-  );
-  /*
-   * A transitional, not a Didone.
-   *
-   * The first version set the headline in Bodoni, which is the corpus's
-   * display serif and the wrong one here. A Didone's thin strokes are
-   * hairlines by design; at 0.078 of the frame that is about two pixels
-   * on a phone, so "Slow, or just heavy?" came out broken up and its
-   * comma read as a full stop. Worse light-on-dark, where the hairlines
-   * thin further.
-   *
-   * TeX Gyre Schola is Century Schoolbook: a sturdy transitional with
-   * moderate contrast, which is what the reference is set in and what
-   * survives being looked at for a second and a half in a feed. Same
-   * GUST licence as the Helvetica, already read.
-   */
-  return role === 'title'
-    ? `700 ${size}px Schola`
-    : `500 ${size}px Helvetica`;
+  const t = TYPE[role] ?? TYPE.say;
+  return `${t.weight} ${sizeOf(role)}px ${t.family}`;
+};
+
+/** Tracking has to be set alongside the font, every time, or it leaks. */
+const trackOf = (role) => {
+  const t = TYPE[role] ?? TYPE.say;
+  return `${t.track * sizeOf(role)}px`;
 };
 
 function setType(ctx, g, role) {
   ctx.fillStyle = g.mark;
   ctx.font = face(g, role);
+  ctx.letterSpacing = trackOf(role);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
 }
@@ -348,24 +442,41 @@ function round(ctx, x, y, w, h, r) {
 }
 
 /** How wide a chip will be, before drawing one. */
-function chipWidth(ctx, text, size = M.chip.h * 0.52) {
+function chipWidth(ctx, text, role = 'chip') {
   const was = ctx.font;
-  ctx.font = `700 ${px.size(size)}px Helvetica`;
+  const wasT = ctx.letterSpacing;
+  ctx.font = face(null, role);
+  ctx.letterSpacing = trackOf(role);
   const w = ctx.measureText(String(text ?? '')).width + px.w(M.chip.padX) * 2;
   ctx.font = was;
+  ctx.letterSpacing = wasT;
   return w;
 }
 
-/** One phrase on a panel sized to the phrase. */
-function chip(ctx, g, text, cx, y, { fill = 'accentSoft', size = M.chip.h * 0.52,
+/**
+ * One phrase on a panel sized to the phrase.
+ *
+ * TWO layers, which is the thing that makes it read as a sticker rather
+ * than as a highlight. At 5x the reference's chips have a pale halo
+ * standing a couple of pixels proud of the coloured fill on every side —
+ * a slightly larger rectangle behind, in a colour close to the paper.
+ * Without it the chip is a rectangle of colour; with it, it is something
+ * placed on the sheet.
+ */
+function chip(ctx, g, text, cx, y, { fill = 'accentSoft', role = 'chip',
                                      align = 'center' } = {}) {
-  const s = px.size(size);
-  ctx.font = `700 ${s}px Helvetica`;
+  ctx.font = face(g, role);
+  ctx.letterSpacing = trackOf(role);
   const tw = ctx.measureText(String(text ?? '')).width;
   const padX = px.w(M.chip.padX);
   const w = tw + padX * 2;
   const h = px.h(M.chip.h);
   const x = align === 'left' ? cx : cx - w / 2;
+  const halo = px.h(0.0035);
+
+  ctx.fillStyle = g.halo ?? g.ground;
+  round(ctx, x - halo, y - halo, w + halo * 2, h + halo * 2, px.h(M.chip.r));
+  ctx.fill();
 
   ctx.fillStyle = g[fill] ?? g.accent;
   round(ctx, x, y, w, h, px.h(M.chip.r));
@@ -374,7 +485,7 @@ function chip(ctx, g, text, cx, y, { fill = 'accentSoft', size = M.chip.h * 0.52
   ctx.fillStyle = g.chipInk ?? g.mark;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(String(text ?? ''), x + padX, y + h / 2 + s * CAP / 2);
+  ctx.fillText(String(text ?? ''), x + padX, y + h / 2 + sizeOf(role) * CAP / 2);
 }
 
 /**
@@ -390,7 +501,8 @@ function rail(ctx, g, { handle, series }) {
   ctx.fillStyle = g.accent;
   ctx.fillRect(0, 0, W, h);
 
-  ctx.font = `700 ${px.size(M.rail.size)}px Helvetica`;
+  ctx.font = face(g, 'rail');
+  ctx.letterSpacing = trackOf('rail');
   ctx.fillStyle = g.railInk ?? g.ground;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
@@ -412,11 +524,11 @@ function rail(ctx, g, { handle, series }) {
  */
 export const SLIDE_GROUNDS = {
   paper: { ...GROUNDS.paper, accentSoft: '#C9D9E8', accentSoft2: '#DCD0E8',
-           chipInk: '#14120F', railInk: '#F2ECE0' },
+           chipInk: '#14120F', railInk: '#F2ECE0', halo: '#E4E0CF' },
   ink:   { ...GROUNDS.ink, accentSoft: '#2A3B4D', accentSoft2: '#3A3050',
-           chipInk: '#F2ECE0', railInk: '#14120F' },
+           chipInk: '#F2ECE0', railInk: '#14120F', halo: '#2E2A24' },
   amber: { ...GROUNDS.amber, accentSoft: '#C9D9E8', accentSoft2: '#DCD0E8',
-           chipInk: '#14120F', railInk: '#F2ECE0' },
+           chipInk: '#14120F', railInk: '#F2ECE0', halo: '#E2B824' },
 };
 
 export const SLIDE_GROUND_NAMES = Object.keys(SLIDE_GROUNDS);
@@ -539,7 +651,7 @@ export function layOut(ctx, slide, g) {
    * a slide that ran out rather than one that is spacious. Opening the
    * gaps instead spends the space where it does something.
    *
-   * Capped at 2.6x measured, because past that the blocks stop reading
+   * Capped at 1.5x measured, because past that the blocks stop reading
    * as a stack and start reading as three unrelated things; whatever is
    * left over after the cap goes back to centring the whole stack.
    */
@@ -548,7 +660,12 @@ export function layOut(ctx, slide, g) {
   const slack = room - tall;
   let stretch = 1;
   if (slack > 0 && gapTotal > 0) {
-    stretch = Math.min(2.6, 1 + slack / gapTotal);
+    /* 1.5, not 2.6. Opening the gaps is how a thin slide breathes, but
+       past about half again the sheet stops reading as the reference's
+       dense stack and starts reading as widely spaced paragraphs, which
+       is the thing that made the first set look timid. Whatever is left
+       after the cap goes to centring, where it shows less. */
+    stretch = Math.min(1.5, 1 + slack / gapTotal);
   }
   const stretched = tall + gapTotal * (stretch - 1);
   let y = stretched < room ? M.top + (room - stretched) / 2 : M.top;
