@@ -230,25 +230,117 @@ export const BLOCKS = {
    */
   icons: {
     takes: 'icons',
-    what: 'A row of three to six small objects from the icon pack, chosen for '
-        + 'what they mean. It is the beat between the explaining and the '
-        + 'instruction, and it is what ties a set of slides together.',
-    height() { return M.icons.h; },
+    what: 'Small objects from the icon pack, chosen for what they mean. Set '
+        + '`where` to place them: "row" (the default) is the beat between the '
+        + 'explaining and the instruction; "corner" drops two or three into the '
+        + 'sheet\'s empty shoulder, turned off square; "edge" runs them down the '
+        + 'side of a chip stack so the eye picks them up on the way past. Vary '
+        + 'it across a set: a row every time is why nobody notices them.',
+    /* A row is part of the stack and takes its height. Corner and edge
+       are OVERLAYS: they sit beside something rather than after it, so
+       they claim nothing. The first version gave them height and the
+       edge icons landed in the empty band below the chips they were
+       supposed to be running alongside. */
+    height(_ctx, block) {
+      return (block.where ?? 'row') === 'row' ? M.icons.h : 0;
+    },
     draw(ctx, block, g, box, art) {
       const names = (block.icons ?? []).filter((n) => ICON_NAMES.includes(n));
       if (!names.length) return;
       const s = px.h(M.icons.h);
-      const gap = px.w(M.icons.gap);
-      const total = names.length * s + (names.length - 1) * gap;
-      let x = box.x + (box.w - total) / 2;
       ctx.save();
       ctx.filter = iconFilter(g);
-      for (const name of names) {
-        const img = art?.icons?.[name];
-        if (img) ctx.drawImage(img, x, box.y, s, s);
-        x += s + gap;
+
+      /*
+       * Three arrangements, because a row every time is the reason the
+       * icons stopped being noticed. `row` is the beat between the
+       * explaining and the instruction and is still the default.
+       * `corner` puts two or three up in the sheet's empty shoulder,
+       * turned off square, where they read as something dropped on the
+       * page. `edge` runs them down the side of a chip stack, so the
+       * eye picks them up on the way past rather than after.
+       *
+       * The angles are fixed per position rather than random: a random
+       * tilt on every render means the same carousel drawn twice is two
+       * carousels, and the redo loop redraws single slides.
+       */
+      const where = block.where ?? 'row';
+      if (where === 'corner') {
+        const tilts = [-0.22, 0.15, -0.09];
+        names.slice(0, 3).forEach((name, i) => {
+          const img = art?.icons?.[name];
+          if (!img) return;
+          const cx = px.w(0.80) + i * px.w(0.055);
+          const cy = px.h(0.125) + (i % 2) * px.h(0.048);
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(tilts[i % tilts.length]);
+          ctx.drawImage(img, -s / 2, -s / 2, s, s);
+          ctx.restore();
+        });
+      } else if (where === 'edge') {
+        /* Upward from this block's own y, so they run alongside whatever
+           is directly above — normally a chip stack — rather than under
+           it. Inset from the margin, because at the very edge of the
+           frame they read as something that fell off. */
+        const step = px.h(0.062);
+        names.slice(0, 4).forEach((name, i) => {
+          const img = art?.icons?.[name];
+          if (!img) return;
+          ctx.save();
+          ctx.translate(box.x + px.w(0.04), box.y - px.h(0.02) - i * step);
+          ctx.rotate(i % 2 ? 0.12 : -0.12);
+          ctx.drawImage(img, -s * 0.4, -s * 0.4, s * 0.8, s * 0.8);
+          ctx.restore();
+        });
+      } else {
+        const gap = px.w(M.icons.gap);
+        const total = names.length * s + (names.length - 1) * gap;
+        let x = box.x + (box.w - total) / 2;
+        for (const name of names) {
+          const img = art?.icons?.[name];
+          if (img) ctx.drawImage(img, x, box.y, s, s);
+          x += s + gap;
+        }
       }
       ctx.restore();
+    },
+  },
+
+  /**
+   * A person, cut out, screened to one colour, with a hard edge.
+   *
+   * THE TREATMENT, not the photograph. A photograph of a person dropped
+   * into a teaching slide is a different picture from the one the type
+   * is on: it has its own light, its own colour, its own depth, and it
+   * fights everything around it. Screened to a single ink and given a
+   * solid outline, it stops being a photograph and becomes a shape on
+   * the sheet, which is the only way it sits with flat colour and
+   * bitmap type without one of them looking pasted on.
+   *
+   * HOW THE CUT IS MADE. The background is keyed by colour distance
+   * from the frame's own corners, which works because these
+   * photographs were shot on flat grounds: a blue sweep, a black wall,
+   * sky. It is not a general matting algorithm and it is not pretending
+   * to be. On a busy background it will cut badly, which is why
+   * SOURCES.md says which photographs have flat grounds.
+   *
+   * THE HALFTONE is drawn rather than filtered: a grid of dots whose
+   * radius follows the source's darkness. A CSS filter cannot do this,
+   * and the dots have to be big enough to survive a feed, so the pitch
+   * is a fraction of the frame rather than of the picture.
+   */
+  portrait: {
+    takes: 'portrait',
+    what: 'One of Ashley\'s own photographs, cut out and screened to a single '
+        + 'ink with a hard outline. For an opening or closing slide. It is a '
+        + 'shape on the sheet, not a photograph in a box.',
+    height(_ctx, block) { return block.h ?? 0.30; },
+    draw(ctx, block, g, box, art) {
+      // the slide names a photograph by file stem: `portrait: 'blue-flat'`
+      const img = art?.portraits?.[block.text ?? block.name] ?? art?.portrait;
+      if (!img) return;
+      cutout(ctx, img, box, g, block);
     },
   },
 
@@ -273,9 +365,11 @@ export const BLOCKS = {
     height(ctx, block, g) {
       const inner = px.w(M.action.panelW) - px.w(M.action.padX) * 2;
       const n = lines(ctx, block.text, face(g, 'action'), inner, trackOf('action')).length;
-      return M.action.label + 0.006
-        + M.action.body * CAP + (n - 1) * M.action.body * M.action.lead
-        + M.action.padY * 2;
+      /* Same arithmetic as draw(): the first line clears the label, so
+         the block is that much taller than its padding suggests. */
+      const clear = Math.max(M.action.padY, M.chip.h * 0.37 + 0.004);
+      return M.chip.h * 0.63 + clear + M.action.padY
+        + M.action.body * CAP + (n - 1) * M.action.body * M.action.lead;
     },
     draw(ctx, block, g, box) {
       const label = block.label || 'DO THIS:';
@@ -295,9 +389,18 @@ export const BLOCKS = {
       const panelW = px.w(M.action.panelW);
       const panelY = box.y + px.h(M.chip.h) * 0.63;
 
+      /* The first line starts below the LABEL, not below the panel's own
+         padding. The label laps the panel's top-left corner and is drawn
+         last, so a first line that begins at the panel's padding has its
+         opening words painted over: "Try to select" came out "y to
+         select". Vertically clearing the label costs a few pixels and
+         fixes it for any label width. */
+      const clear = Math.max(px.h(M.action.padY),
+                             box.y + px.h(M.chip.h) + px.h(0.004) - panelY);
+
       const ls = lines(ctx, block.text, face(g, 'action'),
                        panelW - px.w(M.action.padX) * 2, trackOf('action'));
-      const panelH = px.h(M.action.padY) * 2
+      const panelH = clear + px.h(M.action.padY)
         + sizeOf('action') * CAP
         + (ls.length - 1) * px.size(M.action.body * M.action.lead);
 
@@ -318,7 +421,7 @@ export const BLOCKS = {
       ctx.textBaseline = 'alphabetic';
       ls.forEach((line, i) => {
         ctx.fillText(line, panelX + panelW / 2,
-          panelY + px.h(M.action.padY) + sizeOf('action') * CAP
+          panelY + clear + sizeOf('action') * CAP
           + i * px.size(M.action.body * M.action.lead));
       });
 
@@ -604,6 +707,12 @@ export const TEMPLATES = {
         + 'argument: each chip is a figure you can point at. Named apart '
         + 'so a slide of numbers is a decision rather than an accident.',
   },
+  portrait: {
+    blocks: ['portrait', 'title', 'say', 'action'],
+    what: 'An opening or closing slide carrying Ashley himself, cut out and '
+        + 'screened to one ink. Use it once in a set at most: it is the slide '
+        + 'that says a person is behind this, and twice makes it about him.',
+  },
   close: {
     blocks: ['title', 'say', 'icons', 'action'],
     what: 'The last slide. What to do now. The instruction is the whole '
@@ -719,7 +828,10 @@ const blockData = (slide, name, key) => {
   if (own == null) return {};
   if (typeof own === 'string') return { text: own };
   if (Array.isArray(own)) {
-    return name === 'icons' ? { icons: own }
+    /* `where` travels beside the icon list rather than inside it, because
+       a slide reads better as `icons: [...], iconsWhere: 'corner'` than
+       as a nested object, and Spark writes these by hand. */
+    return name === 'icons' ? { icons: own, where: slide.iconsWhere }
       : name === 'duo' ? { pair: own } : { items: own };
   }
   return own;
@@ -737,6 +849,100 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
   for (const item of placed) item.spec.draw(ctx, item.block, g, item.box, art);
   return { over };
 }
+
+/**
+ * Cut the subject out, screen it to one ink, and outline it.
+ *
+ * Three passes over an offscreen canvas, because each needs the one
+ * before it: key the ground, dilate the mask to make the outline, then
+ * lay the dots inside it.
+ */
+function cutout(ctx, img, box, g, opts = {}) {
+  const H_ = Math.round(box.h);
+  const W_ = Math.round(H_ * (img.width / img.height));
+  if (!W_ || !H_) return;
+
+  const off = new OffscreenCanvas(W_, H_);
+  const o = off.getContext('2d', { willReadFrequently: true });
+  o.drawImage(img, 0, 0, W_, H_);
+  const src = o.getImageData(0, 0, W_, H_);
+  const d = src.data;
+
+  /* The ground, taken from the corners. Four samples rather than one,
+     because a sweep is not perfectly even and a single corner pixel on
+     a JPEG artefact would key the wrong colour entirely. */
+  const at = (x, y) => { const i = (y * W_ + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
+  const corners = [at(1, 1), at(W_ - 2, 1), at(1, H_ - 2), at(W_ - 2, H_ - 2)];
+  const key = [0, 1, 2].map((c) => median(corners.map((p) => p[c])));
+  const tol = (opts.tolerance ?? 0.20) * 441.7;
+
+  // subject mask
+  const on = new Uint8Array(W_ * H_);
+  const lum = new Float32Array(W_ * H_);
+  for (let i = 0, p = 0; p < W_ * H_; p++, i += 4) {
+    const dist = Math.hypot(d[i] - key[0], d[i + 1] - key[1], d[i + 2] - key[2]);
+    on[p] = dist > tol ? 1 : 0;
+    lum[p] = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+  }
+
+  const x0 = box.x + (box.w - W_) / 2;
+  const y0 = box.y;
+
+  /* The outline is the mask grown by a few pixels and filled solid,
+     drawn UNDER the dots. Stroking the silhouette's path would need the
+     path, and the mask is pixels; growing and filling gets the same
+     hard edge without tracing anything. */
+  const grow = Math.max(2, Math.round(H_ * (opts.edge ?? 0.018)));
+  ctx.save();
+  ctx.fillStyle = g.mark;
+  for (let y = 0; y < H_; y++) {
+    let run = -1;
+    for (let x = 0; x <= W_; x++) {
+      const inside = x < W_ && nearby(on, W_, H_, x, y, grow);
+      if (inside && run < 0) run = x;
+      if (!inside && run >= 0) { ctx.fillRect(x0 + run, y0 + y, x - run, 1); run = -1; }
+    }
+  }
+
+  /* The dots. Radius follows darkness, so the picture reads as tone
+     rather than as a stencil, and the pitch is a fraction of the FRAME
+     so the screen stays coarse enough to survive a feed however big the
+     picture is drawn. */
+  const pitch = Math.max(3, Math.round(px.h(opts.dot ?? 0.0075)));
+  ctx.fillStyle = g.ground;
+  for (let y = pitch / 2; y < H_; y += pitch) {
+    for (let x = pitch / 2; x < W_; x += pitch) {
+      const p = Math.round(y) * W_ + Math.round(x);
+      if (!on[p]) continue;
+      /* Radius follows LIGHTNESS, not darkness. Inverted, the jacket
+         came out pale and the face dark: the dots are the light in the
+         picture, printed on a solid silhouette, the same way a
+         one-colour screen print works. */
+      const r = (pitch / 2) * lum[p] * 1.35;
+      if (r < 0.35) continue;
+      ctx.beginPath();
+      ctx.arc(x0 + x, y0 + y, Math.min(r, pitch / 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+/** Is any set pixel within `r`? The cheap dilation the outline needs. */
+function nearby(on, W_, H_, x, y, r) {
+  for (let dy = -r; dy <= r; dy += 1) {
+    const yy = y + dy;
+    if (yy < 0 || yy >= H_) continue;
+    for (let dx = -r; dx <= r; dx += 1) {
+      const xx = x + dx;
+      if (xx < 0 || xx >= W_) continue;
+      if (on[yy * W_ + xx]) return true;
+    }
+  }
+  return false;
+}
+
+const median = (a) => [...a].sort((p, q) => p - q)[Math.floor(a.length / 2)];
 
 /** A photograph filling the frame, with the ground's own screen over it. */
 function cover(ctx, img, g) {

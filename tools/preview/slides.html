@@ -61,10 +61,17 @@ const load = (src) => new Promise((res) => {
 const icons = {};
 await Promise.all(ICON_NAMES.map(async (n) => { icons[n] = await load(iconUrl(n)); }));
 
+// Ashley's own photographs, for the cut-out portrait block
+const PORTRAITS = ['blue-flat', 'black-wall', 'sky-arms', 'phone-chair'];
+const portraits = {};
+await Promise.all(PORTRAITS.map(async (n) => {
+  portraits[n] = await load(`/assets/stock/own/${n}.jpg`);
+}));
+
 window.CATALOGUE = slideCatalogue();
 window.TEMPLATES = TEMPLATE_NAMES;
 window.render = async (slide) => {
-  const art = { icons };
+  const art = { icons, portraits };
   if (slide.scene) art.scene = await load(slide.scene);
   ctx.clearRect(0, 0, W, H);
   const r = drawSlide(ctx, slide, { art });

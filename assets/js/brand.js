@@ -46,10 +46,81 @@ export const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u;
 export const SELF_PRAISE =
   /\b(I am the best|I'?m the best|my award|I specialise in delivering|I deliver world|in record time|in just \d+ (hours?|days?)|built in \d+ (hours?|days?))\b/i;
 
-/** The closing line, which never varies. */
-export const SIGNATURE = 'This is the kind of thing I fix.';
+/*
+ * THE CLOSE.
+ *
+ * There used to be one line here, on every post, forever: "This is the
+ * kind of thing I fix." It is gone, and it is worth writing down why,
+ * because a fixed sign-off is a tempting thing to reinstate.
+ *
+ * It is not a call to action. It says something about ME and asks the
+ * reader for nothing, so nobody does anything. It is identical on every
+ * post, so by the fourth one it is furniture and stops being read. And
+ * it arrives as a separate sales line stapled to the end, which is
+ * precisely the failure the research names: a closing CTA works when it
+ * CONTINUES the thing the reader just went through, and fails when it
+ * interrupts it.
+ *
+ * What replaced it is a set of SHAPES rather than a line. The close is
+ * written fresh for each carousel, out of that carousel's own subject,
+ * and it is the only slide that turns outward.
+ *
+ * WHAT THE RESEARCH SAYS, and where it comes from:
+ *
+ *   One clear ask beats several. Pages carrying a single CTA convert at
+ *   about 13.5% against 10.5% for pages carrying three or more. So the
+ *   closing slide asks for exactly one thing.
+ *
+ *   First person beats second person on the ask itself. Unbounce's
+ *   often-cited test moved "Start your free trial" to "Start my free
+ *   trial" and saw click-through rise sharply; later tests generally
+ *   agree on the direction while disagreeing on the size. Treat the
+ *   direction as real and the number as one test, not a law. The device
+ *   is that the ask is phrased in the READER's voice, as something they
+ *   are choosing, not in ours as something we are instructing.
+ *
+ *   The close and the caption work as a pair. They are not two chances
+ *   to say the same sentence.
+ *
+ * Sources, so this can be argued with:
+ *   https://www.klientboost.com/landing-pages/call-to-action-copy/
+ *   https://gempages.net/blogs/shopify/ab-testing-cta-buttons
+ *   https://www.truefuturemedia.com/articles/instagram-carousel-strategy-2026
+ */
+export const CLOSES = [
+  {
+    name: 'the harder version',
+    what: 'Name the same check, one level up, where it actually costs money.',
+    example: 'You just checked the easy page. Run it on the one where people pay you.',
+    use_when: 'The carousel taught a check that has an obvious harder sibling.',
+  },
+  {
+    name: 'the consequence, dated',
+    what: 'Say how long it has been wrong, using the reader\'s own situation.',
+    example: 'If yours failed, it has been failing since the day it went live.',
+    use_when: 'The fault is one that never announces itself.',
+  },
+  {
+    name: "the reader's own words",
+    what: 'The ask phrased as the reader would say it, not as an instruction.',
+    example: 'Send me the URL and I will tell you which of the four it is.',
+    use_when: 'The carousel produced a result the reader now wants explained.',
+  },
+  {
+    name: 'the keep',
+    what: 'Ask them to keep it, and say what for. Never "save this for later".',
+    example: 'Keep this. It is the list to run before you pay anybody to rebuild.',
+    use_when: 'The carousel is a checklist somebody will need again.',
+  },
+  {
+    name: 'the pass-on',
+    what: 'Name the person who needs it, specifically. Never "tag a friend".',
+    example: 'Send it to whoever built the site, not to whoever pays for it.',
+    use_when: 'The reader is not the person who can fix it.',
+  },
+];
 
-/** The anchor beat, from a fixed rotation. */
+export const CLOSE_NAMES = CLOSES.map((c) => c.name);/** The anchor beat, from a fixed rotation. */
 export const ANCHORS = [
   'Nobody checked.',
   'Nobody noticed.',
@@ -83,7 +154,11 @@ export const VOICE = {
   trust:
     'Never write stated-trust language — no "trusted by", no values statements. Trust is '
     + 'earned by diagnosing something correctly in public.',
-  signature: `The closing line never changes, and never varies: "${SIGNATURE}"`,
+  close:
+    'There is no fixed sign-off. The last slide asks for exactly ONE thing, '
+    + 'written out of this carousel\'s own subject, phrased in the reader\'s '
+    + 'voice rather than as an instruction from me. Pick a shape from CLOSES '
+    + 'and write it fresh. A line that would work on any post is the wrong line.',
   anchor: `One flat anchor beat per piece, from this rotation: ${ANCHORS.join(' / ')}`,
   banned:
     'Never: DM me, let\'s talk, book a call, link in bio, follow for more, passionate, '

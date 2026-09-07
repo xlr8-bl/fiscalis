@@ -15,7 +15,7 @@ import { validateSlides, PER_LINE, LIMITS } from '../lib/slides/spec.js';
 import { TEMPLATES, TEMPLATE_NAMES, BLOCKS, SLIDE_GROUND_NAMES } from '../assets/js/slides.js';
 import { ICON_NAMES } from '../assets/js/icons.js';
 import { EXAMPLE_SLIDES } from '../lib/slides/examples.js';
-import { slideGuide } from '../lib/slides/guide.js';
+import { slideGuide, probeSlide } from '../lib/slides/guide.js';
 import { designBrief } from '../lib/designer.js';
 import { TOOLS } from '../lib/mcp.js';
 
@@ -172,24 +172,16 @@ ok('the guide\'s room figures come from the validator, not from a second sum', (
   for (const t of g.templates) {
     const n = t.paragraph_lines_total;
     assert.ok(n >= 1, `${t.name} claims room for ${n} lines`);
-    // the claim must hold: n lines pass, n+1 does not
-    const line = 'wondering about the thing that happens next in a sentence';
-    const build = (count) => {
-      const s = { ...base(), template: t.name, title: 'Why nobody calls you back',
-                  chips: ['the number is a picture', 'the form emails nowhere',
-                          'the hours are last year'],
-                  duo: [{ head: 'Slow', tail: 'the server is thinking' },
-                        { head: 'Heavy', tail: 'the page is enormous' }],
-                  action: 'Open your own site on your phone and time how long it takes.' };
-      const says = TEMPLATES[t.name].blocks.filter((b) => b === 'say').length;
-      const text = Array.from({ length: Math.ceil(count / says) }, () => line).join(' ');
-      s.say = text;
-      if (says > 1) s.say2 = text;
-      return s;
+    /* Measured on the guide's OWN probe, imported rather than rebuilt.
+       A check that builds its own probe is a second definition, and it
+       found `portrait` failing at two lines only because its probe
+       carried no photograph. */
+    const at = (count) => {
+      const one = probeSlide(t.name, count);
+      return validateSlides({ slides: [one, one] }).ok;
     };
-    assert.ok(validateSlides({ slides: [build(n), build(n)] }).ok,
-      `${t.name} claims ${n} lines and the validator refuses ${n}`);
-    assert.ok(!validateSlides({ slides: [build(n + 1), build(n + 1)] }).ok,
+    assert.ok(at(n), `${t.name} claims ${n} lines and the validator refuses ${n}`);
+    assert.ok(!at(n + 1),
       `${t.name} claims ${n} lines but ${n + 1} also fits, so the figure is low`);
   }
 });
