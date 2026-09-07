@@ -96,8 +96,22 @@ nothing for them to see:
 
     npx wrangler pages secret put UNSPLASH_ACCESS_KEY
 
-Paste the Access Key from the app you just registered. Not the Secret
-Key. That one is for OAuth, which this does not use.
+Paste the **Access Key**. Only that one.
+
+Your app page shows an Access Key and a Secret Key, and they do
+different jobs. Every request this makes is a public one: searching
+photographs, and telling Unsplash a photograph was taken. Those go out
+as a header naming the app, and nothing more:
+
+    Authorization: Client-ID <your access key>
+
+which is exactly what `fromUnsplash` and `keepPhoto` already send.
+
+The Secret Key is for OAuth, and OAuth is for acting on behalf of a
+logged-in Unsplash user: liking a photo as them, adding to their
+collections. This tool never does any of that, so the Secret Key has no
+job here. Do not set it anywhere. An unused credential in a deployment
+is risk with nothing on the other side of it.
 
 **Then use it a few times.** Search, pick a photograph, publish the post
 it belongs to. An application with a live key and no requests behind it

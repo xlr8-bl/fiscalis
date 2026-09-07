@@ -34,8 +34,9 @@ errs.length = 0;
 
 const faces = await p.evaluate(() => window.FACES_IN_USE);
 for (const [name, files] of Object.entries(faces)) {
-  const stand = files.some((f) => f && !/neue/i.test(f));
-  console.log(`  ${name.padEnd(13)} ${files.filter(Boolean).join(', ')}`
+  // "standing in" means a FALLBACK loaded, not that the name looks odd
+  const stand = files.some((f) => f && f.fallback);
+  console.log(`  ${name.padEnd(13)} ${files.filter(Boolean).map((f) => f.file).join(', ')}`
     + (stand ? '   (standing in until the licensed file is bought)' : ''));
 }
 console.log('');

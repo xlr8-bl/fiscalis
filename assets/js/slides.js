@@ -708,7 +708,7 @@ export const TEMPLATES = {
         + 'so a slide of numbers is a decision rather than an accident.',
   },
   portrait: {
-    blocks: ['portrait', 'title', 'say', 'action'],
+    blocks: ['title', 'say', 'portrait', 'action'],
     what: 'An opening or closing slide carrying Ashley himself, cut out and '
         + 'screened to one ink. Use it once in a set at most: it is the slide '
         + 'that says a person is behind this, and twice makes it about him.',
@@ -843,6 +843,7 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
   ctx.fillStyle = g.ground;
   ctx.fillRect(0, 0, W, H);
   if (art.scene) cover(ctx, art.scene, g);
+  if (slide.grain !== false) grain(ctx, g, slide.slug ?? slide.title ?? '');
 
   rail(ctx, g, slide);
   const { placed, over } = layOut(ctx, slide, g);
@@ -851,11 +852,25 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
 }
 
 /**
- * Cut the subject out, screen it to one ink, and outline it.
+ * Cut the subject out with scissors.
  *
- * Three passes over an offscreen canvas, because each needs the one
- * before it: key the ground, dilate the mask to make the outline, then
- * lay the dots inside it.
+ * WHAT CHANGED AND WHY. The first version screened the photograph to a
+ * halftone of dots on a solid silhouette. It read as pixellation rather
+ * than as print, and it destroyed the face, which is the one thing the
+ * slide is carrying. The photograph now stays a photograph. What makes
+ * it belong to the sheet is the EDGE.
+ *
+ * A scissors cut is a sequence of straight strokes at uneven angles,
+ * because a hand cutting round a shape makes a few centimetres of
+ * progress per stroke and never follows a curve. So the silhouette is
+ * traced, then simplified hard: every gentle curve collapses into a
+ * chord, the vertices land at irregular intervals, and the result has
+ * the flat facets and slightly-wrong corners of something cut out in a
+ * hurry. Simplifying is what MAKES the look. A faithful outline would
+ * be a die cut, which is the thing it is not.
+ *
+ * The paper border is that polygon, filled, drawn under the photograph
+ * and standing proud of it on every side.
  */
 function cutout(ctx, img, box, g, opts = {}) {
   const H_ = Math.round(box.h);
@@ -865,84 +880,227 @@ function cutout(ctx, img, box, g, opts = {}) {
   const off = new OffscreenCanvas(W_, H_);
   const o = off.getContext('2d', { willReadFrequently: true });
   o.drawImage(img, 0, 0, W_, H_);
-  const src = o.getImageData(0, 0, W_, H_);
-  const d = src.data;
+  const d = o.getImageData(0, 0, W_, H_).data;
 
   /* The ground, taken from the corners. Four samples rather than one,
-     because a sweep is not perfectly even and a single corner pixel on
-     a JPEG artefact would key the wrong colour entirely. */
+     because a sweep is not perfectly even and one JPEG artefact would
+     key the wrong colour entirely. */
   const at = (x, y) => { const i = (y * W_ + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
   const corners = [at(1, 1), at(W_ - 2, 1), at(1, H_ - 2), at(W_ - 2, H_ - 2)];
   const key = [0, 1, 2].map((c) => median(corners.map((p) => p[c])));
   const tol = (opts.tolerance ?? 0.20) * 441.7;
 
-  // subject mask
   const on = new Uint8Array(W_ * H_);
-  const lum = new Float32Array(W_ * H_);
   for (let i = 0, p = 0; p < W_ * H_; p++, i += 4) {
-    const dist = Math.hypot(d[i] - key[0], d[i + 1] - key[1], d[i + 2] - key[2]);
-    on[p] = dist > tol ? 1 : 0;
-    lum[p] = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+    on[p] = Math.hypot(d[i] - key[0], d[i + 1] - key[1], d[i + 2] - key[2]) > tol ? 1 : 0;
   }
 
-  const x0 = box.x + (box.w - W_) / 2;
-  const y0 = box.y;
-
-  /* The outline is the mask grown by a few pixels and filled solid,
-     drawn UNDER the dots. Stroking the silhouette's path would need the
-     path, and the mask is pixels; growing and filling gets the same
-     hard edge without tracing anything. */
-  const grow = Math.max(2, Math.round(H_ * (opts.edge ?? 0.018)));
-  ctx.save();
-  ctx.fillStyle = g.mark;
+  /*
+   * The subject has to sit clear of its own frame or there is nothing to
+   * cut round. These photographs are crops, so the figure runs off two
+   * or three sides of the source and the traced contour then follows the
+   * image border and comes out square. Cropping to the subject and
+   * leaving a margin gives the scissors somewhere to go.
+   */
+  let bx0 = W_; let by0 = H_; let bx1 = 0; let by1 = 0;
   for (let y = 0; y < H_; y++) {
-    let run = -1;
-    for (let x = 0; x <= W_; x++) {
-      const inside = x < W_ && nearby(on, W_, H_, x, y, grow);
-      if (inside && run < 0) run = x;
-      if (!inside && run >= 0) { ctx.fillRect(x0 + run, y0 + y, x - run, 1); run = -1; }
+    for (let x = 0; x < W_; x++) {
+      if (!on[y * W_ + x]) continue;
+      if (x < bx0) bx0 = x; if (x > bx1) bx1 = x;
+      if (y < by0) by0 = y; if (y > by1) by1 = y;
     }
   }
+  if (bx1 <= bx0 || by1 <= by0) return;
 
-  /* The dots. Radius follows darkness, so the picture reads as tone
-     rather than as a stencil, and the pitch is a fraction of the FRAME
-     so the screen stays coarse enough to survive a feed however big the
-     picture is drawn. */
-  const pitch = Math.max(3, Math.round(px.h(opts.dot ?? 0.0075)));
-  ctx.fillStyle = g.ground;
-  for (let y = pitch / 2; y < H_; y += pitch) {
-    for (let x = pitch / 2; x < W_; x += pitch) {
-      const p = Math.round(y) * W_ + Math.round(x);
-      if (!on[p]) continue;
-      /* Radius follows LIGHTNESS, not darkness. Inverted, the jacket
-         came out pale and the face dark: the dots are the light in the
-         picture, printed on a solid silhouette, the same way a
-         one-colour screen print works. */
-      const r = (pitch / 2) * lum[p] * 1.35;
-      if (r < 0.35) continue;
-      ctx.beginPath();
-      ctx.arc(x0 + x, y0 + y, Math.min(r, pitch / 2), 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
+  const poly = simplify(trace(on, W_, H_), H_ * (opts.coarse ?? 0.045));
+  if (poly.length < 3) return;
+
+  /* Bottom right, not centred. A cut-out sitting dead centre above the
+     headline reads as an illustration of the words; sitting into the
+     corner it reads as something laid on the sheet, which is the whole
+     point of cutting it out. `align: 'centre'` is still there for a
+     slide that wants it. */
+  const x0 = opts.align === 'centre' ? box.x + (box.w - W_) / 2
+    : box.x + box.w - W_ + px.w(0.02);
+  const y0 = box.y;
+  const path = (grow) => {
+    const c = centroid(poly);
+    ctx.beginPath();
+    poly.forEach(([px_, py_], i) => {
+      /* Grown from the centroid rather than offset along the normals: a
+         real normal offset needs the miters solved and would give a
+         cleaner border than a pair of scissors ever does. */
+      const dx = px_ - c[0];
+      const dy = py_ - c[1];
+      const len = Math.hypot(dx, dy) || 1;
+      const X = x0 + px_ + (dx / len) * grow;
+      const Y = y0 + py_ + (dy / len) * grow;
+      i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+    });
+    ctx.closePath();
+  };
+
+  ctx.save();
+  /*
+   * The border is WHITE, not the ground.
+   *
+   * The first version filled it with `g.ground`, which is the colour of
+   * the sheet it is sitting on, so the cut was invisible and the whole
+   * device did nothing. What makes a cut-out read is that it is a piece
+   * of PAPER lying on the sheet, and paper is a different white from a
+   * warm cream ground. Two strokes: a soft drop first, then the paper,
+   * because a cut-out casts a shadow and that is most of what says it
+   * is lying on top rather than printed in.
+   */
+  const edge = Math.max(4, H_ * (opts.edge ?? 0.035));
+  ctx.save();
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = g.mark;
+  ctx.translate(px.w(0.006), px.h(0.006));
+  path(edge);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.fillStyle = opts.paper ?? '#FFFFFF';
+  path(edge);
+  ctx.fill();
+  // and the photograph, clipped to the cut
+  path(0);
+  ctx.clip();
+  ctx.drawImage(img, x0, y0, W_, H_);
   ctx.restore();
 }
 
-/** Is any set pixel within `r`? The cheap dilation the outline needs. */
-function nearby(on, W_, H_, x, y, r) {
-  for (let dy = -r; dy <= r; dy += 1) {
-    const yy = y + dy;
-    if (yy < 0 || yy >= H_) continue;
-    for (let dx = -r; dx <= r; dx += 1) {
-      const xx = x + dx;
-      if (xx < 0 || xx >= W_) continue;
-      if (on[yy * W_ + xx]) return true;
-    }
+/**
+ * Walk the outside of the mask, one pixel at a time.
+ *
+ * Moore neighbourhood tracing. It follows the outer boundary only, so a
+ * gap keyed inside the subject is ignored rather than cut out, which is
+ * what you want: scissors do not cut holes.
+ */
+function trace(on, W_, H_) {
+  let sx = -1;
+  let sy = -1;
+  for (let y = 0; y < H_ && sx < 0; y++) {
+    for (let x = 0; x < W_; x++) if (on[y * W_ + x]) { sx = x; sy = y; break; }
   }
-  return false;
+  if (sx < 0) return [];
+
+  const N = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+  const out = [[sx, sy]];
+  let cx = sx;
+  let cy = sy;
+  let dir = 6;
+  for (let step = 0; step < W_ * H_ * 4; step++) {
+    let moved = false;
+    for (let k = 0; k < 8; k++) {
+      const nd = (dir + 6 + k) % 8;
+      const nx = cx + N[nd][0];
+      const ny = cy + N[nd][1];
+      if (nx < 0 || ny < 0 || nx >= W_ || ny >= H_ || !on[ny * W_ + nx]) continue;
+      cx = nx; cy = ny; dir = nd; moved = true;
+      out.push([cx, cy]);
+      break;
+    }
+    if (!moved) break;
+    if (cx === sx && cy === sy && out.length > 8) break;
+  }
+  return out;
 }
 
+/**
+ * Ramer-Douglas-Peucker, run coarse on purpose.
+ *
+ * At this epsilon it is not an optimisation, it is the effect: a
+ * shoulder becomes one stroke, a jaw becomes two, and the vertices land
+ * wherever the shape happened to turn hardest, which is exactly where a
+ * hand would have stopped and started again.
+ */
+function simplify(pts, eps) {
+  if (pts.length < 3) return pts;
+  const keep = new Uint8Array(pts.length);
+  keep[0] = 1;
+  keep[pts.length - 1] = 1;
+  const stack = [[0, pts.length - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    let far = -1;
+    let best = eps;
+    for (let i = a + 1; i < b; i++) {
+      const dist = perp(pts[i], pts[a], pts[b]);
+      if (dist > best) { best = dist; far = i; }
+    }
+    if (far > 0) { keep[far] = 1; stack.push([a, far], [far, b]); }
+  }
+  return pts.filter((_, i) => keep[i]);
+}
+
+function perp(p, a, b) {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len = Math.hypot(dx, dy);
+  if (!len) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  return Math.abs(dy * p[0] - dx * p[1] + b[0] * a[1] - b[1] * a[0]) / len;
+}
+
+const centroid = (poly) => [
+  poly.reduce((s, p) => s + p[0], 0) / poly.length,
+  poly.reduce((s, p) => s + p[1], 0) / poly.length,
+];
+
 const median = (a) => [...a].sort((p, q) => p - q)[Math.floor(a.length / 2)];
+
+/**
+ * Paper grain.
+ *
+ * NOT pixellation, which is what the halftone was doing to the
+ * photographs and what a bitmap face already supplies plenty of. This is
+ * the tooth of the paper: single pixels, a tiny spread of lightness
+ * either side of the ground, laid across the whole sheet at very low
+ * strength. Under type it does nothing; over a flat field it stops the
+ * colour looking like a screen fill.
+ *
+ * Seeded from the slide, so the same slide grains identically every time
+ * it is drawn. The redo loop redraws single slides, and a random grain
+ * would mean slide four never quite matching the five around it.
+ */
+function grain(ctx, g, seed) {
+  const r = rng(hash(String(seed)));
+  const img = ctx.createImageData(W, H);
+  const px_ = img.data;
+  const base = hex(g.ground);
+  const spread = 9;
+  for (let i = 0; i < px_.length; i += 4) {
+    const n = (r() - 0.5) * spread * 2;
+    px_[i] = base[0] + n;
+    px_[i + 1] = base[1] + n;
+    px_[i + 2] = base[2] + n;
+    px_[i + 3] = 26;
+  }
+  const off = new OffscreenCanvas(W, H);
+  off.getContext('2d').putImageData(img, 0, 0);
+  ctx.drawImage(off, 0, 0);
+}
+
+const hex = (h) => {
+  const v = String(h).replace('#', '');
+  return [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16));
+};
+
+/** mulberry32, and FNV-1a, so a slide grains the same way every render. */
+function rng(a) {
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function hash(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
 
 /** A photograph filling the frame, with the ground's own screen over it. */
 function cover(ctx, img, g) {
