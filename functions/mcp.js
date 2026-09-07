@@ -26,7 +26,7 @@ import {
 import { timingSafeEqual } from '../lib/auth.js';
 import { readToken, resourceUri, SCOPE } from '../lib/oauth.js';
 import { SITE } from '../lib/templates.js';
-import { designBrief, planDesign, fileDesign, designQueue, designStatus,
+import { fileTeaching, planTeaching, designBrief, planDesign, fileDesign, designQueue, designStatus,
          hasDesignColumns, MIGRATION_MESSAGE } from '../lib/designer.js';
 import {
   brief, agentQueue, getCarousel, listCarousels, setSlides,
@@ -391,6 +391,61 @@ async function runTool(name, args, env) {
         status: 'planned',
         panels: filed.slides,
         seed: filed.seed,
+        plan: filed.plan,
+        ...(offVoice.length ? { fix_before_drawing: offVoice } : {}),
+        next: 'the studio draws these on the next visit; design_status to watch it',
+      });
+    }
+
+    case 'teach_carousel': {
+      const title = clean(args.title) || clean(args.topic) || 'Untitled carousel';
+      const slides = Array.isArray(args.slides) ? args.slides : [];
+
+      /* Checked before anything is written, so a refusal costs nothing
+         and is fixable in the turn it was made in. Same rule as the hook
+         path, and the same reason. */
+      const checked = planTeaching({ slides });
+      if (!checked.ok) {
+        return toolFailed(`This carousel cannot be drawn:\n- ${checked.problems.join('\n- ')}`);
+      }
+      if (args.check === true) {
+        return toolResult({ ok: true, checked_only: true, plan: checked.plan });
+      }
+
+      if (!(await hasDesignColumns(env))) return toolFailed(MIGRATION_MESSAGE);
+
+      const slug = await uniqueSlug(db, args.slug || title);
+      await db
+        .prepare(
+          `INSERT INTO carousels (slug, pillar, title, topic, research, caption,
+                                  hashtags, status, targets, author, last_editor)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'planned', ?8, 'Spark', 'Spark')`
+        )
+        .bind(
+          slug,
+          slugify(args.pillar || '') === 'carousel' ? '' : clean(args.pillar),
+          title,
+          clean(args.topic, 8000),
+          asJson(args.research),
+          clean(args.caption, 2200),
+          clean(args.hashtags, 8000),
+          clean(Array.isArray(args.targets) ? args.targets.join(',') : args.targets)
+            /* Not Facebook. Its poster is deliberately unimplemented —
+               the multi-photo shape was never verified against a working
+               reference — so defaulting to it would mean every teaching
+               carousel silently skipping a platform it said it targeted. */
+            || 'instagram,tiktok'
+        )
+        .run();
+      const row = await db.prepare('SELECT id FROM carousels WHERE slug = ?1').bind(slug).first();
+      const filed = await fileTeaching(env, { slides }, { carouselId: row.id, slug });
+      if (!filed.ok) return toolFailed(`This carousel cannot be drawn:\n- ${filed.errors.join('\n- ')}`);
+
+      const offVoice = brandProblems(await getCarousel(db, slug));
+      return toolResult({
+        slug,
+        status: 'planned',
+        slides: filed.slides,
         plan: filed.plan,
         ...(offVoice.length ? { fix_before_drawing: offVoice } : {}),
         next: 'the studio draws these on the next visit; design_status to watch it',
