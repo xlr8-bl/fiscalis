@@ -16,6 +16,7 @@ import { TEMPLATES, TEMPLATE_NAMES, BLOCKS, SLIDE_GROUND_NAMES } from '../assets
 import { ICON_NAMES, ICONS, PIXEL_NAMES, iconUrl } from '../assets/js/icons.js';
 import { EXAMPLE_SLIDES } from '../lib/slides/examples.js';
 import { slideGuide, probeSlide } from '../lib/slides/guide.js';
+import { CUTOUTS, placementOf } from '../lib/slides/cutouts.js';
 import { designBrief } from '../lib/designer.js';
 import { TOOLS } from '../lib/mcp.js';
 
@@ -188,6 +189,40 @@ ok('the guide\'s room figures come from the validator, not from a second sum', (
     assert.ok(!at(n + 1),
       `${t.name} claims ${n} lines but ${n + 1} also fits, so the figure is low`);
   }
+});
+
+ok('a photograph is only snapped to an edge it was actually cut on', () => {
+  /* The rule the whole placement table rests on, and the one that reads
+     as a mistake the moment it slips: a straight cut against the sheet's
+     edge is the frame, the same cut hanging mid-sheet is an amputation.
+     Measured off the key, coverage of each border of its own frame:
+       blue-flat    right 0.18, bottom 0.71
+       sky-arms     bottom 0.38, nothing else
+       phone-chair  nothing, on any side  */
+  const CUT_ON = {
+    'blue-flat': ['right', 'bottom'],
+    'sky-arms': ['bottom'],
+    'phone-chair': [],
+  };
+  for (const [name, cut] of Object.entries(CUT_ON)) {
+    for (const context of ['cta', 'hook', 'middle']) {
+      const p = placementOf(name, context);
+      if (!p) continue;
+      for (const side of ['left', 'right', 'top', 'bottom']) {
+        if (!p.snap?.includes(side)) continue;
+        assert.ok(cut.includes(side),
+          `${name} is snapped ${side} in ${context} and is not cut on its ${side}`);
+      }
+      assert.ok(p.h > 0 && p.h < 1, `${name}/${context} has no subject height`);
+      assert.ok(!('bleed' in p), `${name}/${context} still bleeds: nothing may be cut off`);
+    }
+  }
+  // the one that takes no treatment must never be snapped to anything
+  for (const c of ['cta', 'hook', 'middle']) {
+    assert.ok(!placementOf('phone-chair', c)?.snap, `phone-chair is snapped in ${c}`);
+  }
+  assert.equal(CUTOUTS['phone-chair'].style, 'clean', 'phone-chair took a paper cut');
+  assert.ok(!CUTOUTS['blue-flat'].style, 'blue-flat stopped being a scissors cut');
 });
 
 ok('the guide tells Spark how to use icons and pictures, not just that they exist', () => {

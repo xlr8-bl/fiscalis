@@ -309,24 +309,7 @@ export const BLOCKS = {
       const img = art?.portraits?.[name] ?? art?.portrait;
       const place = placementOf(name, block.context ?? 'cta');
       if (!img || !place || CUTOUTS[name]?.use !== 'cutout') return;
-
-      /*
-       * The anchor is the table's, and the table's alone.
-       *
-       * `bleed` runs the cut-out past the edge it is pinned to, because
-       * one that stops short looks placed and one that runs off looks
-       * photographed. Both are measured against the FRAME rather than
-       * the block's box, since the whole point is leaving the column.
-       */
-      const h = px.h(place.h);
-      const w = h * (img.width / img.height);
-      const bleed = px.w(place.bleed);
-      const x0 = place.at === 'left' ? -bleed
-        : place.at === 'centre' ? (W - w) / 2
-          : W - w + bleed;
-      const y0 = place.from === 'bottom' ? H - px.h(M.foot) - h : box.y;
-
-      cutout(ctx, img, { ...box, h, w }, g, { ...block, x0, y0 });
+      cutout(ctx, img, g, { ...block, ...place });
     },
   },
 
@@ -764,16 +747,33 @@ export function layOut(ctx, slide, g) {
      and no cut-out is present to narrow the column the usual way. */
   if (slide.column) col = Math.min(col, px.w(slide.column) - px.w(M.margin));
 
-  // a cut-out takes WIDTH, not height: the column gives up its side
+  /*
+   * A cut-out takes WIDTH, not height: the column gives up its side.
+   *
+   * Worked from where he actually stands rather than from a fraction of
+   * the sheet. `wide` is his own width over his own height, so this is
+   * his footprint. The earlier version took his width MINUS a margin,
+   * which is backwards, and the paragraph ran under phone-chair's arm by
+   * exactly that margin.
+   */
   const cut = slide.portrait && placementOf(slide.portrait, slide.context ?? 'cta');
-  if (cut && cut.at !== 'centre' && cut.at !== 'cover') {
-    /* As much width as the cut-out actually occupies, not a constant.
-       phone-chair is a whole seated figure and takes over half the
-       sheet; a fixed third left the paragraph running under his knees. */
-    const shape = CUTOUTS[slide.portrait]?.aspect ?? 0.8;
-    const wide = px.h(cut.h) * shape - px.w(cut.bleed);
-    const take = Math.min(px.w(0.52), Math.max(px.w(0.26), wide - px.w(0.04)));
-    if (cut.at === 'left') { x += take; col -= take; } else { col -= take; }
+  if (cut) {
+    const wide = px.h(cut.h) * (CUTOUTS[slide.portrait]?.wide ?? 0.8);
+    const gut = px.w(0.075);          // his edge to the first letter
+    const pad = px.w(0.045);          // what an uncut side stands off by
+    // a figure snapped on neither side still stands somewhere
+    const side = cut.snap?.includes('left') || cut.lean === 'left' ? 'left'
+      : cut.snap?.includes('right') || cut.lean === 'right' ? 'right'
+        : (cut.cx ?? 0.5) < 0.5 ? 'left' : 'right';
+    /* Assume he stands off the edge even when he is snapped to it. It is
+       wrong by `pad` on a snapped side and wrong in the safe direction:
+       a column too narrow sets badly, a column too wide sets over him. */
+    const mine = cut.cx != null
+      ? { a: px.w(cut.cx) - wide / 2, b: px.w(cut.cx) + wide / 2 }
+      : side === 'left' ? { a: pad, b: pad + wide } : { a: W - pad - wide, b: W - pad };
+    const right = x + col;
+    if (side === 'left') x = Math.max(x, mine.b + gut);
+    col = Math.max(px.w(0.30), (side === 'left' ? right : Math.min(right, mine.a - gut)) - x);
   }
   const names = slide.blocks ?? TEMPLATES[slide.template]?.blocks ?? [];
 
@@ -921,18 +921,24 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
 }
 
 /**
- * Cut the subject out with scissors.
+ * Key the subject out of one of the flat-ground photographs.
  *
- * The silhouette is traced then simplified HARD. That is not an
- * optimisation, it is the effect: a hand cutting round a shape makes a
- * few centimetres per stroke and never follows a curve. A faithful
- * outline would be a die cut.
+ * Everything here is measured against the SUBJECT rather than the image
+ * that carries him. `h` is how tall he stands on the sheet, and where he
+ * lands is decided by which edges of his own frame he runs off:
+ *
+ *   blue-flat    off the right (18%) and the bottom (71%)
+ *   sky-arms     off the bottom only (38%)
+ *   phone-chair  off nothing at all
+ *
+ * Those cut edges are where the photograph ended, so they go against the
+ * sheet's matching edges and he pokes out of that corner. Sizing by the
+ * image instead put an invisible margin of keyed-away sky between him
+ * and the edge, and `bleed` then pushed him back off it, which cut off
+ * the parts of him that were never cut in the first place.
  */
-function cutout(ctx, img, box, g, opts = {}) {
-  const H_ = Math.round(box.h);
-  const W_ = Math.round(H_ * (img.width / img.height));
-  if (!W_ || !H_) return;
-
+function keyOut(img, H_, tolerance = 0.20) {
+  const W_ = Math.max(1, Math.round(H_ * (img.width / img.height)));
   const off = new OffscreenCanvas(W_, H_);
   const o = off.getContext('2d', { willReadFrequently: true });
   o.drawImage(img, 0, 0, W_, H_);
@@ -944,14 +950,17 @@ function cutout(ctx, img, box, g, opts = {}) {
   const at = (x, y) => { const i = (y * W_ + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
   const corners = [at(1, 1), at(W_ - 2, 1), at(1, H_ - 2), at(W_ - 2, H_ - 2)];
   const key = [0, 1, 2].map((c) => median(corners.map((p) => p[c])));
-  const tol = (opts.tolerance ?? 0.20) * 441.7;
+  const tol = tolerance * 441.7;
 
   const on = new Uint8Array(W_ * H_);
   for (let i = 0, p = 0; p < W_ * H_; p++, i += 4) {
     on[p] = Math.hypot(d[i] - key[0], d[i + 1] - key[1], d[i + 2] - key[2]) > tol ? 1 : 0;
   }
+  /* Before the box, not after: the sky in sky-arms is a gradient, so the
+     raw key keeps a wedge of it and the box came back as the whole
+     frame. Measured with this pass it is x 0.01..0.61, y 0.41..1.00. */
+  keepLargest(on, W_, H_);
 
-  // the subject's own box, for callers that need it
   let bx0 = W_; let by0 = H_; let bx1 = 0; let by1 = 0;
   for (let y = 0; y < H_; y++) {
     for (let x = 0; x < W_; x++) {
@@ -960,12 +969,62 @@ function cutout(ctx, img, box, g, opts = {}) {
       if (y < by0) by0 = y; if (y > by1) by1 = y;
     }
   }
+
+  /* How much of him sits ON each border. This is the whole basis for
+     where he goes: a border he covers is where the photograph cut him,
+     and that is the only edge of the sheet he may touch. Reaching a
+     border is not the same as being cut by it, which is why this counts
+     coverage rather than comparing the box: sky-arms reaches x 0.01 on
+     the left and covers 0.00 of it. */
+  let L = 0; let R = 0; let T = 0; let B = 0;
+  for (let y = 0; y < H_; y++) { L += on[y * W_]; R += on[y * W_ + W_ - 1]; }
+  for (let x = 0; x < W_; x++) { T += on[x]; B += on[(H_ - 1) * W_ + x]; }
+  const cutOn = { left: L / H_ > 0.02, right: R / H_ > 0.02,
+                  top: T / W_ > 0.02, bottom: B / W_ > 0.02 };
+  return { on, off, W_, H_, bx0, by0, bx1, by1, cutOn };
+}
+
+function cutout(ctx, img, g, opts = {}) {
+  /* Two passes. The first is small and only there to find how much of
+     the image the subject occupies, because the draw size depends on it:
+     `h` is HIS height, not the photograph's. */
+  const probe = keyOut(img, 200, opts.tolerance);
+  if (probe.bx1 <= probe.bx0 || probe.by1 <= probe.by0) return;
+  const tallness = (probe.by1 - probe.by0 + 1) / probe.H_;
+
+  const H_ = Math.round(px.h(opts.h) / tallness);
+  const { on, off, W_, bx0, by0, bx1, by1, cutOn } = keyOut(img, H_, opts.tolerance);
   if (bx1 <= bx0 || by1 <= by0) return;
 
-  /* Two polygons at two coarsenesses. `rough` is the paper, cut fast;
-     `close` is where the photo clips. One polygon for both would give a
-     perfectly even border, which is a die cut. */
-  keepLargest(on, W_, H_);
+  /*
+   * Where he goes, per axis, and the axes are decided separately.
+   *
+   * A side the photograph CUT goes flush against the sheet's matching
+   * edge: nothing of him is lost, and the straight edge reads as the
+   * frame rather than as an amputation. A side it did not cut keeps a
+   * margin, because putting a whole shoulder hard against an edge
+   * invents a cut that was never there. sky-arms is the case: told to go
+   * bottom-left it snaps the bottom, which is cut, and stands clear of
+   * the left, which is not.
+   */
+  const snap = opts.snap ?? '';
+  const lean = opts.lean ?? '';
+  const pad = px.w(0.045);
+  /* Guarded by the measurement, not by the table: a side named in `snap`
+     still only goes flush if the key says he covers that border. The
+     table is written by hand and the mask is not. */
+  const flush = (side) => snap.includes(side) && cutOn[side];
+  const x0 = flush('right') ? W - bx1 - 1
+    : flush('left') ? -bx0
+      : lean === 'right' ? W - bx1 - 1 - pad
+        : lean === 'left' ? pad - bx0
+          : (opts.cx != null ? px.w(opts.cx) - (bx0 + bx1) / 2 : (W - W_) / 2);
+  const y0 = flush('bottom') ? H - by1 - 1
+    : flush('top') ? -by0
+      : (opts.cy != null ? px.h(opts.cy) - (by0 + by1) / 2 : H - by1 - 1 - pad);
+
+  if (opts.style === 'clean') return drawClean(ctx, off, on, W_, H_, x0, y0);
+
   const contour = trace(on, W_, H_);
   /* `rough` stays coarse: that is the scissors. `close` is where the
      PHOTOGRAPH clips, so its tolerance is how far the cut may miss him,
@@ -976,9 +1035,6 @@ function cutout(ctx, img, box, g, opts = {}) {
   const rough = simplify(contour, H_ * (opts.rough ?? 0.038));
   const close = simplify(contour, H_ * (opts.coarse ?? 0.0035));
   if (rough.length < 3 || close.length < 3) return;
-
-  const x0 = opts.x0 ?? (box.x + box.w - W_);
-  const y0 = opts.y0 ?? box.y;
 
   const shape = (poly, grow) => {
     ctx.beginPath();
@@ -1024,6 +1080,33 @@ function cutout(ctx, img, box, g, opts = {}) {
   ctx.clip();
   ctx.drawImage(pixelate(img, W_, H_, opts.pixels), x0, y0, W_, H_);
   ctx.restore();
+}
+
+/**
+ * The background removed and nothing else done. No paper, no border, no
+ * scissors: phone-chair is a whole seated figure on a chair of chrome
+ * tubing, and every one of those is a treatment the tubing cannot carry.
+ *
+ * The mask goes on as alpha per pixel rather than as a polygon, so the
+ * edge follows the tubing instead of bridging it. It is eroded by one
+ * pixel first because a colour-distance key keeps a rim of the ground it
+ * cut away, and on a white sweep that rim is a white halo.
+ */
+function drawClean(ctx, off, on, W_, H_, x0, y0) {
+  const o = off.getContext('2d', { willReadFrequently: true });
+  const im = o.getImageData(0, 0, W_, H_);
+  const d = im.data;
+  for (let y = 0; y < H_; y++) {
+    for (let x = 0; x < W_; x++) {
+      const i = y * W_ + x;
+      const edge = x === 0 || y === 0 || x === W_ - 1 || y === H_ - 1;
+      const keep = on[i] && !edge
+        && on[i - 1] && on[i + 1] && on[i - W_] && on[i + W_];
+      d[i * 4 + 3] = keep ? 255 : 0;
+    }
+  }
+  o.putImageData(im, 0, 0);
+  ctx.drawImage(off, x0, y0);
 }
 
 /**
