@@ -129,8 +129,17 @@ export async function onRequestPost({ request, env }) {
 
   // schema first, one at a time: D1's batch is a transaction, and a failed
   // CREATE in the middle of one would roll back the tables that did work
+  /* Tables, then the columns added since, then the indexes.
+     An index over a column that an ALTER further down the list is about
+     to add fails on an old database — idx_slides_state was created
+     before slides.state existed. Ordering it here rather than in the
+     list means a new statement cannot land in the wrong place. */
+  const rank = (sql) => (/^\s*CREATE\s+(UNIQUE\s+)?INDEX/i.test(sql) ? 2
+    : /^\s*ALTER/i.test(sql) ? 1 : 0);
+  const ordered = [...SCHEMA].sort((a, b) => rank(a) - rank(b));
+
   const problems = [];
-  for (const sql of SCHEMA) {
+  for (const sql of ordered) {
     try {
       await env.DB.prepare(sql).run();
     } catch (e) {

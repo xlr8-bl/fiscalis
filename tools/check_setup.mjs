@@ -42,6 +42,31 @@ console.log('\nSCHEMA is structure, and only structure');
   ok('every ALTER adds a column, so re-running is a duplicate-column no-op',
      SCHEMA.filter((s) => /^\s*ALTER/i.test(s)).every((s) => /ADD COLUMN/i.test(s)));
 
+  /* The failure this catches, exactly as it shipped: slides gained
+     ground_key, CREATE TABLE IF NOT EXISTS did nothing to the table that
+     already existed, and no ALTER was written. Every read of the table
+     then failed at once — opening any carousel came back "no such
+     column: s.ground_key". Every column a query names by hand needs a
+     migration, so this holds the two social tables to that. */
+  for (const table of ['slides', 'carousels']) {
+    const made = SCHEMA.find((x) =>
+      new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\(`, 'i').test(x));
+    const columns = [...made.matchAll(/^\s*(\w+)\s+(TEXT|INTEGER|REAL|BLOB)/gm)]
+      .map((m) => m[1])
+      .filter((c) => c !== 'id' && !/^created_at$/.test(c));
+    const altered = new Set(SCHEMA
+      .map((x) => new RegExp(`ALTER TABLE ${table} ADD COLUMN (\\w+)`, 'i').exec(x))
+      .filter(Boolean).map((m) => m[1]));
+    // the columns the table was born with need no migration; everything
+    // the schema grew afterwards does, and there is no way to tell them
+    // apart from here, so the rule is simply: all of them
+    const missing = columns.filter((c) => !altered.has(c) &&
+      !['carousel_id', 'position', 'kind', 'copy', 'media_key', 'updated_at',
+        'slug', 'pillar', 'title', 'topic', 'caption', 'status'].includes(c));
+    ok(`every ${table} column added since it was made can be migrated in`,
+       missing.length === 0, missing.join(', '));
+  }
+
   ok('the scheduling column is in there',
      SCHEMA.some((s) => /ALTER TABLE articles ADD COLUMN publish_at/i.test(s)));
   ok('and its index', SCHEMA.some((s) => /idx_articles_due/i.test(s)));
