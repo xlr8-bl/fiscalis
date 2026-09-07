@@ -79,7 +79,17 @@ const asJson = (v) => {
   try { return JSON.stringify(v).slice(0, 40_000); } catch { return ''; }
 };
 
-export async function onRequest({ request, env, params }) {
+export async function onRequest(ctx) {
+  /* A thrown error here reaches the browser as error 1101 with no body,
+     which is unreadable from a phone and unreadable in the studio. */
+  try {
+    return await route(ctx);
+  } catch (e) {
+    return json({ error: String(e?.message || e), where: 'carousels' }, 500);
+  }
+}
+
+async function route({ request, env, params }) {
   if (!env.DB) return json({ error: 'The database is not configured yet.' }, 503);
 
   const seg = (Array.isArray(params.route) ? params.route : [params.route]).filter(Boolean);

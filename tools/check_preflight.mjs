@@ -112,6 +112,10 @@ function fakeNet(routes) {
   return fetcher;
 }
 
+/** Enough of R2 to answer head(). */
+const bucket = (type = 'image/jpeg', size = 400_000, missing = false) => ({
+  head: async () => (missing ? null : { httpMetadata: { contentType: type }, size }),
+});
 const MEDIA_OK = ['/media/', { headers: { 'content-type': 'image/jpeg', 'content-length': '400000' } }];
 const IG_OK = ['graph.instagram.com', { json: { id: '178', username: 'web3ashley' } }];
 const TT_OK = ['creator_info', {
@@ -120,6 +124,7 @@ const TT_OK = ['creator_info', {
 
 const ENV = (state, over = {}) => ({
   DB: fakeDb(state),
+  MEDIA: bucket(),
   SITE: 'https://web3ashley.com',
   IG_USER_ID: '178',
   IG_ACCESS_TOKEN: 'ig-token',
@@ -138,8 +143,12 @@ console.log('\na carousel that is ready');
 
   ok('it says it is ready', out.ready === true, said(out));
   ok('and names the road it would take', out.route === 'direct', out.route);
-  ok('it proved the pictures are reachable',
-     verdict(out, 'the pictures are reachable')?.verdict === 'ok');
+  ok('it proved the pictures are in the bucket',
+     verdict(out, 'the pictures are there')?.verdict === 'ok');
+  /* The bug this replaced: it fetched SITE/media/... which, inside the
+     Worker, is the Worker calling its own hostname. Error 1101. */
+  ok('and it never calls the site it is running on',
+     !net.calls.some((c) => c.includes('web3ashley.com')), net.calls.join(', '));
   ok('it spent the Instagram token rather than only finding it',
      net.calls.some((c) => /graph\.instagram\.com.*fields=id,username/.test(c)));
   ok('and it named the account it would post as',
@@ -175,39 +184,24 @@ console.log('\nwhat it catches before the slot burns');
   ok('a row that disagrees with what is served is a warning, not a verdict',
      verdict(out, 'the recorded type matches what is served')?.verdict === 'warn', said(out));
 
-  const servedPng = fakeNet([
-    ['/media/', { headers: { 'content-type': 'image/png', 'content-length': '400000' } }],
-    IG_OK, TT_OK,
-  ]);
-  const bad2 = await preflight(ENV(png), row(), { fetcher: servedPng });
+  const bad2 = await preflight({ ...ENV(png), MEDIA: bucket('image/png') }, row(),
+                               { fetcher: fakeNet([IG_OK, TT_OK]) });
   ok('a PNG actually being served stops it',
      bad2.ready === false && /PNG|png/i.test(stops(bad2).map((s) => s.detail).join(' ')),
      stops(bad2).map((s) => s.detail).join(' '));
 
-  /* The one that shipped: /media only exported onRequestGet, so HEAD
-     404'd on every key while GET returned the file. Trusting the HEAD
-     meant every slide read as missing and nothing would ever have been
-     declared ready. */
-  const headOnly404 = fakeNet([
-    ['/media/', (u, init) => (init.method === 'HEAD'
-      ? { status: 404 }
-      : { status: 206, headers: { 'content-type': 'image/jpeg' } })],
-    IG_OK, TT_OK,
-  ]);
-  const survives = await preflight(ENV({ carousels: [row()], slides: [slide(0), slide(1)] }),
-                                   row(), { fetcher: headOnly404 });
-  ok('a server that will not answer HEAD does not fail every slide',
-     verdict(survives, 'the pictures are reachable').verdict === 'ok',
-     verdict(survives, 'the pictures are reachable').detail);
-  ok('and it proved it with a single byte rather than the whole master',
-     headOnly404.calls.some((c) => c.startsWith('GET ') && /\/media\//.test(c)));
-
-  const gone = fakeNet([['/media/', { status: 404 }], IG_OK, TT_OK]);
-  const missing = await preflight(ENV({ carousels: [row()], slides: [slide(0), slide(1)] }),
-                                  row(), { fetcher: gone });
-  ok('a picture the internet cannot fetch stops it',
+  const missing = await preflight(
+    { ...ENV({ carousels: [row()], slides: [slide(0), slide(1)] }), MEDIA: bucket('image/jpeg', 0, true) },
+    row(), { fetcher: fakeNet([IG_OK, TT_OK]) });
+  ok('a picture the bucket does not have stops it',
      missing.ready === false
-     && verdict(missing, 'the pictures are reachable').verdict === 'stop');
+     && verdict(missing, 'the pictures are there').verdict === 'stop');
+
+  const noBucket = await preflight(
+    { ...ENV({ carousels: [row()], slides: [slide(0), slide(1)] }), MEDIA: null },
+    row(), { fetcher: fakeNet([IG_OK, TT_OK]) });
+  ok('and no bucket at all is said out loud rather than passing quietly',
+     verdict(noBucket, 'the pictures are there').verdict === 'warn');
 
   const one = await preflight(ENV({ carousels: [row()], slides: [slide(0)] }), row(),
                               { fetcher: fakeNet([MEDIA_OK, IG_OK, TT_OK]) });
