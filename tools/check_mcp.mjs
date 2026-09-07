@@ -372,9 +372,17 @@ await step('brief returns the pillars and the kit', async () => {
 
 await step('the brief hands over the voice, not just the pillars', async () => {
   const b = structured(await call('brief'));
-  if (!b.voice?.person?.includes('never "we build"')) throw new Error('no person rule');
+  if (!b.voice?.person?.rule?.includes('never "we build"')) throw new Error('no person rule');
   if (!b.voice?.price) throw new Error('no price rule');
   if (!b.voice?.capability) throw new Error('no capability rule');
+  /* Each rule says whether the server will actually catch it. Without
+     that, a clean pass reads as approval and the four rules nothing
+     checks get filed unread. */
+  if (!Object.values(b.voice).every((r) => typeof r.checked === 'boolean' && r.how)) {
+    throw new Error('a voice rule does not say whether it is enforced');
+  }
+  if (b.voice.price.checked !== true) throw new Error('price is enforced and should say so');
+  if (b.voice.jargon.checked !== false) throw new Error('jargon is not machine checkable');
   if (!b.research?.needs?.length) throw new Error('no evidence standard');
   if (!b.self_check?.length) throw new Error('no self check');
   /* This asserted a fixed sign-off, and asserting it is now backwards.

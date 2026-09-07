@@ -42,9 +42,22 @@ export const ASSERTED =
 /** Emoji, in any context. */
 export const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u;
 
-/** Describing the operator's own speed, scale or capability. */
-export const SELF_PRAISE =
-  /\b(I am the best|I'?m the best|my award|I specialise in delivering|I deliver world|in record time|in just \d+ (hours?|days?)|built in \d+ (hours?|days?))\b/i;
+/**
+ * Describing the operator's own speed, scale or capability.
+ *
+ * Was a list of exact phrases, which caught "I am the best" and let "I am
+ * extremely fast" straight through — while the brief told Spark this rule
+ * was enforced. The second and third branches are the shapes that
+ * actually get written: first person plus a capability adjective, and a
+ * count of the work done.
+ */
+export const SELF_PRAISE = new RegExp([
+  /\bI am the best|I'?m the best|my award|I specialise in delivering|I deliver world/,
+  /in record time|in just \d+ (?:hours?|days?)|built in \d+ (?:hours?|days?)/,
+  /\bI(?:'m| am|'ve been| have been)\s+(?:\w+\s+){0,2}(?:fast|quick|skilled|experienced|talented|gifted|creative|reliable|efficient|professional|meticulous|expert|the go[- ]to)\b/,
+  /\bmy work is\s+(?:\w+\s+){0,2}(?:great|excellent|outstanding|world[- ]class|the best)\b/,
+  /\b(?:over|more than)\s+\d+\s+(?:clients|projects|sites|websites|businesses|brands)\b/,
+].map((r) => r.source).join('|'), 'i');
 
 /*
  * THE CLOSE.
@@ -247,6 +260,39 @@ const RULES = [
   ['an emoji', EMOJI, 'never, in any context'],
   ['self-praise', SELF_PRAISE, 'competence is inferred, never claimed'],
 ];
+
+/**
+ * Which VOICE rules the server will actually catch, keyed to the RULES
+ * entry that catches them.
+ *
+ * The point is to stop a silent pass reading as approval. Five of these
+ * are patterns a regular expression can find; the rest are judgement —
+ * whether the jargon is 40%, whether a name is real — and no validator
+ * here looks at them. Saying which is which is the difference between an
+ * agent that checks its own work and one that files and assumes.
+ *
+ * check_context.mjs asserts every name below is a live RULES entry.
+ */
+const ENFORCED = {
+  close: 'asks for something',
+  person: 'first person plural',
+  price: 'a price or a package',
+  trust: 'asserted trust',
+  capability: 'self-praise',
+  banned: 'a word the spec bans',
+};
+
+export const voiceRules = () =>
+  Object.fromEntries(Object.entries(VOICE).map(([k, text]) => [k, {
+    rule: text,
+    checked: Boolean(ENFORCED[k]),
+    how: ENFORCED[k]
+      ? `The server refuses copy that trips "${ENFORCED[k]}". A refusal names the phrase.`
+      : 'Nothing checks this. It passes whether you followed it or not, so read it back yourself.',
+  }]));
+
+export const CHECKED = Object.keys(ENFORCED);
+export const RULE_NAMES = RULES.map((r) => r[0]);
 
 /**
  * Everything off-voice in a carousel, in the words needed to fix it.

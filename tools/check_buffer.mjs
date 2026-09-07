@@ -43,7 +43,7 @@ const CHANS = ['GetChannels', { json: { data: { channels: [
   { id: 'ch1', service: 'instagram', name: 'web3ashley', isDisconnected: false },
   { id: 'ch2', service: 'tiktok', name: 'web3ashley', isDisconnected: false },
 ] } } }];
-const MADE = ['CreatePost', { json: { data: { createPost: { post: { id: 'p1' } } } } }];
+const MADE = ['CreatePost', { json: { data: { p0: { post: { id: 'p1' } }, p1: { post: { id: 'p2' } } } } }];
 
 const ENV = { BUFFER_API_KEY: 'bf-key', DB: {} };
 const CAROUSEL = {
@@ -52,15 +52,52 @@ const CAROUSEL = {
   targets: ['instagram', 'tiktok'],
 };
 
-await step('it posts to every target, one call each', async () => {
+await step('it posts to every target', async () => {
   const f = net([ORG, CHANS, MADE]);
   const out = await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
   assert.equal(out.instagram.ok, true);
   assert.equal(out.tiktok.ok, true);
   assert.equal(out.instagram.via, 'buffer');
-  const posts = f.sent.filter((s) => s.query.includes('CreatePost'));
-  assert.equal(posts.length, 2, 'one createPost per channel');
-  assert.deepEqual(posts.map((p) => p.variables.input.channelId), ['ch1', 'ch2']);
+  const post = f.sent.find((s) => s.query.includes('CreatePost'));
+  assert.deepEqual([post.variables.i0.channelId, post.variables.i1.channelId], ['ch1', 'ch2']);
+});
+
+await step('every channel goes in ONE request, by alias', async () => {
+  const f = net([ORG, CHANS, MADE]);
+  await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
+  const posts = f.sent.filter((s) => s.query.includes('createPost'));
+  assert.equal(posts.length, 1, 'two platforms, one round trip');
+  assert.match(posts[0].query, /p0: createPost/);
+  assert.match(posts[0].query, /p1: createPost/);
+});
+
+await step('and with the channels known, a post is a single request', async () => {
+  const store = {};
+  const opts = {
+    getSetting: async (_d, k) => store[k] ?? null,
+    putSetting: async (_d, k, v) => { store[k] = v; },
+  };
+  const warm = net([ORG, CHANS, MADE]);
+  await toBuffer(ENV, { ...CAROUSEL, fetcher: warm, ...opts });
+
+  const again = net([ORG, CHANS, MADE]);
+  await toBuffer(ENV, { ...CAROUSEL, fetcher: again, ...opts });
+  assert.equal(again.sent.length, 1, `second post cost ${again.sent.length} requests`);
+  assert.match(again.sent[0].query, /createPost/);
+});
+
+await step('a failure drops the remembered channels, so a stale id is not kept', async () => {
+  const store = {};
+  const opts = {
+    getSetting: async (_d, k) => store[k] ?? null,
+    putSetting: async (_d, k, v) => { store[k] = v; },
+  };
+  await toBuffer(ENV, { ...CAROUSEL, fetcher: net([ORG, CHANS, MADE]), ...opts });
+  assert.ok(store['buffer.channels'], 'they were remembered');
+
+  await toBuffer(ENV, { ...CAROUSEL, ...opts, fetcher: net([ORG, CHANS,
+    ['CreatePost', { json: { data: { p0: { message: 'Channel not found' }, p1: { message: 'Channel not found' } } } }]]) });
+  assert.ok(!store['buffer.channels'], 'and forgotten after a failure');
 });
 
 await step('the key travels as a bearer token and nowhere else', async () => {
@@ -73,14 +110,14 @@ await step('the key travels as a bearer token and nowhere else', async () => {
 await step('every slide goes, in order, as an image asset', async () => {
   const f = net([ORG, CHANS, MADE]);
   await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
-  const { assets } = f.sent.find((s) => s.query.includes('CreatePost')).variables.input;
+  const { assets } = f.sent.find((s) => s.query.includes('CreatePost')).variables.i0;
   assert.deepEqual(assets, CAROUSEL.urls.map((url) => ({ image: { url } })));
 });
 
 await step('a slot that has come round goes now, not into the queue', async () => {
   const f = net([ORG, CHANS, MADE]);
   await toBuffer(ENV, { ...CAROUSEL, fetcher: f, scheduleFor: '2020-01-01T00:00:00Z' });
-  const { input } = f.sent.find((s) => s.query.includes('CreatePost')).variables;
+  const input = f.sent.find((s) => s.query.includes('CreatePost')).variables.i0;
   /* A past dueAt would sit until Buffer's next sweep. Our own queue has
      already decided this is due, so it goes. */
   assert.equal(input.mode, 'shareNow');
@@ -91,7 +128,7 @@ await step('and a future one is handed over as a time', async () => {
   const at = new Date(Date.now() + 86_400_000).toISOString();
   const f = net([ORG, CHANS, MADE]);
   await toBuffer(ENV, { ...CAROUSEL, fetcher: f, scheduleFor: at });
-  const { input } = f.sent.find((s) => s.query.includes('CreatePost')).variables;
+  const input = f.sent.find((s) => s.query.includes('CreatePost')).variables.i0;
   assert.equal(input.mode, 'customScheduled');
   assert.equal(input.dueAt, at);
 });
@@ -99,7 +136,7 @@ await step('and a future one is handed over as a time', async () => {
 await step('it publishes rather than reminding somebody to', async () => {
   const f = net([ORG, CHANS, MADE]);
   await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
-  const { input } = f.sent.find((s) => s.query.includes('CreatePost')).variables;
+  const input = f.sent.find((s) => s.query.includes('CreatePost')).variables.i0;
   // `notification` would send a phone reminder and post nothing
   assert.equal(input.schedulingType, 'automatic');
 });
@@ -113,32 +150,25 @@ await step('a refusal inside a 200 is a failure, not a success', async () => {
 
 await step('the error half of the union is read too', async () => {
   const f = net([ORG, CHANS,
-    ['CreatePost', { json: { data: { createPost: { message: 'Channel needs reconnecting' } } } }]]);
+    ['CreatePost', { json: { data: { p0: { message: 'Channel needs reconnecting' }, p1: { post: { id: 'p2' } } } } }]]);
   const out = await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
   assert.equal(out.instagram.ok, false);
   assert.match(out.instagram.error, /reconnecting/);
 });
 
 await step('a success with no post id is not called a success', async () => {
-  const f = net([ORG, CHANS, ['CreatePost', { json: { data: { createPost: {} } } }]]);
+  const f = net([ORG, CHANS, ['CreatePost', { json: { data: { p0: {}, p1: {} } } }]]);
   const out = await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
   assert.equal(out.instagram.ok, false);
 });
 
 await step('one platform failing does not stop the other', async () => {
-  let n = 0;
-  const f = net([ORG, CHANS, ['CreatePost', { json: {} }]]);
-  const wrapped = async (u, i) => {
-    const body = JSON.parse(i.body);
-    if (body.query.includes('CreatePost') && n++ === 0) {
-      return { ok: true, status: 200, text: async () => JSON.stringify({ errors: [{ message: 'nope' }] }) };
-    }
-    if (body.query.includes('CreatePost')) {
-      return { ok: true, status: 200, text: async () => JSON.stringify({ data: { createPost: { post: { id: 'p2' } } } }) };
-    }
-    return f(u, i);
-  };
-  const out = await toBuffer(ENV, { ...CAROUSEL, fetcher: wrapped });
+  /* The reason each alias is read on its own rather than the request
+     being called a success: they share a round trip, not a fate. */
+  const f = net([ORG, CHANS, ['CreatePost', { json: { data: {
+    p0: { message: 'nope' }, p1: { post: { id: 'p2' } },
+  } } }]]);
+  const out = await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
   assert.equal(out.instagram.ok, false);
   assert.equal(out.tiktok.ok, true);
 });
@@ -204,9 +234,21 @@ await step('the organization is looked up once and remembered', async () => {
     putSetting: async (_db, k, v) => { store[k] = v; },
   };
   await channelsOf(ENV, opts);
-  await channelsOf(ENV, opts);
+  await channelsOf(ENV, { ...opts, fresh: true });
   assert.equal(store['buffer.org_id'], 'org1');
   assert.equal(f.sent.filter((s) => s.query.includes('GetOrganizations')).length, 1);
+});
+
+await step('the rehearsal reads them live rather than trusting the cache', async () => {
+  const store = { 'buffer.channels': JSON.stringify({ at: Date.now(), org: 'org1', channels: { instagram: { id: 'gone' } } }) };
+  const f = net([ORG, CHANS, MADE]);
+  const got = await channelsOf(ENV, {
+    fetcher: f, fresh: true,
+    getSetting: async (_d, k) => store[k] ?? null,
+    putSetting: async (_d, k, v) => { store[k] = v; },
+  });
+  assert.equal(got.cached, undefined);
+  assert.equal(got.channels.instagram.id, 'ch1');
 });
 
 await step('the road is a setting, not the presence of a key', async () => {
