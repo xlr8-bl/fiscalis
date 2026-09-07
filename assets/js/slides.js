@@ -1687,7 +1687,83 @@ function screenPixels(d, W_, H_, opts = {}) {
   }
 }
 
-function screened(src, W_, H_, opts) {
+/**
+ * One of his photographs, keyed and cropped to him, on its own canvas.
+ *
+ * For the hook engine, which places pictures itself. Everything the
+ * sheets already do to him happens here so both renderers agree: the
+ * key, the treatment his photograph is allowed (`scissors` gets the
+ * paper and the border, `clean` gets neither), and the monochrome
+ * screen.
+ *
+ * Cropped tight to the subject, so whoever draws it can stand it on a
+ * horizontal by putting its foot on the line. That is the rule for the
+ * two that were cut at the bottom: they sit ON something, never float.
+ */
+export function standee(img, { style = 'scissors', tall = 900, paper = '#FFFFFF' } = {}) {
+  const probe = keyOut(img, 200);
+  if (probe.bx1 <= probe.bx0) return null;
+  const H_ = Math.round(tall / ((probe.by1 - probe.by0 + 1) / probe.H_));
+  const { on, off, W_, bx0, by0, bx1, by1 } = keyOut(img, H_);
+  if (bx1 <= bx0 || by1 <= by0) return null;
+
+  const pad = style === 'clean' ? 0 : Math.round(H_ * 0.03);   // room for the border
+  const w = bx1 - bx0 + 1 + pad * 2;
+  const h = by1 - by0 + 1 + pad * 2;
+  const c = new OffscreenCanvas(w, h);
+  const x = c.getContext('2d');
+
+  if (style === 'clean') {
+    const o = off.getContext('2d', { willReadFrequently: true });
+    const im = o.getImageData(0, 0, W_, H_);
+    screenPixels(im.data, W_, H_);
+    const d = im.data;
+    for (let yy = 0; yy < H_; yy++) {
+      for (let xx = 0; xx < W_; xx++) {
+        const i = yy * W_ + xx;
+        const edge = xx === 0 || yy === 0 || xx === W_ - 1 || yy === H_ - 1;
+        d[i * 4 + 3] = (on[i] && !edge && on[i - 1] && on[i + 1]
+                        && on[i - W_] && on[i + W_]) ? 255 : 0;
+      }
+    }
+    o.putImageData(im, 0, 0);
+    x.drawImage(off, -bx0, -by0);
+    return c;
+  }
+
+  const contour = trace(on, W_, H_);
+  const rough = simplify(contour, H_ * 0.038);
+  const close = simplify(contour, H_ * 0.0035);
+  if (rough.length < 3 || close.length < 3) return null;
+  const path = (poly, grow) => {
+    x.beginPath();
+    const n = poly.length;
+    poly.forEach(([qx, qy], i) => {
+      let X = qx; let Y = qy;
+      if (grow) {
+        const a = poly[(i - 1 + n) % n]; const b = poly[(i + 1) % n];
+        const nx = (qy - a[1]) + (b[1] - qy);
+        const ny = -((qx - a[0]) + (b[0] - qx));
+        const len = Math.hypot(nx, ny) || 1;
+        X += (nx / len) * grow; Y += (ny / len) * grow;
+      }
+      const px_ = X - bx0 + pad; const py = Y - by0 + pad;
+      i ? x.lineTo(px_, py) : x.moveTo(px_, py);
+    });
+    x.closePath();
+  };
+  x.fillStyle = paper;
+  path(rough, Math.max(3, H_ * 0.015));
+  x.fill();
+  x.save();
+  path(close, 0);
+  x.clip();
+  x.drawImage(screened(img, W_, H_), -bx0 + pad, -by0 + pad);
+  x.restore();
+  return c;
+}
+
+export function screened(src, W_, H_, opts) {
   const c = new OffscreenCanvas(W_, H_);
   const x = c.getContext('2d', { willReadFrequently: true });
   x.drawImage(src, 0, 0, W_, H_);

@@ -13,6 +13,7 @@ import { compose, W, H, FACES } from '/assets/js/compose.js';
 import { LAYOUTS, MEASURED, brief } from '/lib/hooks/layouts.js';
 import { EXAMPLES, sample } from '/lib/hooks/examples.js';
 import { resolveArt } from '/lib/hooks/art.js';
+import { screened, standee } from '/assets/js/slides.js';
 import { CUTOUTS } from '/lib/hooks/cutouts.js';
 import { STOCK } from '/lib/hooks/stock.js';
 
@@ -77,16 +78,33 @@ window.render = async (id, n = 0) => {
   const spec = LAYOUTS[id];
   if (!spec) throw new Error(`no layout ${id}`);
   const copy = (EXAMPLES[id]?.[n]) ?? sample(id);
-  /* Pictures come from the resolver, never from the spec. `own` is
-     empty until Ashley's photographs are tagged in the studio, at which
-     point every layout asking for that role picks them up here with no
-     other change anywhere. */
+  /* Pictures come from the resolver, never from the spec, and `own` is
+     left to it. Passing an empty object here was overriding the
+     resolver's own mapping with nothing, so every layout rendered
+     against stock while his four photographs sat in the repository. */
   const art = {};
   const used = {};
   for (const slot of spec.slots.filter((x) => x.t === 'art')) {
-    const got = resolveArt(slot, { own: window.OWN ?? {}, stock: STOCK, cut: CUTOUTS, seed: seedOf(id) + n });
+    const got = resolveArt(slot, { ...(window.OWN ? { own: window.OWN } : {}),
+                                   stock: STOCK, cut: CUTOUTS, seed: seedOf(id) + n });
     used[slot.id] = got.from;
-    if (got.urls?.length > 1) art[slot.id] = await Promise.all(got.urls.map(get));
+    if (got.from === 'own') {
+      /* Everything the sheets already do to him, done here too, with the
+         SLIDE renderer's own functions so there is one definition of the
+         look rather than two that drift.
+
+         A keyed one is handed over as a one-item ARRAY on purpose: that
+         is drawArt's row path, which bottom-aligns to the box's foot, so
+         a photograph cut at the bottom STANDS on the layout's horizontal
+         instead of floating in the middle of its slot. */
+      const im = await get(got.url);
+      if (im && got.cut) {
+        const s = standee(im, { style: got.cut });
+        art[slot.id] = (got.stands && s) ? [s] : (s ?? im);
+      } else if (im) {
+        art[slot.id] = screened(im, im.naturalWidth, im.naturalHeight);
+      }
+    } else if (got.urls?.length > 1) art[slot.id] = await Promise.all(got.urls.map(get));
     else if (got.url) art[slot.id] = await get(got.url);
   }
   ctx.clearRect(0, 0, W, H);
