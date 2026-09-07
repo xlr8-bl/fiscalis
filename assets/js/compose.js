@@ -806,7 +806,8 @@ function drawStar(ctx, slot, g) {
 }
 
 /**
- * A contact badge: a small disc with a phone or a globe in it.
+ * A small badge: a disc with a phone, a globe, a bookmark or an eye
+ * in it. The eye is the view-count marker the annotated sheets use.
  *
  * The contact rows along the foot of a dozen references are a 14px icon
  * and a line of figures. Set as characters they are at the mercy of
@@ -848,6 +849,22 @@ function drawBadge(ctx, slot, g) {
     ctx.lineTo(cx - bw / 2, cy + bh / 2);
     ctx.closePath();
     ctx.stroke();
+  } else if (icon === 'eye') {
+    /* The view count marker these sheets annotate with. A lens is two
+       arcs meeting at the corners, not an ellipse: an ellipse reads as a
+       coin at this size, and the pointed corners are the whole
+       difference between an eye and an O. */
+    const k = r * 0.78, lid = r * 0.42;
+    ctx.lineWidth = Math.max(1.4, r * 0.16);
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - k, cy);
+    ctx.quadraticCurveTo(cx, cy - lid * 2.1, cx + k, cy);
+    ctx.quadraticCurveTo(cx, cy + lid * 2.1, cx - k, cy);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.26, 0, Math.PI * 2);
+    ctx.fill();
   } else if (icon === 'globe') {
     const k = r * 0.60;
     ctx.beginPath();
@@ -1004,8 +1021,7 @@ function drawPill(ctx, slot, copy, g) {
   const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
   const r = h / 2;
   ctx.save();
-  ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
-  ctx.lineWidth = Math.max(1.5, h * (slot.weight ?? 0.07));
+  if (slot.alpha != null) ctx.globalAlpha = slot.alpha;
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -1013,7 +1029,17 @@ function drawPill(ctx, slot, copy, g) {
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
-  ctx.stroke();
+  /* `solid` because a pill that holds type has to be filled. An outline
+     pill over a photograph leaves the type sitting on whatever happens
+     to be behind it, which is the one thing the chip is there to
+     prevent. Outline stays the default: most of the corpus uses these
+     as empty capsules around a handle. */
+  if (slot.solid) { ctx.fillStyle = ink(slot.fill ?? 'mark', g); ctx.fill(); }
+  else {
+    ctx.strokeStyle = ink(slot.fill ?? 'mark', g);
+    ctx.lineWidth = Math.max(1.5, h * (slot.weight ?? 0.07));
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
