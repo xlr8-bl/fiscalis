@@ -47,7 +47,23 @@ export const H = 1350;
  * risograph sheets turn on, and for the black grotesque the one-word
  * sheets need — Archivo 700 is not heavy enough to be the whole design.
  *
- * All SIL Open Font Licence. tools/get_fonts.sh fetches them.
+ * WHICH HELVETICA. Helvetica itself cannot be shipped: it is licensed
+ * per site and per view. Naming it in a stack and letting the device
+ * decide is worse than either alternative for a poster engine, because
+ * the same sheet then sets differently on an iPhone and on an Android
+ * and nothing on screen says why. So one face is bundled and used
+ * everywhere: TeX Gyre Heros, which is Helvetica's metrics and very
+ * nearly its letterforms, under the GUST Font Licence (LPPL 1.3c), which
+ * permits commercial use and embedding. It is registered under the
+ * family name Helvetica, so a browser's own Helvetica never wins and
+ * every render agrees.
+ *
+ * URW Nimbus Sans was the obvious candidate and was rejected on reading
+ * the licence rather than on assuming it: AGPL v3, and its embedding
+ * exemption covers a Postscript or PDF document only, not a webfont.
+ *
+ * Everything else here is SIL Open Font Licence.
+ * tools/get_fonts.sh fetches them all.
  */
 export const FACES = {
   display: 'Bricolage',          // geometric heavy: most statements
@@ -55,8 +71,8 @@ export const FACES = {
   black: 'ArchivoBlack',         // when one word IS the sheet
   fat: 'BagelFat',               // the rounded fat face the collage sheets shout in
   condensed: 'Anton',            // long line, still huge
-  grotesque: 'Archivo',          // subheads, labels, UI
-  body: 'Inter',                 // anything you actually read
+  grotesque: 'Helvetica',        // subheads, labels, UI, and the fallback
+  body: 'Helvetica',             // anything you actually read
   didone: 'Bodoni',              // the high-contrast serif sheets
   didoneItalic: 'BodoniItalic',  // and their turn lines
   italic: 'InstrumentItalic',    // a quieter italic
@@ -1077,29 +1093,56 @@ function drawTiles(ctx, slot, copy, g) {
   const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
   const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
   const n = text.length;
-  const cell = w / n;
+
+  /*
+   * A cell is square, and it belongs to the grid rather than to the run.
+   *
+   * Two things were wrong with dividing the box by the letter count. The
+   * box's width is normalised on the frame's width and its height on the
+   * frame's height, so one number for both drew cells a quarter taller
+   * than they were wide — bricks, not a crossword. And the run's cells
+   * then resized with the copy, so any word that was not the length of
+   * the reference's word slid off the ruling behind it, which is the
+   * whole illusion.
+   *
+   * With `cell` given, the pitch is the grid's, the count is the copy's,
+   * and the run grows from whichever edge `align` nails it to. A word of
+   * the reference's length reproduces the reference exactly; a longer or
+   * shorter one still lands on cells.
+   */
+  const cell = slot.cell ? px.w(slot.cell[0]) : w / n;
+  const cellH = slot.cell ? px.h(slot.cell[1]) : h;
+  const run = cell * n;
+  const align = slot.align ?? 'left';
+  const x0 = align === 'right' ? x + w - run
+    : align === 'center' ? x + (w - run) / 2
+      : x;
 
   const face = ink(slot.fill ?? 'ground', g);      // the cell
   const letter = ink(slot.on ?? 'mark', g);        // the character in it
-  const line = Math.max(1, h * (slot.weight ?? 0.03));
+  const line = Math.max(1, cellH * (slot.weight ?? 0.03));
 
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = fontAt(slot, h * (slot.size ?? 0.62));
+  /* 0.75 em, and the cap's centre 0.514 down the cell. Both measured off
+     the reference's own letters rather than guessed: they nearly fill
+     their cells, and sitting them on the middle of the em rides them low. */
+  ctx.font = fontAt(slot, cellH * (slot.size ?? 0.75));
+  const anchor = slot.anchor ?? 0.514;
   for (let i = 0; i < n; i++) {
     const ch = text[i];
     if (ch === ' ') continue;
-    const cx = x + i * cell;
+    const cx = x0 + i * cell;
     ctx.fillStyle = face;
-    ctx.fillRect(cx, y, cell, h);
+    ctx.fillRect(cx, y, cell, cellH);
     if (slot.rule !== false) {
       ctx.strokeStyle = letter;
       ctx.lineWidth = line;
-      ctx.strokeRect(cx + line / 2, y + line / 2, cell - line, h - line);
+      ctx.strokeRect(cx + line / 2, y + line / 2, cell - line, cellH - line);
     }
     ctx.fillStyle = letter;
-    ctx.fillText(ch, cx + cell / 2, y + h * 0.54);
+    ctx.fillText(ch, cx + cell / 2, y + cellH * anchor);
   }
   ctx.restore();
 }

@@ -41,3 +41,23 @@ grab 'Bagel+Fat+One' bagel-fat.woff2
 grab 'Gochi+Hand' gochi-hand.woff2
 # A brush script, for the two sheets that turn on one.
 grab 'Yellowtail' yellowtail.woff2
+
+# Helvetica, as far as a licence allows one. TeX Gyre Heros is its
+# metrics and very nearly its letterforms, under the GUST Font Licence
+# (LPPL 1.3c), which permits commercial use and embedding. URW Nimbus
+# Sans was the obvious candidate and is AGPL v3 whose embedding
+# exemption covers a Postscript or PDF document only, not a webfont.
+echo 'and the Helvetica the licences allow:'
+heros () {                   # heros <ctan-name> <out-name>
+  curl -sSL -o "/tmp/$1.otf" "https://mirrors.ctan.org/fonts/tex-gyre/opentype/$1.otf"
+  python3 -m fontTools.subset "/tmp/$1.otf" \
+    --unicodes='U+0000-00FF,U+2010-2027,U+2030-205E,U+20A0-20BF,U+2122,U+2018-201F' \
+    --layout-features='kern,liga,ccmp' --flavor=woff2 \
+    --output-file="assets/fonts/$2"
+  printf '  %-26s %6s bytes\n' "$2" "$(stat -c%s "assets/fonts/$2")"
+}
+heros texgyreheros-regular heros-regular.woff2
+heros texgyreheros-bold    heros-bold.woff2
+heros texgyreheros-italic  heros-italic.woff2
+curl -sSL -o assets/fonts/heros-LICENSE.txt \
+  'https://mirrors.ctan.org/fonts/tex-gyre/doc/GUST-FONT-LICENSE.txt'

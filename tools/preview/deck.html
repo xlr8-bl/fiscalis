@@ -32,12 +32,21 @@ const FILES = {
   Script: ['yellowtail.woff2', { weight: '400' }],
   Gochi: ['gochi-hand.woff2', { weight: '400' }],
   Inter: ['inter-500.woff2', { weight: '500' }],
+  /* Three files, one family. Helvetica has no variable cut and no
+     weights between roman and bold, which is the face, not a shortfall:
+     ask for 500 and you get the roman, ask for 700 and you get the bold
+     outline rather than a synthesised one. */
+  Helvetica: [['heros-regular.woff2', { weight: '100 500' }],
+              ['heros-bold.woff2', { weight: '600 900' }],
+              ['heros-italic.woff2', { weight: '100 500', style: 'italic' }]],
   InstrumentItalic: ['instrument-italic.woff2', { weight: '400' }],
   PixelDisplay: ['pixel.woff2', { weight: '400' }],
 };
-await Promise.all(Object.entries(FILES).map(async ([n, [f, d]]) => {
-  const ff = new FontFace(n, `url(/assets/fonts/${f})`, d); await ff.load(); document.fonts.add(ff);
-}));
+await Promise.all(Object.entries(FILES).flatMap(([n, v]) =>
+  (Array.isArray(v[0]) ? v : [v]).map(async ([f, d]) => {
+    const ff = new FontFace(n, `url(/assets/fonts/${f})`, d);
+    await ff.load(); document.fonts.add(ff);
+  })));
 await document.fonts.ready;
 
 const get = (src) => new Promise((res) => {
