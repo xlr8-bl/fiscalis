@@ -20,12 +20,28 @@ glance. Luminance says which way the type has to run.
 | `sky-arms.jpg` | the whole top third, and the right column all the way down | top, or hard right | light, over sky at lum 86-105 |
 | `blue-flat.jpg` | the entire left column | left half | light, over flat blue at lum 86 |
 | `black-wall.jpg` | the whole left half | left half | light, over near-black at lum 15 |
-| `phone-chair.jpg` | top left and top right corners, and the bottom left | top corners | dark, over white at lum 228 |
+| `phone-chair.jpg` | the top eighth, the left column, the right column above the halfway | the top band, or a column beside him | dark, over white at lum 240 |
 
-`phone-chair` is the only one with a dark-on-light half, and the only
-one whose quiet regions are corners rather than a column. It is a
-portrait on a white sweep, so it wants type in the corners around the
-figure rather than a block beside it.
+`phone-chair` is the only one with a dark-on-light half. Re-measured
+after the frame was replaced in September 2026: same set-up, sunglasses
+on, and the quiet map came back the same to within a cell. Its top band
+runs out at y 0.13, which is why it carries a cut-out rather than type
+over it.
+
+## They are all monochrome, and screened
+
+Nothing here is drawn in colour. Every photograph of Ashley goes to
+greyscale with a halftone over it, so the four read as one set rather
+than as four photographs that happen to be on the same sheets. The
+screen is an AM dot per cell on a grid turned 45 degrees, five sheet
+pixels to the cell, mixed 30% over the grey.
+
+Mild is the point and it is one number, `depth` in `screenPixels`. Past
+about 0.5 the dots stop being a texture and start being the picture,
+which is the pixelated look that was already rejected once. The cell is
+in SHEET pixels rather than image pixels, so the screen is the same
+frequency whether a photograph is drawn as a small cut-out or across a
+whole sheet.
 
 ## A person is in all four
 

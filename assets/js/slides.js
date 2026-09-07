@@ -291,9 +291,10 @@ export const BLOCKS = {
    */
   portrait: {
     takes: 'portrait',
-    what: 'One of Ashley\'s own photographs, cut out and screened to a single '
-        + 'ink with a hard outline. For an opening or closing slide. It is a '
-        + 'shape on the sheet, not a photograph in a box.',
+    what: 'One of Ashley\'s own photographs with its background taken off, '
+        + 'monochrome and halftoned like every other photograph of him. For an '
+        + 'opening or closing slide. It is a shape on the sheet, not a '
+        + 'photograph in a box.',
     /* The height comes from the placement table, not from the slide. A
        cut-out whose size is a per-slide decision is a cut-out that
        changes size between slides of one carousel. */
@@ -718,7 +719,7 @@ export const TEMPLATES = {
   portrait: {
     blocks: ['title', 'say', 'portrait', 'action'],
     what: 'An opening or closing slide carrying Ashley himself, cut out and '
-        + 'screened to one ink. Use it once in a set at most: it is the slide '
+        + 'monochrome and screened. Use it once in a set at most: it is the slide '
         + 'that says a person is behind this, and twice makes it about him.',
   },
   close: {
@@ -1023,7 +1024,7 @@ function cutout(ctx, img, g, opts = {}) {
     : flush('top') ? -by0
       : (opts.cy != null ? px.h(opts.cy) - (by0 + by1) / 2 : H - by1 - 1 - pad);
 
-  if (opts.style === 'clean') return drawClean(ctx, off, on, W_, H_, x0, y0);
+  if (opts.style === 'clean') return drawClean(ctx, off, on, W_, H_, x0, y0, opts.screen);
 
   const contour = trace(on, W_, H_);
   /* `rough` stays coarse: that is the scissors. `close` is where the
@@ -1078,7 +1079,8 @@ function cutout(ctx, img, g, opts = {}) {
   // and the photograph, laid over it
   shape(close, 0);
   ctx.clip();
-  ctx.drawImage(pixelate(img, W_, H_, opts.pixels), x0, y0, W_, H_);
+  ctx.drawImage(screened(pixelate(img, W_, H_, opts.pixels), W_, H_, opts.screen),
+                x0, y0, W_, H_);
   ctx.restore();
 }
 
@@ -1092,10 +1094,11 @@ function cutout(ctx, img, g, opts = {}) {
  * pixel first because a colour-distance key keeps a rim of the ground it
  * cut away, and on a white sweep that rim is a white halo.
  */
-function drawClean(ctx, off, on, W_, H_, x0, y0) {
+function drawClean(ctx, off, on, W_, H_, x0, y0, screen) {
   const o = off.getContext('2d', { willReadFrequently: true });
   const im = o.getImageData(0, 0, W_, H_);
   const d = im.data;
+  screenPixels(d, W_, H_, screen);
   for (let y = 0; y < H_; y++) {
     for (let x = 0; x < W_; x++) {
       const i = y * W_ + x;
@@ -1262,6 +1265,52 @@ const centroid = (poly) => [
 const median = (a) => [...a].sort((p, q) => p - q)[Math.floor(a.length / 2)];
 
 /**
+ * Monochrome, with a dot screen over it. Every photograph of Ashley gets
+ * this, so the four of them read as one set rather than as four
+ * photographs that happen to be on the same sheets.
+ *
+ * The screen is a real halftone, not a pixelation: an AM dot per cell,
+ * bigger where the picture is darker, on a grid turned 45 degrees, which
+ * is where a print screen goes because at 0 the rows read as stripes.
+ *
+ * MILD is the whole point and it is one number. `depth` is how far the
+ * dots are mixed over the grey; past about 0.5 the face stops being a
+ * face, which is the pixelated look that was already rejected once.
+ * `cell` is in sheet pixels, not image pixels, so the screen has the
+ * same frequency however big the photograph is drawn.
+ */
+function screenPixels(d, W_, H_, opts = {}) {
+  const cell = opts.cell ?? 5;
+  const depth = opts.depth ?? 0.30;
+  const R45 = Math.SQRT1_2;
+  const wrap = (n) => n - Math.floor(n / cell) * cell - cell / 2;
+  for (let y = 0; y < H_; y++) {
+    for (let x = 0; x < W_; x++) {
+      const i = (y * W_ + x) * 4;
+      const lum = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+      const fu = wrap(x * R45 + y * R45);
+      const fv = wrap(y * R45 - x * R45);
+      // area, not radius, tracks tone: sqrt keeps the midtones honest
+      const r = cell * 0.62 * Math.sqrt(1 - lum);
+      // soft edge over one pixel, or the dots alias into moire
+      const dot = Math.min(1, Math.max(0, r - Math.hypot(fu, fv) + 0.5));
+      const v = Math.min(1, Math.max(0, lum * (1 - depth) + (1 - dot) * depth));
+      d[i] = d[i + 1] = d[i + 2] = Math.round(v * 255);
+    }
+  }
+}
+
+function screened(src, W_, H_, opts) {
+  const c = new OffscreenCanvas(W_, H_);
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(src, 0, 0, W_, H_);
+  const im = x.getImageData(0, 0, W_, H_);
+  screenPixels(im.data, W_, H_, opts);
+  x.putImageData(im, 0, 0);
+  return c;
+}
+
+/**
  * Paper grain: single pixels, low strength. Seeded from the slide, so a
  * redrawn slide still matches the ones around it.
  */
@@ -1310,9 +1359,10 @@ function hash(str) {
    does not need the wash, so the strength is the slide's to set. */
 function cover(ctx, img, g, veil = 0.82) {
   const scale = Math.max(W / img.width, H / img.height);
-  const w = img.width * scale;
-  const h = img.height * scale;
-  ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  // screened at the size it is drawn, so the dots stay one size a sheet
+  ctx.drawImage(screened(img, w, h), (W - w) / 2, (H - h) / 2);
   if (veil <= 0) return;
   ctx.save();
   ctx.globalAlpha = veil;
