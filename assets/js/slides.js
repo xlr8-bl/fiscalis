@@ -63,6 +63,8 @@ export const M = {
                  the address was ending. */
               foot: 0.845, addr: 0.0175, col: 0.50 },
   mark:     { size: 0.0300, padX: 0.014, padY: 0.007, gap: 0.016 },
+  prompt:   { gap: 0.020, row: 0.011 },
+  line:     { size: 0.0165 },
 
   // read off the reference's runs, rounded, not tuned
   gap:      { afterTitle: 0.063, between: 0.034, beforeIcons: 0.036 },
@@ -321,6 +323,95 @@ export const BLOCKS = {
       ctx.fillText(block.address ?? 'web3ashley.com', px.w(M.margin) + px.w(0.022), fy);
       ctx.textAlign = 'center';
       ctx.restore();
+    },
+  },
+
+  /**
+   * A question with the answers already on it, so replying costs a
+   * letter.
+   *
+   * This is the engagement device and it is the only one. It works
+   * where "let me know what you think" does not, for a reason worth
+   * writing down: an open question asks the reader to compose a
+   * sentence, and almost nobody will, whereas a question with three
+   * answers on it asks them to type one character. The answers also do
+   * the harder job, which is telling Ashley which of the three the
+   * reader actually is.
+   *
+   * It never replaces the instruction. One ask per carousel is the one
+   * thing every source agrees on, so this sits ABOVE the instruction and
+   * is the soft one: the reader who answers has done something, and the
+   * reader who acts on the instruction has done the thing.
+   */
+  prompt: {
+    takes: 'question',
+    what: 'A question with two to three answers on it, for the closing slide. '
+        + 'The reader replies with a letter rather than a sentence, which is '
+        + 'the whole reason it works. Ask something only somebody who read '
+        + 'THIS carousel could answer, never a general one.',
+    height(ctx, block, g, col) {
+      const n = lines(ctx, block.question, face(g, 'say'), col, trackOf('say')).length;
+      const rows = packOptions(ctx, block.options, col).rows.length;
+      return M.say.size * CAP + (n - 1) * M.say.size * M.say.lead
+        + M.prompt.gap + rows * M.chip.h + (rows - 1) * M.prompt.row;
+    },
+    draw(ctx, block, g, box) {
+      setType(ctx, g, 'say');
+      const ls = lines(ctx, block.question, face(g, 'say'), box.w, trackOf('say'));
+      ctx.textAlign = alignTo(block.align);
+      const ax = alignX(box, block.align);
+      ls.forEach((line, i) => {
+        ctx.fillText(line, ax, box.y + px.size(M.say.size) * CAP
+          + i * px.size(M.say.size * M.say.lead));
+      });
+      const top = box.y + px.h(M.say.size * CAP
+        + (ls.length - 1) * M.say.size * M.say.lead + M.prompt.gap);
+
+      const { rows, gap } = packOptions(ctx, block.options, box.w);
+      let n = 0;
+      rows.forEach((row, r) => {
+        const total = row.reduce((a, o) => a + o.w, 0) + gap * (row.length - 1);
+        let x = block.align === 'left' ? box.x
+          : block.align === 'right' ? box.x + box.w - total
+            : box.x + (box.w - total) / 2;
+        const y = top + r * px.h(M.chip.h + M.prompt.row);
+        row.forEach((o) => {
+          chip(ctx, g, o.text, x + o.w / 2, y,
+               { fill: n++ === 0 ? 'accentSoft' : 'accentSoft2' });
+          x += o.w + gap;
+        });
+      });
+      ctx.textAlign = 'center';
+    },
+  },
+
+  /**
+   * Who it is for, small, near the foot. One line, and it names both
+   * halves of the same person: no site yet, and a site that is not
+   * working. Naming one loses the other.
+   */
+  line: {
+    takes: 'text',
+    /* Optional, unlike every other block a template names. A standing
+       line on every single outro stops being read: it is a signature,
+       and a signature on all of them is wallpaper. */
+    optional: true,
+    what: 'One quiet line saying who this is for. Both halves in it: '
+        + 'somebody putting a first site up and somebody fixing the one they '
+        + 'have. Set from AUDIENCE in brand.js. No price, no package, and no '
+        + 'promise of a result.',
+    height(_ctx, block) { return block.text ? M.line.size * CAP : 0; },
+    draw(ctx, block, g, box) {
+      if (!block.text) return;
+      setType(ctx, g, 'say');
+      ctx.font = `${TYPE.label.weight} ${px.size(M.line.size)}px ${TYPE.label.family}`;
+      ctx.letterSpacing = `${0.02 * px.size(M.line.size)}px`;
+      ctx.textAlign = alignTo(block.align);
+      ctx.globalAlpha = 0.62;
+      ctx.fillText(block.text, alignX(box, block.align),
+                   box.y + px.size(M.line.size) * CAP);
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'center';
     },
   },
 
@@ -744,6 +835,33 @@ function setType(ctx, g, role) {
 /* Teaching slides are centred and stay centred. A CTA is not a teaching
    slide: the figure owns one side, so the type wants to be flush to the
    other and ragged towards him. */
+/**
+ * The answers, packed into rows that fit.
+ *
+ * Each chip is only as wide as its own words, which is right, and means
+ * three of them do not necessarily fit a line: `calling` gives half the
+ * sheet to the object, and there the third answer ran off the edge.
+ * Measured with the real font, so height() and draw() agree.
+ */
+function packOptions(ctx, options, colW) {
+  const letters = ['A', 'B', 'C', 'D'];
+  const gap = px.w(0.018);
+  ctx.font = `${TYPE.chip.weight} ${sizeOf('chip')}px ${TYPE.chip.family}`;
+  ctx.letterSpacing = trackOf('chip');
+  const rows = [[]];
+  let w = 0;
+  (options ?? []).slice(0, 4).forEach((t, i) => {
+    const text = `${letters[i]}. ${t}`;
+    const cw = ctx.measureText(text).width + px.w(M.chip.padX) * 2;
+    const last = rows[rows.length - 1];
+    const add = last.length ? gap + cw : cw;
+    if (last.length && w + add > colW) { rows.push([]); w = cw; }
+    else w += add;
+    rows[rows.length - 1].push({ text, w: cw });
+  });
+  return { rows, gap };
+}
+
 const alignX = (box, align) => (align === 'left' ? box.x
   : align === 'right' ? box.x + box.w : box.x + box.w / 2);
 const alignTo = (align) => (align === 'left' ? 'left'
@@ -921,14 +1039,14 @@ export const TEMPLATES = {
    * there is one of each.
    */
   recap: {
-    blocks: ['title', 'recap', 'action'],
+    blocks: ['title', 'recap', 'prompt', 'line', 'action'],
     what: 'The whole carousel read back in numbered lines, then the ask. The '
         + 'one to reach for by default: it is the only slide that pays off a '
         + 'reader who swiped to the end without reading, and it is what makes '
         + 'the post worth keeping rather than worth finishing.',
   },
   calling: {
-    blocks: ['calling', 'say', 'action'],
+    blocks: ['calling', 'say', 'prompt', 'line', 'action'],
     what: 'A handset hanging off the top of the sheet on its cord, ringing, '
         + 'with the address at the foot. No headline: the object is the '
         + 'headline. For the end of a carousel about being reachable, or not '
@@ -936,7 +1054,7 @@ export const TEMPLATES = {
         + 'above the sentence, which is where the slide starts talking.',
   },
   bookend: {
-    blocks: ['echo', 'title', 'say', 'icons', 'action'],
+    blocks: ['echo', 'title', 'say', 'icons', 'line', 'action'],
     what: 'Closes the loop out loud: the headline the carousel opened with, '
         + 'set small, and under it the line that answers it. For a carousel '
         + 'that opened on a question or a claim. Needs the opening headline '

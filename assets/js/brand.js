@@ -120,7 +120,46 @@ export const CLOSES = [
   },
 ];
 
-export const CLOSE_NAMES = CLOSES.map((c) => c.name);/** The anchor beat, from a fixed rotation. */
+export const CLOSE_NAMES = CLOSES.map((c) => c.name);
+
+/**
+ * Who it is for, said once, on a closing slide.
+ *
+ * Both halves in one line on purpose. Somebody with no site and
+ * somebody with a bad one read as two audiences and are one: the second
+ * is the first, two years later, and a line that names only one of them
+ * loses the other. No price, no package, and no promise of a result,
+ * because none of those can be made honestly on a carousel.
+ */
+export const AUDIENCE = [
+  'Whether you are putting your first one up or fixing the one you have.',
+  'New site, or the one that has been quiet for two years.',
+  'The site that is not built yet, and the one that is and is not working.',
+];
+
+/**
+ * Engagement bait. Refused by the validator, not merely discouraged.
+ *
+ * Every one of these asks the reader for a favour and gives them nothing
+ * to answer. They are also the exact lines every account posts, which is
+ * why they stopped working: a reader has scrolled past "save this for
+ * later" a hundred times today. What replaces them is in CLOSES and in
+ * the prompt block, and the rule is the same in both: ask for something
+ * only somebody who read THIS carousel could give you.
+ *
+ * "link in bio" is here for a second reason as well. The sources that
+ * rank calls to action put it last on the grounds that off-platform
+ * links get de-weighted, which is not why it is banned but agrees.
+ */
+export const BAIT = [
+  'save this for later', 'save this post', 'save for later',
+  'tag a friend', 'tag someone', 'share this with someone',
+  'link in bio', 'check the link in bio',
+  'dm me', 'send me a dm', 'slide into',
+  'follow for more', 'follow me for', 'hit follow',
+  'let me know what you think', 'thoughts?', 'agree?',
+  'double tap', 'like and share', 'drop a', 'comment below',
+];/** The anchor beat, from a fixed rotation. */
 export const ANCHORS = [
   'Nobody checked.',
   'Nobody noticed.',

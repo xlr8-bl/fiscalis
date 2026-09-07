@@ -201,6 +201,38 @@ ok('the guide\'s room figures come from the validator, not from a second sum', (
   }
 });
 
+ok('engagement bait is refused, not just advised against', () => {
+  /* It was a list in the guide, which held for as long as whoever was
+     writing had read the guide. These are the lines every account posts. */
+  for (const line of ['Save this for later.', 'Tag a friend who needs this.',
+                      'Link in bio.', 'Follow for more like this.']) {
+    const r = one({ action: line });
+    assert.ok(!r.ok, `"${line}" was accepted as an instruction`);
+    assert.match(r.problems.join(' '), /read THIS carousel/);
+  }
+  // and the replacements for the same jobs are not caught by it
+  for (const line of ['Keep this. It is the list to run before you rebuild.',
+                      'Send it to whoever built the site.']) {
+    assert.ok(one({ action: line }).ok, `"${line}" was refused and should not be`);
+  }
+  const q = { question: 'Save this for later?', options: ['yes', 'no'] };
+  assert.ok(!validateSlides({ slides: [
+    { ...base(), template: 'recap', title: 'The whole check', prompt: q,
+      recap: ['one thing', 'another thing'] }, base()] }).ok,
+    'bait in a prompt question was accepted');
+});
+
+ok('a prompt carries answers, because that is what makes it answerable', () => {
+  const mk = (prompt) => validateSlides({ slides: [
+    { ...base(), template: 'recap', title: 'The whole check', prompt,
+      recap: ['one thing', 'another thing'] }, base()] });
+  assert.ok(!mk({ question: 'What did you find?' }).ok, 'no answers was accepted');
+  assert.match(mk({ question: 'What did you find?' }).problems.join(' '), /cost a letter/);
+  assert.ok(!mk({ question: 'What did you find?', options: ['a', 'b', 'c', 'd'] }).ok,
+    'four answers was accepted');
+  assert.ok(mk({ question: 'What did you find?', options: ['the phone', 'the form'] }).ok);
+});
+
 ok('a photograph is only snapped to an edge it was actually cut on', () => {
   /* The rule the whole placement table rests on, and the one that reads
      as a mistake the moment it slips: a straight cut against the sheet's
