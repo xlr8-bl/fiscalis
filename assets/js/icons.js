@@ -1,21 +1,10 @@
 /**
- * icons.js — Ashley's icon pack, named by what each one means.
+ * icons.js — the pack, named by MEANING rather than by shape, because
+ * Spark picks these for a slide about page speed: "bolt" is choosable,
+ * "row 2, column 1" is not.
  *
- * Sixteen cut-outs from one supplied sheet, sliced on its own 4x4 grid
- * and squared so every one draws into the same box. They are real
- * transparent PNGs, not glyphs: the pack is 73% alpha, which is why they
- * sit on cream and on a photograph equally well.
- *
- * WHY THEY ARE NAMED FOR MEANING RATHER THAN FOR SHAPE. Spark picks
- * these, and it picks them for a slide about page speed or about being
- * ignored. "bolt" and "eye" are choosable; "row 2, column 1" is not.
- * The `means` line is what it reads, so a wrong pick is a wrong sentence
- * rather than a wrong lookup.
- *
- * THE ACCENT IS ALREADY OURS. The pack's red-orange sits within a few
- * points of the site's #D93B0F, so nothing is recoloured. An icon that
- * had to be tinted to belong would stop being a photograph of an object
- * and start being a shape, which is the whole reason the pack works.
+ * Sixteen transparent PNGs sliced off one 4x4 sheet. The pack's red sits
+ * within a few points of the site's accent, so nothing is recoloured.
  */
 
 export const ICONS = {
@@ -42,13 +31,7 @@ export const ICON_NAMES = Object.keys(ICONS);
 /** Where the file lives, for both runtimes. */
 export const iconUrl = (name) => `/assets/icons/kit/${name}.png`;
 
-/**
- * The catalogue as Spark reads it, one line each.
- *
- * It goes in the design brief rather than in the tool schema: an enum of
- * sixteen names tells an agent what it MAY write and nothing about what
- * to write, and picking an icon is a judgement about the sentence it
- * sits under.
- */
+/** For the brief, not the tool schema: an enum says what MAY be written
+    and nothing about what to write. */
 export const iconCatalogue = () =>
   ICON_NAMES.map((n) => ({ name: n, means: ICONS[n].means }));

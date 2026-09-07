@@ -1,36 +1,12 @@
 /**
- * slides.js — the content carousel: blocks stacked down a sheet.
+ * slides.js — teaching carousel. Blocks flow down the sheet.
  *
- * WHY THIS IS NOT THE HOOK ENGINE. compose.js draws a hook sheet from
- * absolute boxes measured off a reference, because a hook is a poster:
- * six words in known places, and the geometry IS the design. A teaching
- * carousel is the opposite. Its slides carry a headline, two or three
- * paragraphs, a stack of chips and an instruction, the copy is a
- * different length every time, and absolute boxes cannot survive that —
- * one sentence longer and the chips land on the icons.
+ * A FLOW, not compose.js's absolute boxes, because copy length varies:
+ * measured across five reference slides, the icon row sits at 0.650 on
+ * one and 0.712 on the next, and the block above it is what moved.
  *
- * That was read off the reference rather than assumed. Measuring the
- * same elements across five slides of one carousel: the icon row sits at
- * 0.650 down one sheet and 0.712 down the next, and the block above it
- * is what moved. So the sheet is a FLOW: blocks in order, each as tall
- * as its own copy, centred, with measured gaps between them, and the
- * whole stack settled between a rail pinned to the top and an
- * instruction pinned near the foot.
- *
- * WHAT IS TAKEN AND WHAT IS NOT. The reference is somebody else's
- * carousel and the grammar is what is worth having: a rail, a serif
- * headline, flowing paragraphs, phrases picked out on coloured chips, a
- * row of small objects, and a two-part instruction where a label
- * overlaps a panel. None of their palette, none of their faces, none of
- * their words, and nothing of their branding. It is set in this site's
- * own grounds and its own type, so the result is a cousin rather than a
- * copy.
- *
- * WHAT SPARK DOES WITH IT. It picks a template per slide by name and
- * writes the copy for the slots that template has. It never gives a
- * coordinate. That is the whole point: it was inventing compositions and
- * getting compositions wrong, and choosing between eight named shapes is
- * a judgement it can actually make.
+ * Structure only is taken from the reference. None of their palette,
+ * faces, words or branding.
  */
 
 import { GROUNDS } from './design-spec.js';
@@ -52,59 +28,36 @@ export const M = {
   rail:     { h: 0.0553, pad: 0.038, size: 0.0175 },  // 57px of 1030
   margin:   0.085,                                    // the text column's inset
 
-  /* The headline, re-measured. The first pass had it at 0.078 with loose
-     leading and the sheets came out timid beside the reference. Its caps
-     run 0.0816 of the frame — H's cap top to the baseline on "How to" —
-     which is 0.113 em, and its lines sit 0.0893 apart, which is LESS
-     than one em. That negative leading is most of why the original reads
-     as a poster and the first version read as a document. */
+  // caps 0.0816 of frame = 0.113 em; lines 0.0893 apart, ie under one em
   title:    { size: 0.1133, lead: 0.0893 / 0.1133 },
   say:      { size: 0.0208, lead: 0.0330 / 0.0208 },  // line pitch 0.0330
 
-  /* Chips: 0.036 tall on a 0.0495 pitch, and centred — measured across
-     three sheets, whose centres land on 0.4964, 0.4964 and 0.4970. Each
-     is only as wide as its own words: 0.4806 for a long one, 0.2646 for
-     a short one, on the same sheet. */
+  // centred: three reference sheets land on 0.4964, 0.4964, 0.4970
   chip:     { h: 0.0360, pitch: 0.0495, padX: 0.020, r: 0.004 },
 
-  /* The row is 0.0796 tall and 0.4806 wide for six, so the icons very
-     nearly touch. The first version put a 0.014 gap between them and
-     they read as six separate marks instead of one band. */
+  // 0.4806 wide for six, so they nearly touch. A wider gap reads as six marks
   icons:    { h: 0.0796, gap: 0.004 },
 
-  /* The instruction, measured on three sheets that all agree: the panel
-     is a FIXED box at x 0.3386 and 0.4612 wide, not one sized to its
-     copy, and the label sits at x 0.1893 and 0.2075 wide. The label's
-     right quarter laps over the panel's left edge, and the panel's top
-     starts 63% of the way down the label. */
+  /* Fixed boxes, same on all three reference sheets whatever the copy.
+     Sizing the panel to its text pulls it off the label. */
   action:   { label: 0.0355, body: 0.0195, lead: 1.14,
               labelX: 0.1893, labelW: 0.2075, panelX: 0.3386, panelW: 0.4612,
               padX: 0.018, padY: 0.016 },
 
-  /* The gaps between blocks, as a fraction of the frame's height. Read
-     off the reference's own runs: 0.0631 from the headline to the first
-     paragraph, 0.0339 between a paragraph and a chip stack, 0.036 from
-     the last block to the icon row. Rounded to three places, not tuned. */
+  // read off the reference's runs, rounded, not tuned
   gap:      { afterTitle: 0.063, between: 0.034, beforeIcons: 0.036 },
   top:      0.117,      // where the headline's cap starts
   foot:     0.030,      // clear space under the action block
 };
 
-/* ------------------------------------------------------------- blocks
- *
- * A block knows how tall it is before anything is drawn, which is what
- * makes a flow possible: measure them all, add the gaps, then place.
- * `height` is given the context because a paragraph's height depends on
- * how many lines it wraps to, and that depends on the face.
- */
+/* Blocks. Each reports its height before drawing, which is what makes
+   the flow possible. */
 
 const CAP = 0.72;          // cap height as a fraction of the em, measured
 
 function lines(ctx, text, font, maxW, track = '0px') {
   ctx.font = font;
-  /* Measured with the tracking on. Wrapping without it and then drawing
-     with it makes every line the wrong length — long ones on tight type,
-     short ones on loose — and the error grows with the line. */
+  // must wrap WITH tracking on, or every line comes out the wrong length
   ctx.letterSpacing = track;
   const words = String(text ?? '').split(/\s+/).filter(Boolean);
   const out = [];
@@ -119,11 +72,7 @@ function lines(ctx, text, font, maxW, track = '0px') {
 }
 
 export const BLOCKS = {
-  /**
-   * The headline. A serif at display size, centred, two or three lines.
-   * It is the only thing on the sheet set in the didone, which is what
-   * makes it read as the headline rather than as big body copy.
-   */
+  /** The headline. Display size, centred, two lines at most. */
   title: {
     takes: 'text',
     what: 'The headline. Three to six words, sentence case, and it has to '
@@ -143,10 +92,7 @@ export const BLOCKS = {
     },
   },
 
-  /**
-   * A paragraph. Two to four lines of grotesque, centred, and the one
-   * block that carries an actual explanation.
-   */
+  /** A paragraph, and the only block allowed to be prose. */
   say: {
     takes: 'text',
     what: 'A short paragraph, two to four lines. This is where the thing is '
@@ -166,15 +112,8 @@ export const BLOCKS = {
     },
   },
 
-  /**
-   * A stack of phrases, each on its own chip.
-   *
-   * The chip is the device: a phrase picked out on a panel reads as a
-   * thing rather than as part of a sentence, and three of them stacked
-   * read as a set without needing bullets or numbers. Each chip is only
-   * as wide as its own words, which is what stops the stack looking like
-   * a table.
-   */
+  /** Phrases on chips. Each is only as wide as its own words, which is
+      what stops the stack reading as a table. */
   chips: {
     takes: 'items',
     what: 'Two to four short phrases, each picked out on its own chip. For a '
@@ -192,14 +131,8 @@ export const BLOCKS = {
     },
   },
 
-  /**
-   * Two chips on one row, each with its own line under it.
-   *
-   * The one shape a chip stack cannot do: a comparison. Side by side
-   * says "these are the two kinds"; stacked says "these are three
-   * things", and getting that wrong is the difference between a slide
-   * that teaches and one that lists.
-   */
+  /** Two things side by side. The one shape a chip stack cannot do:
+      side by side says "the two kinds", stacked says "three things". */
   duo: {
     takes: 'pair',
     what: 'Exactly two things compared side by side, each a chip with one '
@@ -252,19 +185,9 @@ export const BLOCKS = {
       ctx.save();
       ctx.filter = iconFilter(g);
 
-      /*
-       * Three arrangements, because a row every time is the reason the
-       * icons stopped being noticed. `row` is the beat between the
-       * explaining and the instruction and is still the default.
-       * `corner` puts two or three up in the sheet's empty shoulder,
-       * turned off square, where they read as something dropped on the
-       * page. `edge` runs them down the side of a chip stack, so the
-       * eye picks them up on the way past rather than after.
-       *
-       * The angles are fixed per position rather than random: a random
-       * tilt on every render means the same carousel drawn twice is two
-       * carousels, and the redo loop redraws single slides.
-       */
+      /* Four arrangements. Angles are fixed per position, not random:
+         the redo loop redraws single slides, and a random tilt would
+         make the same slide come back different. */
       const where = block.where ?? 'row';
       if (where === 'corner') {
         const tilts = [-0.22, 0.15, -0.09];
@@ -295,34 +218,16 @@ export const BLOCKS = {
           ctx.restore();
         });
       } else if (where === 'scatter' && head) {
-        /*
-         * Icons dropped INTO the headline, which is the arrangement that
-         * makes a sheet look made rather than filled in. Three rules,
-         * all taken from how it is done well:
-         *
-         * They go where the type is NOT. A headline is centred and
-         * ragged, so every line leaves a wedge of empty sheet at each
-         * end; that is where an icon sits, half over the last letter.
-         * Dropped anywhere else it lands in the middle of a word.
-         *
-         * They are not all one size. The reference's laptop is nearly
-         * twice its cursor. A row of identical marks reads as a row
-         * wherever you put it.
-         *
-         * They are turned, and the angles are FIXED per position rather
-         * than random, because a random tilt means the same slide drawn
-         * twice is two slides and the redo loop redraws single slides.
-         */
+        /* Into the headline's ragged ends, at mixed sizes, drawn behind
+           the type. Centred on a line end instead of past it, an icon
+           lands squarely on a word. */
         const spots = [];
         head.lines.forEach((line, i) => {
           const cx = head.box.x + head.box.w / 2;
           const top = head.box.y + i * px.size(M.title.size * M.title.lead);
           const capH = px.size(M.title.size) * CAP;
           // the wedge at each end of this line, just outside the words
-          /* Just PAST the last letter, not on it. Centred on the line's
-             end put the icon squarely over a word: "nobody" lost its d
-             and its y. Out by a third of the icon's own width, it laps
-             the final letter and no more, which is the reference. */
+          // just past the last letter, lapping it and no more
           const out = s * 0.55;
           spots.push({ x: cx + line.w / 2 + out, y: top + capH * 0.10, s: 1.30, r: 0.12 });
           spots.push({ x: cx - line.w / 2 - out * 0.8, y: top + capH * 0.85, s: 0.85, r: -0.28 });
@@ -357,27 +262,9 @@ export const BLOCKS = {
   },
 
   /**
-   * A person, cut out, screened to one colour, with a hard edge.
-   *
-   * THE TREATMENT, not the photograph. A photograph of a person dropped
-   * into a teaching slide is a different picture from the one the type
-   * is on: it has its own light, its own colour, its own depth, and it
-   * fights everything around it. Screened to a single ink and given a
-   * solid outline, it stops being a photograph and becomes a shape on
-   * the sheet, which is the only way it sits with flat colour and
-   * bitmap type without one of them looking pasted on.
-   *
-   * HOW THE CUT IS MADE. The background is keyed by colour distance
-   * from the frame's own corners, which works because these
-   * photographs were shot on flat grounds: a blue sweep, a black wall,
-   * sky. It is not a general matting algorithm and it is not pretending
-   * to be. On a busy background it will cut badly, which is why
-   * SOURCES.md says which photographs have flat grounds.
-   *
-   * THE HALFTONE is drawn rather than filtered: a grid of dots whose
-   * radius follows the source's darkness. A CSS filter cannot do this,
-   * and the dots have to be big enough to survive a feed, so the pitch
-   * is a fraction of the frame rather than of the picture.
+   * A cut-out. The background is keyed by colour distance from the
+   * frame's corners, which only works on the flat-ground photographs
+   * SOURCES.md names. Placement comes from cutouts.js, never the slide.
    */
   portrait: {
     takes: 'portrait',
@@ -421,16 +308,9 @@ export const BLOCKS = {
   },
 
   /**
-   * The instruction: a label overlapping a panel.
-   *
-   * Two parts, overlapping on purpose. A label sitting neatly above its
-   * panel is a heading; a label lapping over the corner of one is a
-   * sticker somebody put there, and the difference is the whole reason
-   * this reads as an instruction rather than as another paragraph.
-   *
-   * It is pinned to the foot rather than flowed, because the one thing
-   * a reader must find on every slide should be in the same place on
-   * every slide.
+   * The instruction. The label laps the panel's corner on purpose: sat
+   * neatly above it, it is a heading. Pinned to the foot so a reader
+   * who only wants the instruction knows where to look.
    */
   action: {
     takes: 'text',
@@ -516,20 +396,10 @@ export const BLOCKS = {
 
 export const BLOCK_NAMES = Object.keys(BLOCKS);
 
-/*
- * Making the icons read on whatever they are standing on.
- *
- * The pack is one set of pale objects with a red accent, and its body
- * sits at luminance 205. Measured against the grounds: on ink the
- * difference is 187 and they are brilliant; on paper it is 31; on amber
- * it is 13, which is to say invisible. That is not something to fix by
- * eye per ground, because the grounds can change and the pack cannot.
- *
- * So the filter is computed. Aim for a difference of about 95, darken
- * when the ground is light and leave alone when it is dark, and clamp so
- * that no ground can crush the icons into silhouettes. A little extra
- * contrast goes with the darkening, because scaling brightness alone
- * flattens the red accent into the grey.
+/**
+ * Icon contrast, computed rather than chosen per ground. The pack's body
+ * is luminance 205; against the grounds that is a difference of 187 on
+ * ink, 31 on paper, 13 on amber. Aim for 95.
  */
 const ICON_LUM = 205;      // measured across all sixteen
 const WANT = 95;           // the difference that makes them read
@@ -704,14 +574,7 @@ function chip(ctx, g, text, cx, y, { fill = 'accentSoft', role = 'chip',
   ctx.fillText(String(text ?? ''), x + (w - tw) / 2, y + h / 2 + em * CAP / 2);
 }
 
-/**
- * The rail across the top.
- *
- * Handle on the left, the series name on the right, on a band of the
- * ground's accent. It is the same on every slide of every carousel,
- * which is what makes a saved slide still say whose it is three months
- * later — and it is the only branding on the sheet, deliberately.
- */
+/** The rail. The same on every slide, and the only branding on a sheet. */
 function rail(ctx, g, { handle, series }) {
   const h = px.h(M.rail.h);
   ctx.fillStyle = g.accent;
@@ -729,15 +592,8 @@ function rail(ctx, g, { handle, series }) {
 
 /* -------------------------------------------------------------- ground */
 
-/**
- * The grounds a content slide can use.
- *
- * Fewer than the hook engine's, and for a reason: a teaching slide is
- * read rather than glanced at, so a ground it cannot carry a paragraph
- * on is no use here at all. Each adds the two soft fills the chips and
- * the instruction panel need, because a chip at full accent strength
- * shouts louder than the headline.
- */
+/** Fewer grounds than the hook engine: a teaching slide is all paragraph,
+    so a display-only ground is no use. */
 export const SLIDE_GROUNDS = {
   paper: { ...GROUNDS.paper, accentSoft: '#C9D9E8', accentSoft2: '#DCD0E8',
            chipInk: '#14120F', railInk: '#F2ECE0', halo: '#E4E0CF' },
@@ -814,15 +670,7 @@ export function layOut(ctx, slide, g) {
   let col = px.w(1 - M.margin * 2);
   let x = px.w(M.margin);
 
-  /*
-   * A cut-out takes width, not height.
-   *
-   * It is pinned to one edge of the sheet and runs off it, so the text
-   * has to give up that side or it sets straight across his face. How
-   * much it gives up comes from the placement table and the photograph's
-   * own proportions, so a taller cut-out takes more, and a centred one
-   * takes nothing because the type goes above it.
-   */
+  // a cut-out takes WIDTH, not height: the column gives up its side
   const cut = slide.portrait && placementOf(slide.portrait, slide.context ?? 'cta');
   if (cut && cut.at !== 'centre' && cut.at !== 'cover') {
     /* As much width as the cut-out actually occupies, not a constant.
@@ -867,17 +715,7 @@ export function layOut(ctx, slide, g) {
       box: { x: px.w(M.margin), y: px.h(y), w: px.w(1 - M.margin * 2), h: px.h(pinned.h) } });
   }
 
-  /*
-   * How tall the stack is, gaps included, before deciding where it goes.
-   *
-   * The first version top-anchored the flow and bottom-pinned the
-   * instruction, which is what the reference looks like it does. It is
-   * not: a short slide came out with a fifth of the frame empty between
-   * the icons and the instruction, and the reference has no such hole
-   * because its stack is settled into the space rather than hung from
-   * the top. So the gaps are measured first and the whole stack is
-   * centred in what is left.
-   */
+  // measure the gaps first, then settle the whole stack into the space
   const gapBefore = (i) => {
     if (i === 0) return 0;
     const prev = flowing[i - 1].block.name;
@@ -890,19 +728,8 @@ export function layOut(ctx, slide, g) {
   const floor = pinned ? 1 - M.foot - pinned.h - M.gap.between : 1 - M.foot;
   const room = floor - M.top;
 
-  /*
-   * Slack goes into the gaps before it goes above and below.
-   *
-   * Centring alone fixed the wrong half of the problem. A short slide —
-   * a closing one with a headline, a line and two icons — centred into a
-   * tidy clump with a fifth of the frame empty under it, which reads as
-   * a slide that ran out rather than one that is spacious. Opening the
-   * gaps instead spends the space where it does something.
-   *
-   * Capped at 1.5x measured, because past that the blocks stop reading
-   * as a stack and start reading as three unrelated things; whatever is
-   * left over after the cap goes back to centring the whole stack.
-   */
+  /* Slack opens the gaps before it centres the stack. Capped at 1.5x:
+     past that the blocks read as unrelated rather than as a stack. */
   const gaps = flowing.map((_, i) => gapBefore(i));
   const gapTotal = gaps.reduce((a, b) => a + b, 0);
   const slack = room - tall;
@@ -984,23 +811,10 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
 /**
  * Cut the subject out with scissors.
  *
- * WHAT CHANGED AND WHY. The first version screened the photograph to a
- * halftone of dots on a solid silhouette. It read as pixellation rather
- * than as print, and it destroyed the face, which is the one thing the
- * slide is carrying. The photograph now stays a photograph. What makes
- * it belong to the sheet is the EDGE.
- *
- * A scissors cut is a sequence of straight strokes at uneven angles,
- * because a hand cutting round a shape makes a few centimetres of
- * progress per stroke and never follows a curve. So the silhouette is
- * traced, then simplified hard: every gentle curve collapses into a
- * chord, the vertices land at irregular intervals, and the result has
- * the flat facets and slightly-wrong corners of something cut out in a
- * hurry. Simplifying is what MAKES the look. A faithful outline would
- * be a die cut, which is the thing it is not.
- *
- * The paper border is that polygon, filled, drawn under the photograph
- * and standing proud of it on every side.
+ * The silhouette is traced then simplified HARD. That is not an
+ * optimisation, it is the effect: a hand cutting round a shape makes a
+ * few centimetres per stroke and never follows a curve. A faithful
+ * outline would be a die cut.
  */
 function cutout(ctx, img, box, g, opts = {}) {
   const H_ = Math.round(box.h);
@@ -1025,13 +839,7 @@ function cutout(ctx, img, box, g, opts = {}) {
     on[p] = Math.hypot(d[i] - key[0], d[i + 1] - key[1], d[i + 2] - key[2]) > tol ? 1 : 0;
   }
 
-  /*
-   * The subject has to sit clear of its own frame or there is nothing to
-   * cut round. These photographs are crops, so the figure runs off two
-   * or three sides of the source and the traced contour then follows the
-   * image border and comes out square. Cropping to the subject and
-   * leaving a margin gives the scissors somewhere to go.
-   */
+  // the subject's own box, for callers that need it
   let bx0 = W_; let by0 = H_; let bx1 = 0; let by1 = 0;
   for (let y = 0; y < H_; y++) {
     for (let x = 0; x < W_; x++) {
@@ -1042,17 +850,9 @@ function cutout(ctx, img, box, g, opts = {}) {
   }
   if (bx1 <= bx0 || by1 <= by0) return;
 
-  /*
-   * TWO polygons at two coarsenesses, which is the whole trick.
-   *
-   * `rough` is the paper: cut fast, few strokes, deliberately imprecise.
-   * `close` is where the photograph is clipped, with many more vertices,
-   * so it follows the actual body. Laying the second over the first is
-   * what "slapped on top of a rough cut-out" means — the paper shows in
-   * uneven slivers where the scissors went wide, and the photograph
-   * reaches the edge where they went tight. One polygon for both gives a
-   * perfectly even border, which is a die cut and not this.
-   */
+  /* Two polygons at two coarsenesses. `rough` is the paper, cut fast;
+     `close` is where the photo clips. One polygon for both would give a
+     perfectly even border, which is a die cut. */
   keepLargest(on, W_, H_);
   const contour = trace(on, W_, H_);
   const rough = simplify(contour, H_ * (opts.rough ?? 0.038));
@@ -1069,11 +869,8 @@ function cutout(ctx, img, box, g, opts = {}) {
       let X = qx;
       let Y = qy;
       if (grow) {
-        /* Offset along the vertex normal rather than outward from the
-           centroid. Radial growth pushes whatever is furthest from the
-           middle furthest out, so the border came out thick at the head
-           and thin at the shoulders. The normal keeps one weight all the
-           way round, which is what "the cut should touch me" needs. */
+        // along the vertex normal: radial growth is thick at the head,
+        // thin at the shoulders
         const a = poly[(i - 1 + n) % n];
         const b = poly[(i + 1) % n];
         let nx = (qy - a[1]) + (b[1] - qy);
@@ -1112,16 +909,9 @@ function cutout(ctx, img, box, g, opts = {}) {
 }
 
 /**
- * Optionally, big square pixels.
- *
- * Ashley's signature look, and it has to be BIG to read as a choice
- * rather than as a compression artefact: drawn small with smoothing off
- * and blown back up, so the blocks are hard-edged squares. `pixels` is
- * how many blocks the picture gets across, so a lower number is
- * chunkier.
- *
- * Off by default. On a face the whole point of the picture is that it is
- * recognisably him, and there is a level of this past which it is not.
+ * Big square pixels, off by default. `pixels` is blocks across, so
+ * lower is chunkier. On a face there is a level past which it stops
+ * being recognisably him.
  */
 function pixelate(img, W_, H_, blocks) {
   if (!blocks) return img;
@@ -1140,14 +930,9 @@ function pixelate(img, W_, H_, blocks) {
 }
 
 /**
- * Throw away everything but the biggest blob.
- *
- * The trace starts at the first set pixel it finds scanning downward and
- * follows THAT connected region, so a single speck of noise in the top
- * corner becomes the whole cut-out: sky-arms came out as a small blue
- * triangle at the left edge, which is a speck of sky that keyed a shade
- * off its own gradient. The subject is always the largest region, so
- * that is the one kept.
+ * Keep only the biggest blob. The trace follows whichever region it hits
+ * first, so one speck of noise becomes the whole cut-out: sky-arms came
+ * out as a blue triangle.
  */
 function keepLargest(on, W_, H_) {
   const label = new Int32Array(W_ * H_).fill(-1);
@@ -1181,13 +966,7 @@ function keepLargest(on, W_, H_) {
   for (let p = 0; p < on.length; p++) if (label[p] !== best) on[p] = 0;
 }
 
-/**
- * Walk the outside of the mask, one pixel at a time.
- *
- * Moore neighbourhood tracing. It follows the outer boundary only, so a
- * gap keyed inside the subject is ignored rather than cut out, which is
- * what you want: scissors do not cut holes.
- */
+/** Moore boundary trace. Outer boundary only: scissors do not cut holes. */
 function trace(on, W_, H_) {
   let sx = -1;
   let sy = -1;
@@ -1218,14 +997,7 @@ function trace(on, W_, H_) {
   return out;
 }
 
-/**
- * Ramer-Douglas-Peucker, run coarse on purpose.
- *
- * At this epsilon it is not an optimisation, it is the effect: a
- * shoulder becomes one stroke, a jaw becomes two, and the vertices land
- * wherever the shape happened to turn hardest, which is exactly where a
- * hand would have stopped and started again.
- */
+/** Ramer-Douglas-Peucker, coarse on purpose. See cutout(). */
 function simplify(pts, eps) {
   if (pts.length < 3) return pts;
   const keep = new Uint8Array(pts.length);
@@ -1261,18 +1033,8 @@ const centroid = (poly) => [
 const median = (a) => [...a].sort((p, q) => p - q)[Math.floor(a.length / 2)];
 
 /**
- * Paper grain.
- *
- * NOT pixellation, which is what the halftone was doing to the
- * photographs and what a bitmap face already supplies plenty of. This is
- * the tooth of the paper: single pixels, a tiny spread of lightness
- * either side of the ground, laid across the whole sheet at very low
- * strength. Under type it does nothing; over a flat field it stops the
- * colour looking like a screen fill.
- *
- * Seeded from the slide, so the same slide grains identically every time
- * it is drawn. The redo loop redraws single slides, and a random grain
- * would mean slide four never quite matching the five around it.
+ * Paper grain: single pixels, low strength. Seeded from the slide, so a
+ * redrawn slide still matches the ones around it.
  */
 function grain(ctx, g, seed) {
   const r = rng(hash(String(seed)));
