@@ -49,7 +49,11 @@ export const M = {
   /* The closing blocks. A recap line is set at the paragraph size and
      given a pitch a little over twice it, so the rules under the lines
      have air and five of them still clear the instruction. */
-  recap:    { size: 0.0208, pitch: 0.049, num: 0.0230, indent: 0.072 },
+  /* `pitch` is the roomy one and `min` the tight one; a recap of eight
+     uses the tight one. `budget` is what the whole list may occupy, so a
+     long recap gets denser instead of pushing the instruction off. */
+  recap:    { size: 0.0208, pitch: 0.049, min: 0.0315, budget: 0.300,
+              num: 0.0230, indent: 0.072 },
   echo:     { size: 0.0170, gap: 0.022 },
 
   /* The hanging object. Read off the reference, which is 736x736: the
@@ -204,13 +208,14 @@ export const BLOCKS = {
         + 'read gets it confirmed.',
     height(_ctx, block) {
       const n = Math.max(1, (block.items ?? []).length);
-      return n * M.recap.pitch;
+      return n * recapPitch(n);
     },
     draw(ctx, block, g, box) {
       const items = block.items ?? [];
       const num = px.size(M.recap.num);
+      const pitch = recapPitch(items.length);
       items.forEach((text, i) => {
-        const y = box.y + i * px.h(M.recap.pitch) + px.size(M.recap.size) * CAP;
+        const y = box.y + i * px.h(pitch) + px.size(M.recap.size) * CAP;
         setType(ctx, g, 'label');
         ctx.font = `${TYPE.label.weight} ${num}px ${TYPE.label.family}`;
         ctx.textAlign = 'left';
@@ -345,17 +350,23 @@ export const BLOCKS = {
    */
   prompt: {
     takes: 'question',
+    /* Optional, because a recap of nine lines and a prompt do not both
+       fit and the list is the point of that slide. Dropping it is a
+       decision the writer makes, not a silent truncation of the list. */
+    optional: true,
     what: 'A question with two to three answers on it, for the closing slide. '
         + 'The reader replies with a letter rather than a sentence, which is '
         + 'the whole reason it works. Ask something only somebody who read '
         + 'THIS carousel could answer, never a general one.',
     height(ctx, block, g, col) {
+      if (!block.question) return 0;
       const n = lines(ctx, block.question, face(g, 'say'), col, trackOf('say')).length;
       const rows = packOptions(ctx, block.options, col).rows.length;
       return M.say.size * CAP + (n - 1) * M.say.size * M.say.lead
         + M.prompt.gap + rows * M.chip.h + (rows - 1) * M.prompt.row;
     },
     draw(ctx, block, g, box) {
+      if (!block.question) return;
       setType(ctx, g, 'say');
       const ls = lines(ctx, block.question, face(g, 'say'), box.w, trackOf('say'));
       ctx.textAlign = alignTo(block.align);
@@ -861,6 +872,23 @@ function packOptions(ctx, options, colW) {
   });
   return { rows, gap };
 }
+
+/**
+ * How far apart recap lines sit, which depends on how many there are.
+ *
+ * A fixed pitch made the block's height proportional to the carousel's
+ * length, so a nine-slide carousel could not be recapped at all: the
+ * list pushed the instruction off the sheet, and the cap that stopped it
+ * was a hardcoded 5 with no relationship to the geometry.
+ *
+ * Now the LIST has the budget and the lines share it. Four or fewer sit
+ * at the roomy pitch, and past that they tighten to a floor, so the
+ * block occupies about the same band whatever it holds. The floor is
+ * 1.5x the text size, which is ordinary leading and where legibility
+ * stops being negotiable.
+ */
+export const recapPitch = (n) => Math.max(M.recap.min,
+  Math.min(M.recap.pitch, M.recap.budget / Math.max(1, n)));
 
 const alignX = (box, align) => (align === 'left' ? box.x
   : align === 'right' ? box.x + box.w : box.x + box.w / 2);

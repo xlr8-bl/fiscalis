@@ -11,8 +11,8 @@
  * actually hits.
  */
 import assert from 'node:assert';
-import { validateSlides, PER_LINE, LIMITS } from '../lib/slides/spec.js';
-import { TEMPLATES, TEMPLATE_NAMES, BLOCKS, SLIDE_GROUND_NAMES } from '../assets/js/slides.js';
+import { validateSlides, PER_LINE, LIMITS, RECAP_MAX } from '../lib/slides/spec.js';
+import { TEMPLATES, TEMPLATE_NAMES, BLOCKS, SLIDE_GROUND_NAMES, M, recapPitch } from '../assets/js/slides.js';
 import { ICON_NAMES, ICONS, PIXEL_NAMES, iconUrl } from '../assets/js/icons.js';
 import { EXAMPLE_SLIDES } from '../lib/slides/examples.js';
 import { slideGuide, probeSlide } from '../lib/slides/guide.js';
@@ -199,6 +199,41 @@ ok('the guide\'s room figures come from the validator, not from a second sum', (
     assert.ok(!at(n + 1),
       `${t.name} claims ${n} lines but ${n + 1} also fits, so the figure is low`);
   }
+});
+
+ok('a recap can list the longest carousel that is allowed to exist', () => {
+  /* The one that matters, and the reason the cap is measured instead of
+     chosen. A carousel runs to LIMITS.slides.max, and if the recap holds
+     fewer than that there is a legal carousel it cannot list. Nothing
+     tells the writer which lines to drop, so they drop some quietly,
+     which is the worst outcome available. */
+  assert.ok(RECAP_MAX.n >= LIMITS.slides.max,
+    `a carousel may be ${LIMITS.slides.max} slides and a recap holds ${RECAP_MAX.n}`);
+  assert.equal(LIMITS.recap.max, RECAP_MAX.n, 'the cap is not the measured ceiling');
+
+  // and it is measured, not written down: it follows the metrics
+  const items = (n) => Array.from({ length: n }, () => 'Read what Google says your hours');
+  const slide = (n) => ({ ...base(), template: 'recap', title: 'The whole check',
+                          recap: items(n) });
+  assert.ok(validateSlides({ slides: [slide(RECAP_MAX.n), base()] }).ok,
+    `${RECAP_MAX.n} lines is the measured ceiling and the validator refuses it`);
+  assert.ok(!validateSlides({ slides: [slide(RECAP_MAX.n + 1), base()] }).ok,
+    `${RECAP_MAX.n + 1} lines also fits, so the ceiling is low`);
+
+  /* The lines share a budget rather than each taking a fixed pitch, so
+     the block stays inside one band whatever it holds. At a fixed pitch
+     ten lines took 0.490 of the sheet against four at 0.196, and the
+     instruction went off the bottom. */
+  const band = (n) => n * recapPitch(n);
+  for (let n = 2; n <= RECAP_MAX.n; n++) {
+    assert.ok(band(n) <= M.recap.budget * 1.06,
+      `${n} recap lines take ${band(n).toFixed(3)} of a ${M.recap.budget} budget`);
+  }
+  assert.ok(band(RECAP_MAX.n) < RECAP_MAX.n * M.recap.pitch * 0.7,
+    'the pitch is not tightening as the list grows');
+  // and never past the point where it stops being readable
+  assert.ok(recapPitch(RECAP_MAX.n) >= M.recap.size * 1.4,
+    'the longest recap is set tighter than ordinary leading');
 });
 
 ok('engagement bait is refused, not just advised against', () => {
