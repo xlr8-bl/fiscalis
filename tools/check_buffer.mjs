@@ -128,9 +128,11 @@ await step('and a future one is handed over as a time', async () => {
   const at = new Date(Date.now() + 86_400_000).toISOString();
   const f = net([ORG, CHANS, MADE]);
   await toBuffer(ENV, { ...CAROUSEL, fetcher: f, scheduleFor: at });
-  const input = f.sent.find((s) => s.query.includes('CreatePost')).variables.i0;
-  assert.equal(input.mode, 'customScheduled');
-  assert.equal(input.dueAt, at);
+  const v = f.sent.find((s) => s.query.includes('CreatePost')).variables;
+  assert.equal(v.i0.mode, 'customScheduled');
+  assert.equal(v.i0.dueAt, at);
+  // the gap runs from the slot, not from now
+  assert.equal(Date.parse(v.i1.dueAt) - Date.parse(at), 30 * 60_000);
 });
 
 await step('it publishes rather than reminding somebody to', async () => {
@@ -139,6 +141,41 @@ await step('it publishes rather than reminding somebody to', async () => {
   const input = f.sent.find((s) => s.query.includes('CreatePost')).variables.i0;
   // `notification` would send a phone reminder and post nothing
   assert.equal(input.schedulingType, 'automatic');
+});
+
+await step('two platforms are spaced, not fired at the same second', async () => {
+  const f = net([ORG, CHANS, MADE]);
+  const out = await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
+  const v = f.sent.find((s) => s.query.includes('CreatePost')).variables;
+  assert.equal(v.i0.mode, 'shareNow', 'the first goes at the slot');
+  assert.equal(v.i1.mode, 'customScheduled', 'the second waits');
+  const later = Date.parse(v.i1.dueAt) - Date.now();
+  assert.ok(later > 25 * 60_000 && later < 35 * 60_000, `${Math.round(later / 60000)} minutes later`);
+  assert.equal(out.tiktok.at, v.i1.dueAt, 'and the result says when');
+});
+
+await step('the gap is a setting, and zero means together', async () => {
+  const f = net([ORG, CHANS, MADE]);
+  await toBuffer(ENV, {
+    ...CAROUSEL, fetcher: f,
+    getSetting: async (_d, k) => (k === 'post.gap_minutes' ? '0' : null),
+  });
+  const v = f.sent.find((s) => s.query.includes('CreatePost')).variables;
+  assert.equal(v.i1.mode, 'shareNow');
+});
+
+await step('a single platform is never made to wait', async () => {
+  const f = net([ORG, CHANS, MADE]);
+  await toBuffer(ENV, { ...CAROUSEL, targets: ['instagram'], fetcher: f });
+  const v = f.sent.find((s) => s.query.includes('CreatePost')).variables;
+  assert.equal(v.i0.mode, 'shareNow');
+  assert.equal(v.i1, undefined);
+});
+
+await step('and the spacing still costs one request', async () => {
+  const f = net([ORG, CHANS, MADE]);
+  await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
+  assert.equal(f.sent.filter((s) => s.query.includes('createPost')).length, 1);
 });
 
 await step('a refusal inside a 200 is a failure, not a success', async () => {

@@ -42,8 +42,13 @@ export const INSTAGRAM = {
   maxCaption: 2200,
   maxHashtags: 30,
   maxMentions: 20,
-  // "limited to 100 API-published posts within a 24-hour moving period"
-  perDay: 100,
+  // "Instagram accounts are limited to 100 API-published posts within a
+  // 24-hour moving period. Carousels count as a single post." But the
+  // same page then caps carousels lower: "Accounts are limited to 50
+  // published posts within a 24-hour period." Everything here IS a
+  // carousel, so 50 is the number that applies and 100 never binds.
+  perDay: 50,
+  perDayAnyPost: 100,
 };
 
 export const TIKTOK = {
@@ -71,6 +76,15 @@ export const TIKTOK = {
   formats: ['image/jpeg', 'image/webp'],
   maxBytes: 20 * 1024 * 1024,
   maxWidth: 1080,
+  // "Each user access_token is limited to six requests per minute."
+  perMinute: 6,
+  // "There may be at most 5 pending shares within any 24-hour period."
+  // A photo post stays pending while TikTok fetches and processes it, so
+  // this is a cap on posts in flight, not on posts a day.
+  pendingPerDay: 5,
+  // The daily post quota is real and its number is not published: it
+  // arrives as spam_risk_too_many_posts. Nothing here can pre-empt it.
+  perDay: null,
 };
 
 export const PLATFORMS = { instagram: INSTAGRAM, tiktok: TIKTOK };
