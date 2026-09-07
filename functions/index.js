@@ -321,6 +321,17 @@ export async function onRequestGet(context) {
   const html = expandLists(await response.text(), entries);
   const values = flatten(settings, entries);
 
+  /* The footer's email is printed and linked, and those were two
+     separate strings: the text came from the setting and the href was
+     typed into the markup. Change the address in the studio and the page
+     showed the new one while the link still opened the old one, which is
+     the kind of fault nobody finds because nobody clicks their own
+     mailto. Derived here so there is one address. */
+  if (values['contact.email']) {
+    values['contact.mailto'] = `mailto:${values['contact.email']}`
+      + '?subject=Coming%20from%20your%20website%3A%20%5BSubject%5D';
+  }
+
   const modes = new Set();
   let head = faqLd(entries);
   const hero = isHeroOnly(settings);
