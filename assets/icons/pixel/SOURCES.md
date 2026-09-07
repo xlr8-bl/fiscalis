@@ -1,21 +1,35 @@
 # The pixel set
 
-Forty-two icons keyed out of four reference sheets Ashley supplied, cut
-by colour distance from each sheet's own corners, split into connected
-regions, and labelled.
+Thirty-seven icons keyed out of four reference sheets Ashley supplied,
+cut by colour distance from each sheet's own corners, split into
+connected regions, and labelled. Six more were keyed badly and deleted.
 
 They are split into two folders on one criterion: whether putting the
 icon on a commercial post exposes Ashley to somebody else's trademark.
 
-## `pixel/` — 25 icons, clear to use
+## `pixel/` — 20 icons, clear to use
 
 Generic pixel-art objects. A folder, a cursor, an hourglass and a heart
 are common visual idioms, not anybody's property.
 
-arcade, bed, biscuit, card, coin, crt, cup, cursor, cursor-line,
-eyeball, folder-open, ghost, heart, heart-real, heart-small, joystick,
-lives, loading, menu, pad, plant, sparkle-blue, sparkle-gold, start,
+arcade, biscuit, card, coin, crt, cup, cursor, cursor-line, folder-open,
+heart, joystick, lives, loading, menu, pad, plant, sparkle-gold, start,
 sunflower
+
+## Cut and thrown away — 6
+
+`eyeball` you asked to go. The other five failed the same test: an icon
+you have to explain is not an icon.
+
+Measurably clipped, solid ink running off the border: `eyeball` (8px
+left, 6px right), `sparkle-blue` (11px left, 16px right).
+
+Cut by the key rather than the crop box, so the border test could not
+see it: `bed` lost its foot and reads as a striped slab, `ghost` has its
+tail sliced flat. `heart-small` came out with a soft halo all round and
+a squared-off lobe, and `heart` and `lives` already say the same thing.
+`heart-real` is a photographic gradient in a pixel set and goes to red
+mush at icon size.
 
 ## `pixel-flagged/` — 17 icons, your call
 

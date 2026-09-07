@@ -84,10 +84,20 @@ export const BLOCKS = {
     draw(ctx, block, g, box) {
       setType(ctx, g, 'title');
       const ls = lines(ctx, block.text, face(g, 'title'), box.w, trackOf('title'));
+      const mix = block.mix ?? 0.18;
+      /* A word wider than the column cannot wrap, so it overflows: a big
+         cut-out narrowed the portrait slide's column to 336px and
+         "checking" is 537px, which came out with its first letter off the
+         sheet. Shrink the headline to fit instead. Clipping is the one
+         failure that is invisible until it has posted. */
+      const widest = Math.max(...ls.map((line, i) =>
+        mixedRun(ctx, g, line, mix, `${block.text}|${i}`).total));
+      const k = widest > box.w ? box.w / widest : 1;
       ls.forEach((line, i) => {
         const y = box.y + px.size(M.title.size) * CAP
           + i * px.size(M.title.size * M.title.lead);
-        ctx.fillText(line, box.x + box.w / 2, y);
+        drawMixed(ctx, g, line, alignX(box, block.align), y, mix,
+                  `${block.text}|${i}`, block.align, k);
       });
     },
   },
@@ -104,11 +114,14 @@ export const BLOCKS = {
     draw(ctx, block, g, box) {
       setType(ctx, g, 'say');
       const ls = lines(ctx, block.text, face(g, 'say'), box.w, trackOf('say'));
+      ctx.textAlign = alignTo(block.align);
+      const x = alignX(box, block.align);
       ls.forEach((line, i) => {
         const y = box.y + px.size(M.say.size) * CAP
           + i * px.size(M.say.size * M.say.lead);
-        ctx.fillText(line, box.x + box.w / 2, y);
+        ctx.fillText(line, x, y);
       });
+      ctx.textAlign = 'center';
     },
   },
 
@@ -476,6 +489,14 @@ function luminance(hex) {
  */
 export const TYPE = {
   title:  { family: 'NeueMontreal', weight: '800', track: -0.070 },
+  /* Every few letters of a headline is swapped to the bitmap face. It is
+     the reference's signature: "Quarterly" and "Taxes" both carry two
+     letters from another face. Which letters is seeded off the headline
+     so a slide redraws identically.
+     scale: NeueBit's x-height is 71 units where Neue Montreal's is 108,
+     so a swapped letter set at the headline size reads as a subscript.
+     1.52 is 108/71, measured on both faces at 200px. */
+  titleAlt: { family: 'NeueBit', weight: '700', track: 0, scale: 1.52 },
   say:    { family: 'NeueMontreal', weight: '500', track: 0 },
   chip:   { family: 'NeueMontreal', weight: '700', track: 0 },
   action: { family: 'NeueMontreal', weight: '500', track: 0 },
@@ -484,13 +505,13 @@ export const TYPE = {
 };
 
 const sizeOf = (role) => px.size(
-  role === 'title' ? M.title.size
+  role === 'title' || role === 'titleAlt' ? M.title.size
     : role === 'action' ? M.action.body
       : role === 'label' ? M.action.label
         : role === 'rail' ? M.rail.size
           : role === 'chip' ? M.chip.h * 0.52
             : M.say.size
-);
+) * (TYPE[role]?.scale ?? 1);
 
 const face = (g, role) => {
   const t = TYPE[role] ?? TYPE.say;
@@ -503,6 +524,51 @@ const trackOf = (role) => {
   return `${t.track * sizeOf(role)}px`;
 };
 
+/**
+ * A headline with a few letters in the other face.
+ *
+ * Drawn per character because canvas has no way to change face mid-run.
+ * The swapped letters are chosen by a hash of the line, so the same
+ * headline always swaps the same letters: the redo loop redraws single
+ * slides, and a random pick would make one slide of a set stop matching.
+ * Spaces and the first letter are never swapped.
+ */
+function mixedRun(ctx, g, line, rate, seed, k = 1) {
+  const at = (role) => `${TYPE[role].weight} ${sizeOf(role) * k}px ${TYPE[role].family}`;
+  const A = at('title');
+  const B = at('titleAlt');
+  const tA = `${TYPE.title.track * sizeOf('title') * k}px`;
+  const tB = `${TYPE.titleAlt.track * sizeOf('titleAlt') * k}px`;
+  const r = rng(hash(seed));
+  const ch = [...line];
+  const pick = ch.map((c, i) => (i > 0 && c !== ' ' && r() < rate));
+  /* Chrome puts the letter-spacing AFTER each character, so the headline's
+     -0.070 pull would drag the next letter into a bitmap glyph, which has
+     no sidebearing to give. Relax the pull on both sides of a swap. */
+  const setAt = (i) => {
+    ctx.font = pick[i] ? B : A;
+    ctx.letterSpacing = (pick[i] || pick[i + 1]) ? tB : tA;
+  };
+  const prev = ctx.textAlign;
+  ctx.textAlign = 'left';
+  let total = 0;
+  ch.forEach((c, i) => { setAt(i); total += ctx.measureText(c).width; });
+  ctx.textAlign = prev;
+  return { ch, setAt, total };
+}
+
+function drawMixed(ctx, g, line, ax, y, rate, seed, align, k = 1) {
+  const { ch, setAt, total } = mixedRun(ctx, g, line, rate, seed, k);
+  ctx.textAlign = 'left';
+  let x = align === 'left' ? ax : align === 'right' ? ax - total : ax - total / 2;
+  ch.forEach((c, i) => {
+    setAt(i);
+    ctx.fillText(c, x, y);
+    x += ctx.measureText(c).width;
+  });
+  ctx.textAlign = 'center';
+}
+
 function setType(ctx, g, role) {
   ctx.fillStyle = g.mark;
   ctx.font = face(g, role);
@@ -510,6 +576,14 @@ function setType(ctx, g, role) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
 }
+
+/* Teaching slides are centred and stay centred. A CTA is not a teaching
+   slide: the figure owns one side, so the type wants to be flush to the
+   other and ragged towards him. */
+const alignX = (box, align) => (align === 'left' ? box.x
+  : align === 'right' ? box.x + box.w : box.x + box.w / 2);
+const alignTo = (align) => (align === 'left' ? 'left'
+  : align === 'right' ? 'right' : 'center');
 
 function round(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -684,6 +758,12 @@ export function layOut(ctx, slide, g) {
   let col = px.w(1 - M.margin * 2);
   let x = px.w(M.margin);
 
+  /* A photograph filling the sheet has its own quiet half, measured in
+     assets/stock/own/SOURCES.md. `column` holds the type inside it: on
+     black-wall the type must stay left of 0.58 or it runs onto his face,
+     and no cut-out is present to narrow the column the usual way. */
+  if (slide.column) col = Math.min(col, px.w(slide.column) - px.w(M.margin));
+
   // a cut-out takes WIDTH, not height: the column gives up its side
   const cut = slide.portrait && placementOf(slide.portrait, slide.context ?? 'cta');
   if (cut && cut.at !== 'centre' && cut.at !== 'cover') {
@@ -712,7 +792,7 @@ export function layOut(ctx, slide, g) {
     const nth = (seen.get(name) ?? 0) + 1;
     seen.set(name, nth);
     const key = nth === 1 ? name : `${name}${nth}`;
-    const block = { name, key, ...blockData(slide, name, key) };
+    const block = { align: slide.align, name, key, ...blockData(slide, name, key) };
     const h = spec.height(ctx, block, g, col);
     (spec.pinned ? (pinned = { block, h, spec }) : flowing.push({ block, h, spec }));
   }
@@ -757,7 +837,12 @@ export function layOut(ctx, slide, g) {
     stretch = Math.min(1.5, 1 + slack / gapTotal);
   }
   const stretched = tall + gapTotal * (stretch - 1);
-  let y = stretched < room ? M.top + (room - stretched) / 2 : M.top;
+  /* Centring is right for a teaching slide, where the stack IS the slide.
+     A CTA has a figure holding the foot, so centring floats the type in
+     the middle with a void above it. `anchor: 'top'` gives the void back
+     to the photograph. */
+  let y = slide.anchor === 'top' || stretched >= room
+    ? M.top : M.top + (room - stretched) / 2;
 
   flowing.forEach((item, i) => {
     y += gaps[i] * stretch;
@@ -790,7 +875,7 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
   const g = SLIDE_GROUNDS[slide.ground] ?? SLIDE_GROUNDS.paper;
   ctx.fillStyle = g.ground;
   ctx.fillRect(0, 0, W, H);
-  if (art.scene) cover(ctx, art.scene, g);
+  if (art.scene) cover(ctx, art.scene, g, slide.veil);
   if (slide.grain !== false) grain(ctx, g, slide.slug ?? slide.title ?? '');
 
   rail(ctx, g, slide);
@@ -815,10 +900,16 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
      bolt through "calls". Behind, the same overlap reads as depth. */
   const back = placed.filter((i) => i.block.name === 'icons' && i.block.where === 'scatter');
   for (const item of back) item.spec.draw(ctx, item.block, g, item.box, art, head);
+  /* The instruction goes LAST. It is an opaque sticker that keeps full
+     width and lies over the photograph rather than dodging it, and
+     layOut pushes it first so it was drawing UNDER: the cut-out ate the
+     label and "DO THIS:" came out as "THIS:". */
+  const front = placed.filter((i) => i.block.name === 'action');
   for (const item of placed) {
-    if (back.includes(item)) continue;
+    if (back.includes(item) || front.includes(item)) continue;
     item.spec.draw(ctx, item.block, g, item.box, art, head);
   }
+  for (const item of front) item.spec.draw(ctx, item.block, g, item.box, art, head);
 
   /* Accents: one or two icons in the headline, ON TOP of whatever the
      icons block is doing. `iconsWhere: 'scatter'` REPLACES the row,
@@ -876,8 +967,14 @@ function cutout(ctx, img, box, g, opts = {}) {
      perfectly even border, which is a die cut. */
   keepLargest(on, W_, H_);
   const contour = trace(on, W_, H_);
+  /* `rough` stays coarse: that is the scissors. `close` is where the
+     PHOTOGRAPH clips, so its tolerance is how far the cut may miss him,
+     and at 0.011 that was ten pixels on a big cut-out. RDP takes a
+     straight chord across a concave run, so ten pixels of slack under a
+     chin or between an arm and a torso came back as wedges of sky inside
+     the cut. It has to touch him, which means vertices. */
   const rough = simplify(contour, H_ * (opts.rough ?? 0.038));
-  const close = simplify(contour, H_ * (opts.coarse ?? 0.011));
+  const close = simplify(contour, H_ * (opts.coarse ?? 0.0035));
   if (rough.length < 3 || close.length < 3) return;
 
   const x0 = opts.x0 ?? (box.x + box.w - W_);
@@ -1124,13 +1221,18 @@ function hash(str) {
 }
 
 /** A photograph filling the frame, with the ground's own screen over it. */
-function cover(ctx, img, g) {
+/* 0.82 was set so type reads anywhere on the sheet, and it costs the
+   photograph: black-wall came back as a tint of the ground with a ghost
+   in it. A slide that puts its type in a region already measured quiet
+   does not need the wash, so the strength is the slide's to set. */
+function cover(ctx, img, g, veil = 0.82) {
   const scale = Math.max(W / img.width, H / img.height);
   const w = img.width * scale;
   const h = img.height * scale;
   ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+  if (veil <= 0) return;
   ctx.save();
-  ctx.globalAlpha = 0.82;
+  ctx.globalAlpha = veil;
   ctx.fillStyle = g.ground;
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
