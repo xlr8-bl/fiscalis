@@ -554,10 +554,20 @@ console.log('\nasking for a phone number without asking anybody to know their ow
      long name. An auto-sized grid track took that width, the row grew
      past the viewport, and the whole page slid sideways with its labels
      off the left edge. */
+  /* A select shows the text of whichever option is chosen and offers no
+     way to show something shorter, so a closed control carrying a
+     country name is a country name in the row. The face is drawn
+     separately and the select sits transparent over it, still a real
+     select: a phone opens its own picker, a keyboard tabs to it. */
+  ok('the closed control shows the flag and the code, and only those',
+     /dialFace\.textContent = flagOf\(dialSel\.value\) \+ ' \+' \+ dialFor\(\)/.test(js));
+  ok('while the list keeps every country\'s name',
+     /flagOf\(list\[i\]\.iso\) \+ '  ' \+ list\[i\]\.name/.test(js));
+  ok('and the select is still the thing being operated',
+     /\.bk__dial-sel\s*\{[^}]*opacity: 0/.test(css)
+     && /<select class="bk__dial-sel"/.test(html));
   ok('the picker cannot widen the page',
-     /grid-template-columns: minmax\(0, 9\.5rem\) minmax\(0, 1fr\)/.test(css));
-  ok('and the dialling code survives being truncated, because it comes first',
-     /flagOf\(list\[i\]\.iso\) \+ ' \+' \+ list\[i\]\.dial/.test(js));
+     /grid-template-columns: minmax\(0, 6\.6rem\) minmax\(0, 1fr\)/.test(css));
 
   ok('WhatsApp is offered without anybody having to switch it on',
      /'meet', 'zoom', 'whatsapp', 'phone'/.test(readFileSync('lib/booking.js', 'utf8')));

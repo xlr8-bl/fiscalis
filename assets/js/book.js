@@ -37,6 +37,7 @@
   var waysWrap = document.querySelector('[data-ways]');
   var phoneField = document.querySelector('[data-phone-field]');
   var dialSel = document.querySelector('[data-dial]');
+  var dialFace = document.querySelector('[data-dial-face]');
   var nationalEl = document.querySelector('[data-national]');
   var phoneFull = document.querySelector('[data-phone-full]');
   var phoneNote = document.querySelector('[data-phone-note]');
@@ -315,13 +316,11 @@
 
     var html = '';
     for (var i = 0; i < list.length; i++) {
-      /* Code before name. The closed control is one line wide on a
-         phone and the browser truncates the end of it, so whichever
-         comes last is the part that disappears. The code is the part
-         that has to stay legible; the full name is there the moment
-         the list opens. */
+      /* The list is where the names belong: a code on its own is not
+         something most people can pick from. The closed control shows
+         only the flag and the code, which is drawn separately. */
       html += '<option value="' + list[i].iso + '">' +
-              flagOf(list[i].iso) + ' +' + list[i].dial + '  ' + list[i].name +
+              flagOf(list[i].iso) + '  ' + list[i].name + '  +' + list[i].dial +
               '</option>';
     }
     dialSel.innerHTML = html;
@@ -330,6 +329,12 @@
       dialSel.value = state.country;
     }
     shapeNumber();
+  }
+
+  /** The flag and the code, which is all the closed control shows. */
+  function paintDialFace() {
+    if (!dialFace || !dialSel) return;
+    dialFace.textContent = flagOf(dialSel.value) + ' +' + dialFor();
   }
 
   /** The mask for the country now chosen, or nothing. */
@@ -377,6 +382,7 @@
     nationalEl.value = out;
     try { nationalEl.setSelectionRange(caret, caret); } catch (e) { /* not focused */ }
 
+    paintDialFace();
     var dial = dialFor();
     if (phoneFull) phoneFull.value = digits ? '+' + dial + digits : '';
     if (phoneNote) {

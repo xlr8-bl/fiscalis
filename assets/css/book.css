@@ -182,35 +182,51 @@ textarea { resize: vertical; min-height: 7rem; line-height: 1.55; }
 }
 
 /* --- the telephone ------------------------------------------------
-   A picker and a field, side by side. The picker is sized to its
-   content rather than sharing the width evenly: a dialling code is four
-   characters and a phone number is eleven, and splitting the row down
-   the middle would leave the number cramped to make room for a flag. */
-/* minmax(0, …) on both tracks, not "auto 1fr". A select sizes to its
-   widest option, and with 245 countries in it the widest is a long one:
-   an auto track took that width, the row grew past the viewport, and the
-   whole page slid sideways with the labels off the left edge. */
-.bk__tel { display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr); gap: .4rem; }
-.bk__dial {
-  appearance: none;
-  width: 100%;
-  min-width: 0;
-  padding: .8rem .6rem;
-  text-overflow: ellipsis;
-  font: inherit;
+   A picker and a field. The picker is narrow now that it shows a flag
+   and a code rather than a country name, which leaves the number the
+   room it needs: eleven digits and their spacing is the longer of the
+   two things on this row.
+
+   The control is two elements stacked. A native select shows the text
+   of whichever option is chosen and offers no way to show something
+   shorter, so the face is drawn underneath and the select sits over it
+   at zero opacity. It is still a real select: a phone opens its own
+   full-screen picker, a keyboard tabs to it and types to search, and
+   the option list carries every country's name. */
+.bk__tel { display: grid; grid-template-columns: minmax(0, 6.6rem) minmax(0, 1fr); gap: .4rem; }
+.bk__dial { position: relative; display: block; }
+.bk__dial-face {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  height: 100%;
+  padding: .8rem .7rem;
+  box-sizing: border-box;
   font-size: .95rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--swatch--beige-100, #e8e8e3);
   background: var(--bk-surface);
-  border: 0;
   border-radius: var(--bk-radius);
+  transition: background .22s ease;
+}
+.bk__dial-sel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
   cursor: pointer;
+  font: inherit;
   /* the option list is the browser's, drawn in its own colours */
   color-scheme: dark;
 }
-.bk__dial:focus {
-  outline: none;
+.bk__dial:hover .bk__dial-face { background: var(--bk-surface-hi); }
+.bk__dial-sel:focus-visible + .bk__dial-face,
+.bk__dial:has(.bk__dial-sel:focus-visible) .bk__dial-face {
   background: var(--bk-surface-hi);
-  box-shadow: inset 0 -1px 0 0 var(--swatch--beige-100, #e8e8e3);
+  outline: 2px solid var(--swatch--beige-300, #d1d1c7);
+  outline-offset: 2px;
 }
 .bk__tel input { font-variant-numeric: tabular-nums; }
 
