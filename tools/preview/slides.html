@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>slides</title>
+<style>body{margin:0;background:#101010;display:grid;place-items:center;min-height:100vh}
+canvas{width:432px;height:540px}</style></head>
+<body><canvas id="c" width="1080" height="1350"></canvas>
+<script type="module">
+/* Drives the content-carousel templates in assets/js/slides.js. The
+   browser is required for the same reason the hook preview needs it:
+   the flow is measured with real font metrics. */
+import { drawSlide, W, H, TEMPLATE_NAMES, slideCatalogue } from '/assets/js/slides.js';
+import { ICON_NAMES, iconUrl } from '/assets/js/icons.js';
+
+const ctx = document.getElementById('c').getContext('2d');
+
+const FILES = {
+  Schola: [['schola-bold.woff2', { weight: '700' }]],
+  Helvetica: [['heros-regular.woff2', { weight: '100 500' }],
+              ['heros-bold.woff2', { weight: '600 900' }]],
+};
+await Promise.all(Object.entries(FILES).flatMap(([n, v]) =>
+  v.map(async ([f, d]) => {
+    const ff = new FontFace(n, `url(/assets/fonts/${f})`, d);
+    await ff.load(); document.fonts.add(ff);
+  })));
+await document.fonts.ready;
+
+const load = (src) => new Promise((res) => {
+  const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src;
+});
+const icons = {};
+await Promise.all(ICON_NAMES.map(async (n) => { icons[n] = await load(iconUrl(n)); }));
+
+window.CATALOGUE = slideCatalogue();
+window.TEMPLATES = TEMPLATE_NAMES;
+window.render = async (slide) => {
+  const art = { icons };
+  if (slide.scene) art.scene = await load(slide.scene);
+  ctx.clearRect(0, 0, W, H);
+  const r = drawSlide(ctx, slide, { art });
+  return { over: r.over, png: document.getElementById('c').toDataURL('image/png') };
+};
+window.READY = true;
+</script></body></html>

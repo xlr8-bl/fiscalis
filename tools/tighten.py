@@ -220,7 +220,9 @@ def main() -> int:
         print(__doc__)
         return 1
     hid = argv[0]
-    path = REFS / f"{hid}.jpg"
+    # a path, for a reference that is not one of the 79 hook sheets
+    path = pathlib.Path(hid) if ("/" in hid or hid.lower().endswith((".png", ".jpg")))\
+        else REFS / f"{hid}.jpg"
     if not path.exists():
         print(f"{hid}: no reference in {REFS.relative_to(ROOT)}")
         return 1
