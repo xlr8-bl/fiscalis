@@ -415,15 +415,26 @@ function drawBarcode(ctx, slot, g, seed) {
   ctx.restore();
 }
 
+/**
+ * Ruled lines across a box.
+ *
+ * `step` rules a square lattice and is what most of the corpus wants: a
+ * faint measure under a layout. `cell` takes a width and a height
+ * separately, for the sheets where the grid is the design rather than
+ * the substrate — a crossword's cells are not square, and ruling them
+ * square puts every letter half a cell away from where it belongs.
+ */
 function drawGrid(ctx, slot, g) {
   const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
   const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
-  const step = px.h(slot.step ?? 0.034);
+  const cw = slot.cell ? px.w(slot.cell[0]) : px.h(slot.step ?? 0.034);
+  const ch = slot.cell ? px.h(slot.cell[1]) : px.h(slot.step ?? 0.034);
+  const line = Math.max(1, Math.round(px.h(slot.weight ?? 0)));
   ctx.save();
   ctx.globalAlpha = slot.alpha ?? 0.1;
   ctx.fillStyle = ink(slot.fill, g);
-  for (let gx = x; gx <= x + w + 0.5; gx += step) ctx.fillRect(Math.round(gx), y, 1, h);
-  for (let gy = y; gy <= y + h + 0.5; gy += step) ctx.fillRect(x, Math.round(gy), w, 1);
+  for (let gx = x; gx <= x + w + 0.5; gx += cw) ctx.fillRect(Math.round(gx), y, line, h);
+  for (let gy = y; gy <= y + h + 0.5; gy += ch) ctx.fillRect(x, Math.round(gy), w, line);
   ctx.restore();
 }
 
@@ -1043,6 +1054,56 @@ function drawPill(ctx, slot, copy, g) {
   ctx.restore();
 }
 
+/**
+ * A run of crossword cells, one per character, with a letter in each.
+ *
+ * The device is a reading rhythm rather than a decoration: letters in
+ * cells cannot be taken in at a glance, so the eye has to walk them, and
+ * walking them is the whole reason these sheets stop a scroll. That only
+ * works if the cells are square-ish and touching — spaced cells read as
+ * a keyboard, and a run set as ordinary tracked type reads as type.
+ *
+ * A space leaves a gap rather than an empty cell, which is what lets one
+ * run hold two words without looking like a grid with a hole in it.
+ */
+function drawTiles(ctx, slot, copy, g) {
+  /* The primitive registry hands every drawer the WHOLE copy map, not
+     the slot's own value — only the type path indexes it. The first
+     version of this took `copy` for the string and rendered
+     "[OBJECT OBJECT]" one letter to a cell, very neatly. */
+  const own = copy?.[slot.id] ?? slot.text;
+  const text = String(Array.isArray(own) ? own.join(' ') : (own ?? '')).toUpperCase();
+  if (!text) return;
+  const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
+  const w = px.w(slot.box[2]), h = px.h(slot.box[3]);
+  const n = text.length;
+  const cell = w / n;
+
+  const face = ink(slot.fill ?? 'ground', g);      // the cell
+  const letter = ink(slot.on ?? 'mark', g);        // the character in it
+  const line = Math.max(1, h * (slot.weight ?? 0.03));
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = fontAt(slot, h * (slot.size ?? 0.62));
+  for (let i = 0; i < n; i++) {
+    const ch = text[i];
+    if (ch === ' ') continue;
+    const cx = x + i * cell;
+    ctx.fillStyle = face;
+    ctx.fillRect(cx, y, cell, h);
+    if (slot.rule !== false) {
+      ctx.strokeStyle = letter;
+      ctx.lineWidth = line;
+      ctx.strokeRect(cx + line / 2, y + line / 2, cell - line, h - line);
+    }
+    ctx.fillStyle = letter;
+    ctx.fillText(ch, cx + cell / 2, y + h * 0.54);
+  }
+  ctx.restore();
+}
+
 /** A wireframe sphere: latitude and longitude, no fill. Corpus furniture. */
 function drawGlobe(ctx, slot, g) {
   const x = px.x(slot.box[0]), y = px.y(slot.box[1]);
@@ -1312,6 +1373,7 @@ const DRAW = {
   sparkle: (ctx, s, _c, g) => drawSparkle(ctx, s, g),
   rings: (ctx, s, _c, g) => drawRings(ctx, s, g),
   pill: (ctx, s, c, g) => drawPill(ctx, s, c, g),
+  tiles: (ctx, s, c, g) => drawTiles(ctx, s, c, g),
   frame: (ctx, s, _c, g) => drawFrame(ctx, s, g),
   wash: (ctx, s, _c, g) => drawWash(ctx, s, g),
   frost: (ctx, s, c, g, _r, seed, spec) => drawFrost(ctx, s, c, g, spec, seed),
