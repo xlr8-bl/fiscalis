@@ -9,6 +9,7 @@
  * things to discover on a phone screen later.
  */
 import { chromium } from 'playwright';
+import { CHOSEN } from '../lib/hooks/chosen.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
 const base = process.env.BASE || 'http://127.0.0.1:8899';
@@ -27,7 +28,11 @@ p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
 await p.goto(`${base}/tools/preview/compose.html`, { waitUntil: 'networkidle' });
 if (errs.length) { console.error('page failed:\n  ' + errs.join('\n  ')); await b.close(); process.exit(1); }
 
-const ids = want.length ? want : await p.evaluate(() => window.IDS);
+/* The chosen thirteen by default. `--all` renders the scrapped ones too,
+   which is for looking at rather than for shipping. */
+const all = await p.evaluate(() => window.IDS);
+const ids = want.length ? want
+  : (process.argv.includes('--all') ? all : all.filter((i) => CHOSEN.includes(i)));
 // --all-examples draws every fill of every layout, which is how you see
 // whether a layout actually takes a different subject or only looks like
 // it does

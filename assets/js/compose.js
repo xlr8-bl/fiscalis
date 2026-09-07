@@ -555,6 +555,19 @@ function drawObjects(ctx, slot, g, kinds) {
 }
 
 function drawArt(ctx, slot, img, g, report) {
+  /* `flip: 'x'` mirrors the picture. It is a composition tool, not a
+     retouch: a figure standing at the left of a sheet should face into
+     the page, and the photograph was taken facing the other way. Wraps
+     the whole slot, so it applies to every path below. */
+  if (slot.flip === 'x') {
+    const cx = px.x(slot.box[0]) + px.w(slot.box[2]) / 2;
+    ctx.save();
+    ctx.translate(cx * 2, 0);
+    ctx.scale(-1, 1);
+    drawArt(ctx, { ...slot, flip: null }, img, g, report);
+    ctx.restore();
+    return;
+  }
   // a row: several cut-outs across one box, bottom-aligned to a common
   // baseline so they read as a set rather than as loose icons
   if (Array.isArray(img)) {
@@ -1437,7 +1450,54 @@ const DRAW = {
  * @param copy   {slotId: string | string[]} — what the agent wrote
  * @param art    {slotId: HTMLImageElement} — already decoded
  */
-export function compose(ctx, spec, copy = {}, art = {}) {
+/**
+ * The furniture a carousel's FIRST page carries and no other page does:
+ * whose it is, and the fact that there is more.
+ *
+ * Drawn after everything else, at the foot, because it is the one thing
+ * on the sheet that is not about the subject. A reader who has swiped
+ * knows both facts already, so it goes on page one alone.
+ *
+ * The arrow is drawn rather than typed. A chevron in a text run depends
+ * on the face carrying the glyph, and half of these faces do not.
+ */
+function firstPage(ctx, g, handle = '@web3ashley') {
+  const y = px.y(0.947);
+  const s = px.h(0.0165);
+  const dark = pickPolarity(ctx, { x: 0, y: y - s * 2, w: W, h: s * 4 },
+                            { light: g.ground, dark: g.mark });
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = dark.colour;
+  ctx.font = `600 ${s}px ${FACES.grotesque}`;
+  ctx.letterSpacing = `${s * 0.06}px`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(handle, px.x(0.062), y);
+
+  const label = 'SWIPE';
+  ctx.textAlign = 'right';
+  const right = px.x(0.938);
+  const arrow = s * 1.5;
+  ctx.fillText(label, right - arrow - s * 0.5, y);
+
+  // a chevron and a stroke, at the cap height of the word beside it
+  const cy = y - s * 0.26;
+  ctx.strokeStyle = dark.colour;
+  ctx.lineWidth = Math.max(2, s * 0.13);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(right - arrow, cy);
+  ctx.lineTo(right, cy);
+  ctx.moveTo(right - arrow * 0.42, cy - arrow * 0.28);
+  ctx.lineTo(right, cy);
+  ctx.lineTo(right - arrow * 0.42, cy + arrow * 0.28);
+  ctx.stroke();
+  ctx.restore();
+}
+
+export function compose(ctx, spec, copy = {}, art = {}, opts = {}) {
   const g = GROUNDS[spec.ground] ?? GROUNDS.paper;
   const seed = spec.seed ?? hash(spec.id ?? 'hook');
   const report = { tight: [], missing: [], id: spec.id };
@@ -1490,6 +1550,9 @@ export function compose(ctx, spec, copy = {}, art = {}) {
 
     drawType(ctx, slot, text, g, report);
   }
+
+  // before the grain, so it sits under the same paper the sheet has
+  if (opts.first !== false) firstPage(ctx, g, opts.handle);
 
   grain(ctx, W, H, spec.grain ?? 0.026);
 

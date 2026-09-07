@@ -120,7 +120,7 @@ window.render = async (id, n = 0) => {
            own frame, so those go against the sheet's right and bottom,
            wherever the layout happened to put the box. Anywhere else and
            both straight cuts hang in the middle of the sheet. */
-        if (cut && got.snap?.includes('right') && got.snap?.includes('bottom')) {
+        if (cut && slot.pin !== false && got.snap?.includes('right') && got.snap?.includes('bottom')) {
           const bh = 0.52;
           const bw = (bh * 1350 * (cut.width / cut.height)) / 1080;
           boxes[slot.id] = [1 - bw, 1 - bh, bw, bh];
