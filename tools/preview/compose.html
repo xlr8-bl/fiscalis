@@ -84,11 +84,25 @@ window.render = async (id, n = 0) => {
      against stock while his four photographs sat in the repository. */
   const art = {};
   const used = {};
+  /* ONE photograph of him a sheet. Four faces on one poster is a
+     collage of the same person, and the second one stops being a
+     picture of Ashley and becomes wallpaper. Later art slots fall
+     through to stock, or to the box with the brief in it. */
+  let mine = 0;
+  const boxes = {};
   for (const slot of spec.slots.filter((x) => x.t === 'art')) {
     const got = resolveArt(slot, { ...(window.OWN ? { own: window.OWN } : {}),
                                    stock: STOCK, cut: CUTOUTS, seed: seedOf(id) + n });
+    if (got.from === 'own' && mine >= 1) {
+      const fb = resolveArt(slot, { own: {}, stock: STOCK, cut: CUTOUTS, seed: seedOf(id) + n });
+      used[slot.id] = fb.from;
+      if (fb.urls?.length > 1) art[slot.id] = await Promise.all(fb.urls.map(get));
+      else if (fb.url) art[slot.id] = await get(fb.url);
+      continue;
+    }
     used[slot.id] = got.from;
     if (got.from === 'own') {
+      mine++;
       /* Everything the sheets already do to him, done here too, with the
          SLIDE renderer's own functions so there is one definition of the
          look rather than two that drift.
@@ -99,8 +113,18 @@ window.render = async (id, n = 0) => {
          instead of floating in the middle of its slot. */
       const im = await get(got.url);
       if (im && got.cut) {
-        const s = standee(im, { style: got.cut });
-        art[slot.id] = (got.stands && s) ? [s] : (s ?? im);
+        const cut = standee(im, { style: got.cut });
+        art[slot.id] = (got.stands && cut) ? [cut] : (cut ?? im);
+        /* A photograph cut on two sides has ONE position and it is not
+           the slot's. blue-flat runs off the right and the bottom of its
+           own frame, so those go against the sheet's right and bottom,
+           wherever the layout happened to put the box. Anywhere else and
+           both straight cuts hang in the middle of the sheet. */
+        if (cut && got.snap?.includes('right') && got.snap?.includes('bottom')) {
+          const bh = 0.52;
+          const bw = (bh * 1350 * (cut.width / cut.height)) / 1080;
+          boxes[slot.id] = [1 - bw, 1 - bh, bw, bh];
+        }
       } else if (im) {
         art[slot.id] = screened(im, im.naturalWidth, im.naturalHeight);
       }
@@ -108,7 +132,10 @@ window.render = async (id, n = 0) => {
     else if (got.url) art[slot.id] = await get(got.url);
   }
   ctx.clearRect(0, 0, W, H);
-  const report = compose(ctx, spec, copy, art);
+  const drawn = Object.keys(boxes).length
+    ? { ...spec, slots: spec.slots.map((x) => (boxes[x.id] ? { ...x, box: boxes[x.id] } : x)) }
+    : spec;
+  const report = compose(ctx, drawn, copy, art);
   return { url: ctx.canvas.toDataURL('image/jpeg', 0.92), ...report, art: used };
 };
 void FACES;
