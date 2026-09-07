@@ -245,7 +245,7 @@ export const BLOCKS = {
     height(_ctx, block) {
       return (block.where ?? 'row') === 'row' ? M.icons.h : 0;
     },
-    draw(ctx, block, g, box, art) {
+    draw(ctx, block, g, box, art, head) {
       const names = (block.icons ?? []).filter((n) => ICON_NAMES.includes(n));
       if (!names.length) return;
       const s = px.h(M.icons.h);
@@ -292,6 +292,54 @@ export const BLOCKS = {
           ctx.translate(box.x + px.w(0.04), box.y - px.h(0.02) - i * step);
           ctx.rotate(i % 2 ? 0.12 : -0.12);
           ctx.drawImage(img, -s * 0.4, -s * 0.4, s * 0.8, s * 0.8);
+          ctx.restore();
+        });
+      } else if (where === 'scatter' && head) {
+        /*
+         * Icons dropped INTO the headline, which is the arrangement that
+         * makes a sheet look made rather than filled in. Three rules,
+         * all taken from how it is done well:
+         *
+         * They go where the type is NOT. A headline is centred and
+         * ragged, so every line leaves a wedge of empty sheet at each
+         * end; that is where an icon sits, half over the last letter.
+         * Dropped anywhere else it lands in the middle of a word.
+         *
+         * They are not all one size. The reference's laptop is nearly
+         * twice its cursor. A row of identical marks reads as a row
+         * wherever you put it.
+         *
+         * They are turned, and the angles are FIXED per position rather
+         * than random, because a random tilt means the same slide drawn
+         * twice is two slides and the redo loop redraws single slides.
+         */
+        const spots = [];
+        head.lines.forEach((line, i) => {
+          const cx = head.box.x + head.box.w / 2;
+          const top = head.box.y + i * px.size(M.title.size * M.title.lead);
+          const capH = px.size(M.title.size) * CAP;
+          // the wedge at each end of this line, just outside the words
+          /* Just PAST the last letter, not on it. Centred on the line's
+             end put the icon squarely over a word: "nobody" lost its d
+             and its y. Out by a third of the icon's own width, it laps
+             the final letter and no more, which is the reference. */
+          const out = s * 0.55;
+          spots.push({ x: cx + line.w / 2 + out, y: top + capH * 0.10, s: 1.30, r: 0.12 });
+          spots.push({ x: cx - line.w / 2 - out * 0.8, y: top + capH * 0.85, s: 0.85, r: -0.28 });
+        });
+
+        names.slice(0, 4).forEach((name, i) => {
+          const img = art?.icons?.[name];
+          if (!img) return;
+          /* Alternate ends rather than taking them in order, so two
+             icons never stack at the same side of one line. */
+          const spot = spots[(i * 3 + 1) % spots.length];
+          if (!spot) return;
+          const size = s * spot.s;
+          ctx.save();
+          ctx.translate(spot.x, spot.y);
+          ctx.rotate(spot.r);
+          ctx.drawImage(img, -size / 2, -size / 2, size, size);
           ctx.restore();
         });
       } else {
@@ -906,7 +954,30 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
 
   rail(ctx, g, slide);
   const { placed, over } = layOut(ctx, slide, g);
-  for (const item of placed) item.spec.draw(ctx, item.block, g, item.box, art);
+
+  /* Where the headline landed, and how wide each of its lines is.
+     `scatter` needs it: an icon dropped into type has to know where the
+     type's ragged edges are, or it lands in the middle of a word. */
+  const t = placed.find((i) => i.block.name === 'title');
+  const head = t ? {
+    box: t.box,
+    lines: lines(ctx, t.block.text, face(g, 'title'), t.box.w, trackOf('title'))
+      .map((line) => {
+        ctx.font = face(g, 'title');
+        ctx.letterSpacing = trackOf('title');
+        return { text: line, w: ctx.measureText(line).width };
+      }),
+  } : null;
+
+  /* Scattered icons go UNDER the type. They lap the headline by design,
+     and on top they take letters out of it: an X across "nobody" and a
+     bolt through "calls". Behind, the same overlap reads as depth. */
+  const back = placed.filter((i) => i.block.name === 'icons' && i.block.where === 'scatter');
+  for (const item of back) item.spec.draw(ctx, item.block, g, item.box, art, head);
+  for (const item of placed) {
+    if (back.includes(item)) continue;
+    item.spec.draw(ctx, item.block, g, item.box, art, head);
+  }
   return { over };
 }
 
