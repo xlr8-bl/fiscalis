@@ -493,6 +493,88 @@ console.log('\nlong enough notice to answer at all');
        .options.some(([v]) => v === '0'));
 }
 
+console.log('\nasking for a phone number without asking anybody to know their own code');
+{
+  const js = readFileSync('assets/js/book.js', 'utf8');
+  const css = readFileSync('assets/css/book.css', 'utf8');
+  const html = readFileSync('book.html', 'utf8');
+  const data = readFileSync('assets/js/countries.js', 'utf8');
+  const slots = readFileSync('functions/api/slots.js', 'utf8');
+
+  const CODES = {};
+  new Function('window', data)({ get COUNTRY_CODES() { return CODES; },
+                                set COUNTRY_CODES(v) { Object.assign(CODES, v); } });
+
+  ok('every country is in the picker', Object.keys(CODES).length > 200,
+     `${Object.keys(CODES).length} of them`);
+  ok('and each carries a dialling code',
+     Object.values(CODES).every(([dial]) => /^\d+$/.test(dial)));
+
+  /* The masks are libphonenumber's own, matched against each country's
+     example MOBILE number rather than its first listed format, because
+     this field is a number somebody will be rung on and landline
+     formats are frequently different. */
+  const shape = (iso, digits) => {
+    const mask = CODES[iso][1];
+    if (!mask) return digits;
+    let out = '', at = 0;
+    for (const ch of mask) {
+      if (ch !== '#') { out += ch; continue; }
+      if (at < digits.length) out += digits[at++];
+    }
+    return out + digits.slice(at);
+  };
+  const cases = [
+    ['CM', '678839559', '6 78 83 95 59'],
+    ['US', '2015550123', '(201) 555-0123'],
+    ['GB', '7400123456', '7400 123456'],
+    ['NG', '8021234567', '802 123 4567'],
+    ['FR', '612345678', '6 12 34 56 78'],
+    ['JP', '9012345678', '90-1234-5678'],
+    ['IN', '8123456789', '81234 56789'],
+    ['CA', '5062345678', '(506) 234-5678'],
+  ];
+  for (const [iso, digits, want] of cases) {
+    ok(`${iso} lays a number out the way ${iso} writes one`,
+       shape(iso, digits) === want, `${shape(iso, digits)}`);
+  }
+
+  ok('two controls, not one box asking for both',
+     /data-dial/.test(html) && /data-national/.test(html));
+  ok('and what is sent is neither of them, but the two joined',
+     /data-phone-full/.test(html) && /'\+' \+ dial \+ digits/.test(js));
+  ok('the picker is preselected from where the request came from',
+     /cf-ipcountry/.test(slots) && /state\.country && window\.COUNTRY_CODES/.test(js));
+  ok('names come from the reader\'s own locale, not a table of English ones',
+     /Intl\.DisplayNames/.test(js) && !/'Cameroon'/.test(js));
+  ok('flags are derived from the code rather than stored', /regional/i.test(js)
+     || /FLAG_A/.test(js));
+
+  /* A select sizes to its widest option, and one of 245 countries has a
+     long name. An auto-sized grid track took that width, the row grew
+     past the viewport, and the whole page slid sideways with its labels
+     off the left edge. */
+  ok('the picker cannot widen the page',
+     /grid-template-columns: minmax\(0, 9\.5rem\) minmax\(0, 1fr\)/.test(css));
+  ok('and the dialling code survives being truncated, because it comes first',
+     /flagOf\(list\[i\]\.iso\) \+ ' \+' \+ list\[i\]\.dial/.test(js));
+
+  ok('WhatsApp is offered without anybody having to switch it on',
+     /'meet', 'zoom', 'whatsapp', 'phone'/.test(readFileSync('lib/booking.js', 'utf8')));
+}
+
+console.log('\nthe footer pattern, where the shader cannot run');
+{
+  const css = readFileSync('assets/css/site.css', 'utf8');
+  const { statSync } = await import('node:fs');
+  ok('there is a still of it', statSync('assets/stock/footer-band.webp').size > 0,
+     `${Math.round(statSync('assets/stock/footer-band.webp').size / 1024)}KB`);
+  ok('and it is laid under the canvas',
+     /\.footer_canvas_bottom\s*\{[^}]*footer-band\.webp/.test(css));
+  ok('covering rather than stretching, so the dots stay round',
+     /\.footer_canvas_bottom\s*\{[^}]*background-size: cover/.test(css));
+}
+
 console.log('\nthe diary in the studio');
 {
   const studioApi = readFileSync('functions/api/studio/[[route]].js', 'utf8');

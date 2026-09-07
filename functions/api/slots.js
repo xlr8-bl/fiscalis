@@ -17,7 +17,7 @@ const json = (body, status = 200) =>
     headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
   });
 
-export async function onRequestGet({ env }) {
+export async function onRequestGet({ env, request }) {
   if (!env.DB) return json({ days: [], reason: 'No database on this deployment.' });
   try {
     await releaseStale(env.DB);
@@ -25,6 +25,11 @@ export async function onRequestGet({ env }) {
     return json({
       days,
       today,
+      /* Cloudflare puts the country on every request it proxies, so the
+         dialling code can be right before anybody touches it. It is a
+         default and nothing more: the picker is still a picker, and a
+         visitor on a VPN just changes it. */
+      country: request.headers.get('cf-ipcountry') || '',
       platforms: shape.platforms,
       minutes: shape.minutes,
       window: shape.window,

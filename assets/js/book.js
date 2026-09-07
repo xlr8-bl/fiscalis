@@ -36,6 +36,10 @@
   var slotsWrap = document.querySelector('[data-slots]');
   var waysWrap = document.querySelector('[data-ways]');
   var phoneField = document.querySelector('[data-phone-field]');
+  var dialSel = document.querySelector('[data-dial]');
+  var nationalEl = document.querySelector('[data-national]');
+  var phoneFull = document.querySelector('[data-phone-full]');
+  var phoneNote = document.querySelector('[data-phone-note]');
   var msgEl = document.getElementById('bk-msg');
   var countEl = document.querySelector('[data-count]');
   var summary = document.querySelectorAll('[data-summary-duration]');
@@ -48,7 +52,7 @@
   if (openedAt) openedAt.value = String(Date.now());
 
   var state = { days: [], today: '', day: '', start: '', how: '',
-               ways: [], minutes: 45, expanded: {} };
+               ways: [], country: '', minutes: 45, expanded: {} };
 
   /* A step that is behind you looks different from one still ahead.
      Nothing here changes what the form does; it is the only feedback
@@ -184,6 +188,7 @@
         state.days = j.days || [];
         state.today = j.today || '';
         state.ways = j.platforms || [];
+        state.country = (j.country || '').toUpperCase();
         state.minutes = j.minutes || 45;
         // the length is said twice on the page, once above the form and
         // once in the particulars below it
@@ -192,6 +197,7 @@
         }
         drawDays();
         drawWays();
+        drawDialCodes();
       })
       .catch(function () {
         if (daysWrap) {
@@ -269,6 +275,125 @@
     showPhone();
   }
 
+  /* ---- the telephone -------------------------------------------------
+
+     Two controls, because a phone number is two facts. Asking for both
+     in one box asks somebody to know their own dialling code and to
+     guess whether it wants 00, +, or neither, and then quietly refuses
+     whichever they chose. The picker knows every code, and the field
+     beside it lays the number out the way that country writes it down:
+     6 78 83 95 59 in Cameroon, (201) 555-0123 in the States.
+
+     What gets SENT is neither of those. The two are joined into one
+     E.164 string, +237678839559, in a hidden field, because that is the
+     only form a phone, a dialler or WhatsApp can act on. The pretty one
+     is for the person typing. */
+
+  var FLAG_A = 127397;   // 'A' in regional indicators, minus 'A'
+  var flagOf = function (iso) {
+    if (!/^[A-Z]{2}$/.test(iso)) return '';
+    return String.fromCodePoint(iso.charCodeAt(0) + FLAG_A)
+         + String.fromCodePoint(iso.charCodeAt(1) + FLAG_A);
+  };
+
+  /* Names in the reader's own language rather than a table of English
+     ones, which would be the wrong answer in every country but one. */
+  var namer = null;
+  try { namer = new Intl.DisplayNames(undefined, { type: 'region' }); } catch (e) { namer = null; }
+  var nameOf = function (iso) {
+    try { return (namer && namer.of(iso)) || iso; } catch (e) { return iso; }
+  };
+
+  function drawDialCodes() {
+    if (!dialSel || !window.COUNTRY_CODES) return;
+    var list = [];
+    for (var iso in window.COUNTRY_CODES) {
+      if (!Object.prototype.hasOwnProperty.call(window.COUNTRY_CODES, iso)) continue;
+      list.push({ iso: iso, dial: window.COUNTRY_CODES[iso][0], name: nameOf(iso) });
+    }
+    list.sort(function (a, b) { return a.name.localeCompare(b.name); });
+
+    var html = '';
+    for (var i = 0; i < list.length; i++) {
+      /* Code before name. The closed control is one line wide on a
+         phone and the browser truncates the end of it, so whichever
+         comes last is the part that disappears. The code is the part
+         that has to stay legible; the full name is there the moment
+         the list opens. */
+      html += '<option value="' + list[i].iso + '">' +
+              flagOf(list[i].iso) + ' +' + list[i].dial + '  ' + list[i].name +
+              '</option>';
+    }
+    dialSel.innerHTML = html;
+    // where the request came from, which Cloudflare already knows
+    if (state.country && window.COUNTRY_CODES[state.country]) {
+      dialSel.value = state.country;
+    }
+    shapeNumber();
+  }
+
+  /** The mask for the country now chosen, or nothing. */
+  var maskFor = function () {
+    var row = window.COUNTRY_CODES && window.COUNTRY_CODES[dialSel && dialSel.value];
+    return row ? row[1] : '';
+  };
+  var dialFor = function () {
+    var row = window.COUNTRY_CODES && window.COUNTRY_CODES[dialSel && dialSel.value];
+    return row ? row[0] : '';
+  };
+
+  /**
+   * Lay the digits into the country's own shape as they are typed.
+   *
+   * The caret is put back where it belongs afterwards, counted in DIGITS
+   * rather than characters: inserting a space shifts every position
+   * after it, and a field that jumps the caret to the end on every
+   * keystroke cannot be corrected in the middle.
+   */
+  function shapeNumber() {
+    if (!nationalEl) return;
+    var digits = nationalEl.value.replace(/\D/g, '');
+    var before = nationalEl.value.slice(0, nationalEl.selectionStart || 0)
+                   .replace(/\D/g, '').length;
+
+    var mask = maskFor();
+    var out = '', at = 0, seen = 0, caret = null;
+    if (mask) {
+      for (var i = 0; i < mask.length && at < digits.length; i++) {
+        if (mask.charAt(i) === '#') {
+          out += digits.charAt(at++);
+          if (++seen === before) caret = out.length;
+        } else {
+          out += mask.charAt(i);
+        }
+      }
+      // anything past what the country's shape expects still belongs to them
+      if (at < digits.length) out += digits.slice(at);
+    } else {
+      out = digits;
+    }
+    if (caret === null) caret = out.length;
+
+    nationalEl.value = out;
+    try { nationalEl.setSelectionRange(caret, caret); } catch (e) { /* not focused */ }
+
+    var dial = dialFor();
+    if (phoneFull) phoneFull.value = digits ? '+' + dial + digits : '';
+    if (phoneNote) {
+      phoneNote.textContent = digits
+        ? 'I will ring +' + dial + ' ' + out + '.'
+        : '';
+    }
+    markSteps();
+  }
+
+  if (dialSel) dialSel.addEventListener('change', function () {
+    // a new country means a new shape, and the digits are still theirs
+    shapeNumber();
+    if (nationalEl) nationalEl.focus();
+  });
+  if (nationalEl) nationalEl.addEventListener('input', shapeNumber);
+
   /* The number is asked for only when it is the thing I would dial, and
      it is required then. A WhatsApp call to an email address does not
      exist, and finding that out after confirming means another email. */
@@ -280,10 +405,9 @@
     }
     var need = !!(picked && picked.needs);
     phoneField.hidden = !need;
-    var input = phoneField.querySelector('input');
-    if (input) {
-      input.required = need;
-      if (!need) input.value = '';
+    if (nationalEl) {
+      nationalEl.required = need;
+      if (!need) { nationalEl.value = ''; shapeNumber(); }
     }
   }
 
@@ -387,7 +511,7 @@
       email: (form.querySelector('[name="email"]') || {}).value || '',
       about: (form.querySelector('[name="about"]') || {}).value || '',
       platform: state.how,
-      phone: (form.querySelector('[name="phone"]') || {}).value || '',
+      phone: phoneFull ? phoneFull.value : '',
       company: (form.querySelector('[name="company"]') || {}).value || '',
       opened_at: openedAt ? openedAt.value : ''
     };

@@ -181,6 +181,39 @@ textarea { resize: vertical; min-height: 7rem; line-height: 1.55; }
   position: absolute; opacity: 0; pointer-events: none;
 }
 
+/* --- the telephone ------------------------------------------------
+   A picker and a field, side by side. The picker is sized to its
+   content rather than sharing the width evenly: a dialling code is four
+   characters and a phone number is eleven, and splitting the row down
+   the middle would leave the number cramped to make room for a flag. */
+/* minmax(0, …) on both tracks, not "auto 1fr". A select sizes to its
+   widest option, and with 245 countries in it the widest is a long one:
+   an auto track took that width, the row grew past the viewport, and the
+   whole page slid sideways with the labels off the left edge. */
+.bk__tel { display: grid; grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr); gap: .4rem; }
+.bk__dial {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  padding: .8rem .6rem;
+  text-overflow: ellipsis;
+  font: inherit;
+  font-size: .95rem;
+  color: var(--swatch--beige-100, #e8e8e3);
+  background: var(--bk-surface);
+  border: 0;
+  border-radius: var(--bk-radius);
+  cursor: pointer;
+  /* the option list is the browser's, drawn in its own colours */
+  color-scheme: dark;
+}
+.bk__dial:focus {
+  outline: none;
+  background: var(--bk-surface-hi);
+  box-shadow: inset 0 -1px 0 0 var(--swatch--beige-100, #e8e8e3);
+}
+.bk__tel input { font-variant-numeric: tabular-nums; }
+
 /* --- how the call happens -----------------------------------------
    Two lines to a card: the name of the thing, and what will follow from
    picking it. "I send a link" against "I call you" is the whole

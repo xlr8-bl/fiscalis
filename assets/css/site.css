@@ -5126,3 +5126,26 @@ body[data-navigation-status="is-open"] .navbar_cta_wrap {
   .footer_legal_link { transition: none; }
 }
 
+/* ==================================================================
+   The footer's pattern, on the pages that cannot draw it.
+
+   The band under the wordmark is a WebGL shader, drawn by app.js and
+   three.js. Those are on the home page and nowhere else, because six
+   hundred kilobytes of renderer to animate a decorative strip is not a
+   trade the booking page should make. So every other page showed a flat
+   ground where the home page shows the pattern, and the footer stopped
+   looking like the same footer.
+
+   This is a still of that shader's own output, captured from the running
+   home page rather than approximated, and laid under the canvas. Where
+   the shader runs it paints over this and moves. Where it does not, the
+   pattern is still there. It also gives the home page something correct
+   to show in the moment before the shader reveals, instead of a flat
+   band that then jumps.
+   ================================================================== */
+.footer_canvas_bottom {
+  background-image: url("/assets/stock/footer-band.webp");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
