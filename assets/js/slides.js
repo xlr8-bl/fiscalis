@@ -77,7 +77,7 @@ export const M = {
      right quarter laps over the panel's left edge, and the panel's top
      starts 63% of the way down the label. */
   action:   { label: 0.0355, body: 0.0195, lead: 1.14,
-              labelX: 0.1893, panelX: 0.3386, panelW: 0.4612,
+              labelX: 0.1893, labelW: 0.2075, panelX: 0.3386, panelW: 0.4612,
               padX: 0.018, padY: 0.016 },
 
   /* The gaps between blocks, as a fraction of the frame's height. Read
@@ -324,7 +324,8 @@ export const BLOCKS = {
 
       // the label last, so it laps OVER the panel rather than under it
       chip(ctx, g, label, labelX, box.y,
-           { fill: 'accentSoft', role: 'label', align: 'left' });
+           { fill: 'accentSoft', role: 'label', align: 'left',
+             width: px.w(M.action.labelW) });
     },
   },
 };
@@ -373,34 +374,45 @@ function luminance(hex) {
 /* --------------------------------------------------------------- paint */
 
 /*
- * THE TYPE, RE-READ OFF THE REFERENCE AT 5x.
+ * THE TYPE: NEUE MONTREAL PAIRED WITH NEUEBIT.
  *
- * I had this backwards twice. The headline is not a serif at all — "How
- * to Calculate" has no serifs anywhere, it is a heavy grotesque set very
- * tight, and I set it first in Bodoni and then in Schola. What IS a
- * serif is the small thing I had in a grotesque: "DO THIS:". So the mix
- * is one serif accent on a grotesque sheet, and it is the label.
+ * Ashley's pairing, not the reference's. A neo-grotesque carrying
+ * everything that is read, and a bitmap face as the one odd voice on
+ * the sheet.
  *
- * The tightness is a display move and not a house style. Measured, the
- * headline runs 86-88% of Helvetica's natural width, which is about
- * -0.07 em of tracking, and its lines sit closer together than one em.
- * The body and the chips are NOT tracked tight: they measure wider than
- * natural, which I do not believe — it is my ink-height-to-em assumption
- * being wrong on lowercase, not a real +0.16 em — so they are left at
- * nothing rather than given a number I cannot defend.
+ * WHERE THE PIXEL GOES. On the two fixed small things: the rail across
+ * the top and the DO THIS label. Both are short, both are the same on
+ * every slide, and both are furniture rather than argument, which is
+ * exactly what a bitmap face can carry without becoming a costume. It
+ * does not touch the headline or the paragraphs. A pixel face at
+ * display size is a joke about the nineties, and a pixel face under a
+ * paragraph is unreadable at feed size.
  *
- * Termes rather than Schola for the label: Schola is Century
- * Schoolbook and very wide, needing -0.18 em to reach the reference's
- * proportions, which is past where letters collide. Termes is Times and
- * lands at -0.12. Same GUST licence, already read.
+ * This also replaces the serif I had in the label. That came from
+ * reading the reference, where the label IS a serif; this is Ashley's
+ * pairing rather than theirs, and the bitmap does the same job of being
+ * the one face that is not the body face.
+ *
+ * ON THE LICENCE. PP Neue Montreal and PP NeueBit are Pangram Pangram's
+ * "free to try": personal use free, commercial use licensed, from $40.
+ * These carousels are commercial. So the families are named here and
+ * the loader falls back to licensed stand-ins until the real files are
+ * bought and dropped into assets/fonts. Nothing else changes on the day
+ * they land, which is the point of naming them rather than the files.
+ *
+ * THE TIGHTNESS STAYS, because it was measured rather than assumed: the
+ * reference's headline runs 86-88% of a grotesque's natural width, and
+ * its lines sit closer together than one em. Neue Montreal is a little
+ * narrower than Helvetica to begin with, so the number may want easing
+ * once the real file is in; it is one constant, in one place.
  */
 export const TYPE = {
-  title:  { family: 'Helvetica', weight: '800', track: -0.070 },
-  say:    { family: 'Helvetica', weight: '500', track: 0 },
-  chip:   { family: 'Helvetica', weight: '700', track: 0 },
-  label:  { family: 'Termes',    weight: '700', track: -0.050 },
-  action: { family: 'Helvetica', weight: '500', track: 0 },
-  rail:   { family: 'Helvetica', weight: '700', track: 0 },
+  title:  { family: 'NeueMontreal', weight: '800', track: -0.070 },
+  say:    { family: 'NeueMontreal', weight: '500', track: 0 },
+  chip:   { family: 'NeueMontreal', weight: '700', track: 0 },
+  action: { family: 'NeueMontreal', weight: '500', track: 0 },
+  label:  { family: 'NeueBit', weight: '400', track: 0.020 },
+  rail:   { family: 'NeueBit', weight: '400', track: 0.060 },
 };
 
 const sizeOf = (role) => px.size(
@@ -464,12 +476,30 @@ function chipWidth(ctx, text, role = 'chip') {
  * placed on the sheet.
  */
 function chip(ctx, g, text, cx, y, { fill = 'accentSoft', role = 'chip',
-                                     align = 'center' } = {}) {
+                                     align = 'center', width = null } = {}) {
   ctx.font = face(g, role);
   ctx.letterSpacing = trackOf(role);
-  const tw = ctx.measureText(String(text ?? '')).width;
   const padX = px.w(M.chip.padX);
-  const w = tw + padX * 2;
+
+  /*
+   * A fixed-width chip shrinks its type to fit rather than growing.
+   *
+   * The instruction's label is 0.2075 wide on every one of the
+   * reference's sheets, and it has to stay that width because the panel
+   * beside it is fixed too: a label that grows runs over the panel's
+   * first line. It grew the moment the label's face changed to the
+   * bitmap, which is wider than the grotesque it replaced, and "Send
+   * yourself an enquiry" lost its opening letters. Fitting to the box
+   * survives any face.
+   */
+  let tw = ctx.measureText(String(text ?? '')).width;
+  if (width && tw + padX * 2 > width) {
+    const shrunk = sizeOf(role) * ((width - padX * 2) / tw);
+    ctx.font = `${TYPE[role].weight} ${shrunk}px ${TYPE[role].family}`;
+    ctx.letterSpacing = `${TYPE[role].track * shrunk}px`;
+    tw = ctx.measureText(String(text ?? '')).width;
+  }
+  const w = width ? Math.max(width, tw + padX * 2) : tw + padX * 2;
   const h = px.h(M.chip.h);
   const x = align === 'left' ? cx : cx - w / 2;
   const halo = px.h(0.0035);
@@ -485,7 +515,9 @@ function chip(ctx, g, text, cx, y, { fill = 'accentSoft', role = 'chip',
   ctx.fillStyle = g.chipInk ?? g.mark;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(String(text ?? ''), x + padX, y + h / 2 + sizeOf(role) * CAP / 2);
+  // centred on the box that was actually drawn, whatever the type did
+  const em = parseFloat(ctx.font) || sizeOf(role);
+  ctx.fillText(String(text ?? ''), x + (w - tw) / 2, y + h / 2 + em * CAP / 2);
 }
 
 /**

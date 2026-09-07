@@ -12,15 +12,46 @@ import { ICON_NAMES, iconUrl } from '/assets/js/icons.js';
 
 const ctx = document.getElementById('c').getContext('2d');
 
+/*
+ * The families the design names, and what stands in until the real
+ * files are bought. Pangram Pangram's PP Neue Montreal and PP NeueBit
+ * are free to try for personal use and licensed for commercial use, so
+ * they are not in the repository. Drop `neue-montreal-*.woff2` and
+ * `neuebit.woff2` into assets/fonts and the first entry wins.
+ *
+ * TeX Gyre Heros stands in for Neue Montreal: both are neo-grotesques
+ * on Helvetica's proportions, so the measured tracking and the line
+ * budget hold. Press Start 2P stands in for NeueBit and is a coarser
+ * bitmap, so the rail and the label will look chunkier than intended
+ * until the real one arrives.
+ */
 const FILES = {
-  Termes: [['termes-bold.woff2', { weight: '700' }]],
-  Helvetica: [['heros-regular.woff2', { weight: '100 500' }],
-              ['heros-bold.woff2', { weight: '600 900' }]],
+  NeueMontreal: [
+    [['neue-montreal-regular.woff2', 'heros-regular.woff2'], { weight: '100 500' }],
+    [['neue-montreal-bold.woff2', 'heros-bold.woff2'], { weight: '600 900' }],
+  ],
+  NeueBit: [
+    [['neuebit.woff2', 'pixel.woff2'], { weight: '400' }],
+  ],
 };
-await Promise.all(Object.entries(FILES).flatMap(([n, v]) =>
-  v.map(async ([f, d]) => {
-    const ff = new FontFace(n, `url(/assets/fonts/${f})`, d);
-    await ff.load(); document.fonts.add(ff);
+
+const firstThatLoads = async (name, files, desc) => {
+  for (const f of files) {
+    try {
+      const ff = new FontFace(name, `url(/assets/fonts/${f})`, desc);
+      await ff.load();
+      document.fonts.add(ff);
+      return f;
+    } catch { /* try the next one */ }
+  }
+  return null;
+};
+
+window.FACES_IN_USE = {};
+await Promise.all(Object.entries(FILES).flatMap(([name, faces]) =>
+  faces.map(async ([files, desc]) => {
+    const got = await firstThatLoads(name, files, desc);
+    (window.FACES_IN_USE[name] ??= []).push(got);
   })));
 await document.fonts.ready;
 

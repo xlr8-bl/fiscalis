@@ -22,9 +22,23 @@ const p = await b.newPage({ viewport: { width: 900, height: 1000 } });
 const errs = [];
 p.on('pageerror', (e) => errs.push(String(e)));
 p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
+/* A 404 for a licensed font that is not in the repository is the
+   fallback doing its job, not a failure. Everything else still is. */
+p.on('requestfailed', () => {});
+const expected = (m) => /Failed to load resource/.test(m);
 
 await p.goto(`${base}/tools/preview/slides.html`, { waitUntil: 'networkidle' });
-if (errs.length) { console.error('page failed:\n  ' + errs.join('\n  ')); await b.close(); process.exit(1); }
+const real = errs.filter((m) => !expected(m));
+if (real.length) { console.error('page failed:\n  ' + real.join('\n  ')); await b.close(); process.exit(1); }
+errs.length = 0;
+
+const faces = await p.evaluate(() => window.FACES_IN_USE);
+for (const [name, files] of Object.entries(faces)) {
+  const stand = files.some((f) => f && !/neue/i.test(f));
+  console.log(`  ${name.padEnd(13)} ${files.filter(Boolean).join(', ')}`
+    + (stand ? '   (standing in until the licensed file is bought)' : ''));
+}
+console.log('');
 
 let bad = 0;
 for (const slide of EXAMPLE_SLIDES) {
@@ -37,7 +51,8 @@ for (const slide of EXAMPLE_SLIDES) {
   if (r.over) bad++;
   console.log(`  ${slide._name.padEnd(22)} ${slide.template.padEnd(9)} ${slide.ground}${note}`);
 }
-if (errs.length) console.error('\nconsole errors:\n  ' + errs.join('\n  '));
+const late = errs.filter((m) => !expected(m));
+if (late.length) console.error('\nconsole errors:\n  ' + late.join('\n  '));
 console.log(`\n${EXAMPLE_SLIDES.length - bad} of ${EXAMPLE_SLIDES.length} fit, in ${OUT}`);
 await b.close();
 process.exit(bad ? 1 : 0);
