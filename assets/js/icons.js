@@ -26,12 +26,55 @@ export const ICONS = {
   ring:    { means: 'a cycle, doing it again, something that repeats' },
 };
 
-export const ICON_NAMES = Object.keys(ICONS);
+/**
+ * The pixel set, keyed out of Ashley's reference sheets. Drawn the same
+ * way as the kit and chosen the same way, by meaning.
+ *
+ * 17 more were extracted and are NOT here: Nintendo's mushroom,
+ * Pusheen, a Tamagotchi, an Oreo, Chrome's dino and Microsoft's Windows
+ * 95 set. They sit in assets/icons/pixel-flagged with the reasons in
+ * SOURCES.md, because these posts are commercial and each of those is
+ * somebody's mark.
+ */
+export const PIXEL = {
+  arcade:       { means: 'an arcade cabinet: play, an old machine' },
+  bed:          { means: 'asleep, dormant, nobody watching' },
+  biscuit:      { means: 'a cookie, a treat, tracking' },
+  card:         { means: 'a gamble, a bet, chance' },
+  coin:         { means: 'money, what a thing costs or earns' },
+  crt:          { means: 'an old computer, a legacy site, something dated' },
+  cup:          { means: 'a coffee, an afternoon of work' },
+  cursor:       { means: 'a click, a tap, somebody doing the thing' },
+  'cursor-line':  { means: 'a click, outlined' },
+  eyeball:      { means: 'being watched, views, uncomfortable attention' },
+  'folder-open':  { means: 'files, a project, something opened' },
+  ghost:        { means: 'something gone, a dead link, a 404' },
+  heart:        { means: 'a like, being liked, engagement' },
+  'heart-real':   { means: 'the real thing under the pretty version' },
+  'heart-small':  { means: 'a like, small' },
+  joystick:     { means: 'steering something, hands-on control' },
+  lives:        { means: 'three hearts: attempts left, chances' },
+  loading:      { means: 'a progress bar: waiting, load time' },
+  menu:         { means: 'a MENU button: navigation, the nav bar' },
+  pad:          { means: 'a game controller: play, control, input' },
+  plant:        { means: 'growth, tending something over time' },
+  'sparkle-blue': { means: 'new, clean, just fixed' },
+  'sparkle-gold': { means: 'new, clean, just fixed' },
+  start:        { means: 'a START button: begin here' },
+  sunflower:    { means: 'growth, something planted paying off' },
+};
+
+export const PIXEL_NAMES = Object.keys(PIXEL);
+
+/** Both packs, one lookup. Names do not collide. */
+export const ALL_ICONS = { ...ICONS, ...PIXEL };
+export const ICON_NAMES = Object.keys(ALL_ICONS);
 
 /** Where the file lives, for both runtimes. */
-export const iconUrl = (name) => `/assets/icons/kit/${name}.png`;
+export const iconUrl = (name) =>
+  (name in PIXEL ? `/assets/icons/pixel/${name}.png` : `/assets/icons/kit/${name}.png`);
 
 /** For the brief, not the tool schema: an enum says what MAY be written
     and nothing about what to write. */
 export const iconCatalogue = () =>
-  ICON_NAMES.map((n) => ({ name: n, means: ICONS[n].means }));
+  ICON_NAMES.map((n) => ({ name: n, means: ALL_ICONS[n].means }));

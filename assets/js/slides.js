@@ -10,7 +10,7 @@
  */
 
 import { GROUNDS } from './design-spec.js';
-import { ICONS, ICON_NAMES } from './icons.js';
+import { ALL_ICONS, ICON_NAMES, PIXEL } from './icons.js';
 import { CUTOUTS, placementOf } from '../../lib/slides/cutouts.js';
 
 export const W = 1080;
@@ -182,8 +182,11 @@ export const BLOCKS = {
       const names = (block.icons ?? []).filter((n) => ICON_NAMES.includes(n));
       if (!names.length) return;
       const s = px.h(M.icons.h);
+      /* Drawn at the icon's own aspect, fitted to the row's height. A
+         square box squashed `lives`, which is three hearts wide, into
+         three narrow slivers. */
+      const wide = (img) => s * (img.width / img.height);
       ctx.save();
-      ctx.filter = iconFilter(g);
 
       /* Four arrangements. Angles are fixed per position, not random:
          the redo loop redraws single slides, and a random tilt would
@@ -196,10 +199,12 @@ export const BLOCKS = {
           if (!img) return;
           const cx = px.w(0.80) + i * px.w(0.055);
           const cy = px.h(0.125) + (i % 2) * px.h(0.048);
+          const w = wide(img);
           ctx.save();
+          ctx.filter = iconFilter(g, name);
           ctx.translate(cx, cy);
           ctx.rotate(tilts[i % tilts.length]);
-          ctx.drawImage(img, -s / 2, -s / 2, s, s);
+          ctx.drawImage(img, -w / 2, -s / 2, w, s);
           ctx.restore();
         });
       } else if (where === 'edge') {
@@ -211,10 +216,12 @@ export const BLOCKS = {
         names.slice(0, 4).forEach((name, i) => {
           const img = art?.icons?.[name];
           if (!img) return;
+          const w = wide(img) * 0.8;
           ctx.save();
+          ctx.filter = iconFilter(g, name);
           ctx.translate(box.x + px.w(0.04), box.y - px.h(0.02) - i * step);
           ctx.rotate(i % 2 ? 0.12 : -0.12);
-          ctx.drawImage(img, -s * 0.4, -s * 0.4, s * 0.8, s * 0.8);
+          ctx.drawImage(img, -w / 2, -s * 0.4, w, s * 0.8);
           ctx.restore();
         });
       } else if (where === 'scatter' && head) {
@@ -241,20 +248,23 @@ export const BLOCKS = {
           const spot = spots[(i * 3 + 1) % spots.length];
           if (!spot) return;
           const size = s * spot.s;
+          const w = size * (img.width / img.height);
           ctx.save();
+          ctx.filter = iconFilter(g, name);
           ctx.translate(spot.x, spot.y);
           ctx.rotate(spot.r);
-          ctx.drawImage(img, -size / 2, -size / 2, size, size);
+          ctx.drawImage(img, -w / 2, -size / 2, w, size);
           ctx.restore();
         });
       } else {
         const gap = px.w(M.icons.gap);
-        const total = names.length * s + (names.length - 1) * gap;
+        const got = names.map((n) => [n, art?.icons?.[n]]).filter(([, i]) => i);
+        const total = got.reduce((t, [, i]) => t + wide(i), 0) + (got.length - 1) * gap;
         let x = box.x + (box.w - total) / 2;
-        for (const name of names) {
-          const img = art?.icons?.[name];
-          if (img) ctx.drawImage(img, x, box.y, s, s);
-          x += s + gap;
+        for (const [name, img] of got) {
+          ctx.filter = iconFilter(g, name);
+          ctx.drawImage(img, x, box.y, wide(img), s);
+          x += wide(img) + gap;
         }
       }
       ctx.restore();
@@ -404,7 +414,11 @@ export const BLOCK_NAMES = Object.keys(BLOCKS);
 const ICON_LUM = 205;      // measured across all sixteen
 const WANT = 95;           // the difference that makes them read
 
-function iconFilter(g) {
+function iconFilter(g, name) {
+  /* Only the kit needs it. Its objects are pale greys at luminance 205
+     and vanish on a light ground; the pixel set is already coloured and
+     dark, and darkening it turned the hearts to mud. */
+  if (name && name in PIXEL) return 'none';
   const l = luminance(g.ground);
   if (l < 128) {
     // dark ground: they already stand out, and brightening blows the
@@ -981,7 +995,6 @@ function keepLargest(on, W_, H_) {
 function accents(ctx, names, head, g, art) {
   const s = px.h(M.icons.h) * 0.62;
   ctx.save();
-  ctx.filter = iconFilter(g);
   names.slice(0, 2).forEach((name, i) => {
     const img = art?.icons?.[name];
     if (!img) return;
@@ -991,10 +1004,12 @@ function accents(ctx, names, head, g, art) {
       * px.size(M.title.size * M.title.lead);
     // tucked just inside the line's end, riding its cap
     const x = i % 2 ? cx - line.w / 2 + s * 0.3 : cx + line.w / 2 - s * 0.3;
+    const w = s * (img.width / img.height);
     ctx.save();
+    ctx.filter = iconFilter(g, name);
     ctx.translate(x, top - s * 0.15);
     ctx.rotate(i % 2 ? -0.20 : 0.22);
-    ctx.drawImage(img, -s / 2, -s / 2, s, s);
+    ctx.drawImage(img, -w / 2, -s / 2, w, s);
     ctx.restore();
   });
   ctx.restore();
@@ -1130,5 +1145,5 @@ export const slideCatalogue = () => ({
     name: n, takes: BLOCKS[n].takes, what: BLOCKS[n].what,
   })),
   grounds: SLIDE_GROUND_NAMES,
-  icons: ICON_NAMES.map((n) => ({ name: n, means: ICONS[n].means })),
+  icons: ICON_NAMES.map((n) => ({ name: n, means: ALL_ICONS[n].means })),
 });

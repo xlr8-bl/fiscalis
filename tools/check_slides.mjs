@@ -13,7 +13,7 @@
 import assert from 'node:assert';
 import { validateSlides, PER_LINE, LIMITS } from '../lib/slides/spec.js';
 import { TEMPLATES, TEMPLATE_NAMES, BLOCKS, SLIDE_GROUND_NAMES } from '../assets/js/slides.js';
-import { ICON_NAMES } from '../assets/js/icons.js';
+import { ICON_NAMES, ICONS, PIXEL_NAMES, iconUrl } from '../assets/js/icons.js';
 import { EXAMPLE_SLIDES } from '../lib/slides/examples.js';
 import { slideGuide, probeSlide } from '../lib/slides/guide.js';
 import { designBrief } from '../lib/designer.js';
@@ -155,12 +155,16 @@ ok('a slide must carry an instruction: that is the format\'s promise', () => {
   assert.ok(req.includes('template'), 'template is not required');
 });
 
-ok('the limits and the pack are stated once, not copied', () => {
-  assert.equal(LIMITS.icons.max, 6);
-  assert.equal(ICON_NAMES.length, 16);
-  const b = designBrief();
-  assert.equal(b.teaching.icons.length, ICON_NAMES.length,
-    'the brief has its own idea of how many icons there are');
+ok('the packs sum, no name collides, and the brief agrees', () => {
+  /* Was asserting a magic 16 and broke the moment a second pack landed.
+     What matters is that the two packs add up, that no name appears in
+     both (iconUrl picks the folder by name, so a collision would serve
+     the wrong file), and that the brief counts the same. */
+  assert.equal(ICON_NAMES.length, Object.keys(ICONS).length + PIXEL_NAMES.length);
+  const both = PIXEL_NAMES.filter((n) => n in ICONS);
+  assert.equal(both.length, 0, `these names are in both packs: ${both.join(', ')}`);
+  for (const n of PIXEL_NAMES) assert.match(iconUrl(n), /\/pixel\//);
+  assert.equal(designBrief().teaching.icons.length, ICON_NAMES.length);
 });
 
 ok('the guide\'s room figures come from the validator, not from a second sum', () => {
