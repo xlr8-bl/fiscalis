@@ -15,6 +15,7 @@
 
 import { runDue, due } from '../lib/publish.js';
 import { runDueArticles, dueArticles } from '../lib/schedule.js';
+import { preflight, preflightAccounts } from '../lib/preflight.js';
 
 export default {
   /* Both queues on every firing: approved carousels onto the platforms,
@@ -43,6 +44,23 @@ export default {
       return Response.json({
         carousels: await due(env.DB),
         articles: await dueArticles(env.DB),
+      });
+    }
+    /*
+     * The rehearsal, against this Worker's own bindings.
+     *
+     * Worth having separately from the site's: the Worker has its own
+     * secrets and its own SITE var, so it can be holding a stale token
+     * while the studio's screen says everything is fine. This asks the
+     * questions with the credentials that will actually be used at the
+     * next firing.
+     */
+    if (url.pathname === '/check' && request.method === 'GET') {
+      if (!allowed) return new Response('Unauthorized', { status: 401 });
+      const rows = await due(env.DB);
+      return Response.json({
+        accounts: await preflightAccounts(env),
+        carousels: await Promise.all(rows.map((r) => preflight(env, r))),
       });
     }
     return new Response('web3ashley-poster', { status: 200 });

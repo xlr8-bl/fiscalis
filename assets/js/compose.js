@@ -678,10 +678,14 @@ function drawArt(ctx, slot, img, g, report) {
     const bw = px.w(slot.box[2]), bh = px.h(slot.box[3]);
     const gap = bw * (slot.gap ?? 0.05);
     const cell = (bw - gap * (img.length - 1)) / img.length;
+    // a lone standing figure is a one-item row, so the box's anchor still
+    // has to reach it; several across a box stay centred in their cells
+    const a = String(slot.anchor ?? 'center').split(/\s+/);
     img.forEach((im, i) => {
       const s = Math.min(cell / im.width, bh / im.height);
       const w = im.width * s, h = im.height * s;
-      ctx.drawImage(im, bx + i * (cell + gap) + (cell - w) / 2, by + bh - h, w, h);
+      const dx = a.includes('left') ? 0 : a.includes('right') ? cell - w : (cell - w) / 2;
+      ctx.drawImage(im, bx + i * (cell + gap) + dx, by + bh - h, w, h);
     });
     return;
   }
@@ -761,12 +765,18 @@ function drawArt(ctx, slot, img, g, report) {
      * runs off the bottom of the sheet has to keep its feet at the bottom
      * of the box whatever its aspect; centring it leaves it floating and
      * the sheet reads as a paste-up.
+     *
+     * Two edges, not one: 'bottom right' both stands him on a rule and
+     * lands his cut side on a line. One word only pinned one axis and
+     * quietly centred the other, which is a gap you see rather than read
+     * about — the figure sat a few percent short of the edge it was
+     * supposed to meet, and the box looked wrong instead of the anchor.
      */
     const s = Math.min(w / img.width, h / img.height);
     const iw = img.width * s, ih = img.height * s;
-    const a = slot.anchor ?? 'center';
-    const dx = a === 'left' ? 0 : a === 'right' ? w - iw : (w - iw) / 2;
-    const dy = a === 'top' ? 0 : a === 'bottom' ? h - ih : (h - ih) / 2;
+    const a = String(slot.anchor ?? 'center').split(/\s+/);
+    const dx = a.includes('left') ? 0 : a.includes('right') ? w - iw : (w - iw) / 2;
+    const dy = a.includes('top') ? 0 : a.includes('bottom') ? h - ih : (h - ih) / 2;
     ctx.drawImage(img, x + dx, y + dy, iw, ih);
   } else {
     /*

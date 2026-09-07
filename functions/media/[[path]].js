@@ -4,13 +4,31 @@
  * Keys are immutable (they carry a random suffix), so these are cached hard
  * and never revalidated.
  */
-export async function onRequestGet({ env, params, request }) {
+export async function onRequestGet(ctx) {
+  return serve(ctx, true);
+}
+
+/**
+ * HEAD is the same answer without the bytes, and it used to 404 on every
+ * key because only onRequestGet was exported. Worth having: a 4K master
+ * is megabytes, and asking what is there should not cost that. The
+ * posting rehearsal checks every slide this way before a post goes out,
+ * and a 404 there reads as a missing picture.
+ *
+ * R2's own `head` returns the metadata without the body, so this is a
+ * cheaper call and not just a discarded one.
+ */
+export async function onRequestHead(ctx) {
+  return serve(ctx, false);
+}
+
+async function serve({ env, params, request }, withBody) {
   if (!env.MEDIA) return new Response('Not found', { status: 404 });
 
   const key = (Array.isArray(params.path) ? params.path : [params.path]).filter(Boolean).join('/');
   if (!key || key.includes('..')) return new Response('Not found', { status: 404 });
 
-  const object = await env.MEDIA.get(key);
+  const object = withBody ? await env.MEDIA.get(key) : await env.MEDIA.head(key);
   if (!object) return new Response('Not found', { status: 404 });
 
   const etag = object.httpEtag;
@@ -27,5 +45,8 @@ export async function onRequestGet({ env, params, request }) {
   if ((object.httpMetadata?.contentType || '').includes('svg')) {
     headers.set('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
   }
-  return new Response(object.body, { headers });
+  // content-length is the whole point of a HEAD, and writeHttpMetadata
+  // does not set it
+  if (!withBody) headers.set('content-length', String(object.size));
+  return new Response(withBody ? object.body : null, { headers });
 }

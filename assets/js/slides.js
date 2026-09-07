@@ -1707,7 +1707,14 @@ export function standee(img, { style = 'scissors', tall = 900, paper = '#FFFFFF'
   const { on, off, W_, bx0, by0, bx1, by1 } = keyOut(img, H_);
   if (bx1 <= bx0 || by1 <= by0) return null;
 
-  const pad = style === 'clean' ? 0 : Math.round(H_ * 0.03);   // room for the border
+  /* The border grows GROW outward, so the canvas needs GROW around the
+     subject and not a pixel more. It used to pad twice that, which put a
+     transparent margin of 1.5% of his height on all four sides — so a
+     figure anchored to a rule floated about twelve sheet pixels above it,
+     and one anchored right stopped the same distance short. The box was
+     doing its job; the picture inside it was smaller than it looked. */
+  const grow = Math.max(3, H_ * 0.015);
+  const pad = style === 'clean' ? 0 : Math.ceil(grow) + 2;   // +2 for the antialiased edge
   const w = bx1 - bx0 + 1 + pad * 2;
   const h = by1 - by0 + 1 + pad * 2;
   const c = new OffscreenCanvas(w, h);
@@ -1753,7 +1760,7 @@ export function standee(img, { style = 'scissors', tall = 900, paper = '#FFFFFF'
     x.closePath();
   };
   x.fillStyle = paper;
-  path(rough, Math.max(3, H_ * 0.015));
+  path(rough, grow);
   x.fill();
   x.save();
   path(close, 0);

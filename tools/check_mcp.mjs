@@ -221,12 +221,17 @@ await step('tools/list describes every tool with a schema', async () => {
     if (!t.name || !t.description) throw new Error(`${t.name}: missing description`);
     if (t.inputSchema?.type !== 'object') throw new Error(`${t.name}: no object inputSchema`);
   }
+  /* Frozen on purpose. Adding a tool to the agent's surface has to be a
+     line in a diff somebody wrote, not something that arrives with a
+     feature — this is the list of everything Spark can reach. */
   const names = tools.map((t) => t.name).sort();
   is(names.join(','),
-     'add_reference,brief,check_draft,deliver_slide,design_brief,design_carousel,'
-     + 'design_status,draw,find_photo,hand_over,keep_photo,list_carousels,'
-     + 'performance,plan_carousel,post_due,progress,publish_article,queue,'
-     + 'send_digest,voice_rules,write_article,writing_brief',
+     'add_reference,brief,check_draft,check_posting,deliver_slide,design_brief,'
+     + 'design_carousel,design_status,draw,find_photo,finish_run,hand_over,'
+     + 'keep_photo,list_carousels,performance,plan_carousel,post_due,progress,'
+     + 'publish_article,publish_articles,queue,schedule_articles,scheduled_articles,'
+     + 'send_digest,set_writing_schedule,teach_carousel,unschedule_article,'
+     + 'voice_rules,write_article,writing_brief,writing_run,writing_schedule',
      'the tool set');
 });
 
@@ -305,14 +310,25 @@ await step('nothing can approve, schedule or delete a carousel', async () => {
   // `post_due` is a trigger, not an authority: it publishes only what a
   // person already approved and gave a slot to, and cannot reach anything
   // else. The ceiling is about deciding, not about firing.
+  /* This used to match the word anywhere in a name, which was fine until
+     the journal grew scheduling of its own: schedule_articles tripped a
+     test about carousels and said the ceiling had been breached when it
+     had not. The article queue is a different ceiling, deliberately, and
+     it is checked on its own below. Scoped to the carousel side, so a
+     schedule_carousel appearing tomorrow still trips it. */
+  const CAROUSEL_QUEUE = new Set([
+    'schedule_articles', 'scheduled_articles', 'unschedule_article',
+    'set_writing_schedule', 'writing_schedule',
+  ]);
   for (const forbidden of ['approve', 'schedule', 'delete']) {
-    const found = names.filter((x) => x.includes(forbidden));
+    const found = names.filter((x) => x.includes(forbidden) && !CAROUSEL_QUEUE.has(x));
     if (found.length) throw new Error(`exposes ${found.join(', ')}`);
   }
-  // and the one publishing tool on this side is the carousel trigger,
-  // not something that decides a carousel is ready
-  const publishers = names.filter((x) => /publish|post/.test(x)).sort();
-  is(publishers.join(','), 'post_due,publish_article', 'what can make something public');
+  // and nothing on the carousel side decides a carousel is ready. post_due
+  // is a trigger; check_posting only rehearses and posts nothing.
+  const carouselSide = names
+    .filter((x) => /publish|post/.test(x) && !/article/.test(x)).sort();
+  is(carouselSide.join(','), 'check_posting,post_due', 'what can make a carousel public');
 });
 
 /*
@@ -330,9 +346,14 @@ await step('exactly the two publishing tools ask, and nothing else does', async 
     // prompt on any client that checks it before readOnlyHint
     throw new Error(`unset destructiveHint on ${bare.map((t) => t.name).join(', ')}`);
   }
+  /* Every one of these makes something public, or decides that it will.
+     check_schedule asserts the same list from the other side, off the
+     tool table rather than the running server, so they cannot drift. */
   const asks = tools.filter((t) => t.annotations.destructiveHint === true)
     .map((t) => t.name).sort();
-  is(asks.join(','), 'post_due,publish_article', 'the tools a client should ask about');
+  is(asks.join(','),
+     'post_due,publish_article,publish_articles,schedule_articles,set_writing_schedule',
+     'the tools a client should ask about');
 });
 
 await step('an unknown tool is a protocol error, not a tool error', async () => {
@@ -356,7 +377,13 @@ await step('the brief hands over the voice, not just the pillars', async () => {
   if (!b.voice?.capability) throw new Error('no capability rule');
   if (!b.research?.needs?.length) throw new Error('no evidence standard');
   if (!b.self_check?.length) throw new Error('no self check');
-  is(b.signature, 'This is the kind of thing I fix.', 'the signature line');
+  /* This asserted a fixed sign-off, and asserting it is now backwards.
+     "This is the kind of thing I fix." went on every post, asked for
+     nothing, and stopped being read by the fourth one — so the brief
+     hands over shapes to write a close out of the carousel's own subject
+     instead. A signature coming back would be the regression. */
+  if (b.signature) throw new Error(`a fixed sign-off is back: ${b.signature}`);
+  if (!b.closes?.length) throw new Error('no closing shapes');
   if (!b.anchors?.length) throw new Error('no anchor rotation');
 });
 
@@ -626,6 +653,6 @@ await step('what this run made is cleaned up', async () => {
 console.log(
   problems.length
     ? `\n${problems.length} failed: ${problems.join(', ')}`
-    : '\nthe endpoint speaks both eras, and only the two publishing tools ask'
+    : '\nthe endpoint speaks both eras, and only what publishes ever asks'
 );
 process.exit(problems.length ? 1 : 0);

@@ -22,6 +22,8 @@
  *   GET    /api/studio/carousels/-/stats             -> the numbers, as stored
  *   POST   /api/studio/carousels/-/stats    { slug? } -> go and ask again
  *   GET    /api/studio/carousels/-/progress          -> where everything stands
+ *   GET    /api/studio/carousels/-/preflight         -> are the accounts live
+ *   GET    /api/studio/carousels/:slug/preflight     -> would this one go out
  *
  * What Spark uses, over its bearer token:
  *
@@ -48,6 +50,7 @@ import { problems as brandProblems } from '../../../../assets/js/brand.js';
 import { send as sendMail } from '../../../../lib/mail.js';
 import { gather, compose } from '../../../../lib/digest.js';
 import { runDue } from '../../../../lib/publish.js';
+import { preflight, preflightAccounts } from '../../../../lib/preflight.js';
 import { accountState, putSetting } from '../../../../lib/tokens.js';
 import { refreshStats, storedStats } from '../../../../lib/insights.js';
 import { progress } from '../../../../lib/progress.js';
@@ -149,6 +152,16 @@ export async function onRequest({ request, env, params }) {
      */
     if (what === 'post' && method === 'POST') {
       return json(await runDue({ ...env, SITE }));
+    }
+
+    /*
+     * Is the pipeline standing up? The tokens spent on a real read rather
+     * than merely found, and the answer in the words needed to fix it.
+     * Posts nothing, so the agent may ask — knowing whether what it made
+     * can go out is not a decision to send it.
+     */
+    if (what === 'preflight' && method === 'GET') {
+      return json(await preflightAccounts({ ...env, SITE }));
     }
 
     /*
@@ -386,6 +399,27 @@ export async function onRequest({ request, env, params }) {
   const action = rest[0] || null;
 
   if (!action && method === 'GET') return json({ carousel: existing });
+
+  /*
+   * The rehearsal. Everything the posting run does, stopping before the
+   * post: the tokens are spent on a real read, the pictures are fetched
+   * the way Meta and TikTok will fetch them, and the limits are checked
+   * against what is being served rather than what was recorded.
+   *
+   * Read-only, so the agent may run it — it is how Spark can tell whether
+   * what it handed over will actually go out, which is the opposite of a
+   * decision to post.
+   */
+  if (action === 'preflight' && method === 'GET') {
+    return json(await preflight({ ...env, SITE }, {
+      id: existing.id,
+      slug: existing.slug,
+      title: existing.title,
+      caption: existing.caption,
+      hashtags: existing.hashtags,
+      targets: (existing.targets || []).join(','),
+    }));
+  }
 
   /* ---------------------------------------------------------------- update */
   if (!action && method === 'PUT') {

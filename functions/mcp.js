@@ -38,6 +38,7 @@ import { gather, compose } from '../lib/digest.js';
 import { scheduleArticles, unscheduleArticle, timetable, runDueArticles } from '../lib/schedule.js';
 import { writingPlan, setWritingPlan, inWords, recurrence, finishRun } from '../lib/routine.js';
 import { runDue } from '../lib/publish.js';
+import { preflight, preflightAccounts } from '../lib/preflight.js';
 import { addReference } from '../lib/references.js';
 import { progress } from '../lib/progress.js';
 import { refreshStats } from '../lib/insights.js';
@@ -267,6 +268,19 @@ async function runTool(name, args, env) {
           ? 'Anything that failed is back where a person can see it, with the reason.'
           : 'Nothing was due, on either side.',
       });
+    }
+
+    /* The rehearsal. Read-only, and deliberately available to the agent:
+       finding out whether what it made can go out is the opposite of
+       deciding to send it, and the alternative is discovering at the slot. */
+    case 'check_posting': {
+      if (!args.slug) return toolResult(await preflightAccounts({ ...env, SITE }));
+      const c = await getCarousel(db, String(args.slug));
+      if (!c) return toolFailed(`No carousel called ${args.slug}.`);
+      return toolResult(await preflight({ ...env, SITE }, {
+        id: c.id, slug: c.slug, title: c.title, caption: c.caption,
+        hashtags: c.hashtags, targets: (c.targets || []).join(','),
+      }));
     }
 
     case 'draw': {
