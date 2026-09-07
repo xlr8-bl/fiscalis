@@ -30,29 +30,21 @@ const ctx = document.getElementById('c').getContext('2d', { willReadFrequently: 
  * cuts; the single-weight files declare the one weight they hold, so a
  * layout asking for it gets the outline instead of a synthesis.
  */
+/* TWO FILES. Helvetica and NeueBit, because that is the whole type
+   system now: Mondwest, Bricolage, Outfit, Anton, Archivo Black, Bagel
+   Fat, Bodoni, Yellowtail, Gochi, Inter and the 8-bit stand-in are all
+   gone, and every role in FACES resolves to one of the two below.
+
+   Helvetica has no variable cut and no weights between roman and bold,
+   which is the face and not a shortfall: ask for 500 and you get the
+   roman, ask for 700 and you get the bold outline rather than a
+   synthesised one. A FontFace with no weight descriptor registers at
+   400, which is what was faux-bolding the whole corpus. */
 const FILES = {
-  Bricolage: ['bricolage-var.woff2', { weight: '200 800' }],
-  Outfit: ['outfit-var.woff2', { weight: '100 900' }],
-  Archivo: ['archivo-var.woff2', { weight: '100 900' }],
-  Anton: ['anton.woff2', { weight: '400' }],
-  ArchivoBlack: ['archivo-black.woff2', { weight: '900' }],
-  BagelFat: ['bagel-fat.woff2', { weight: '400' }],
-  Bodoni: ['bodoni-700.woff2', { weight: '700' }],
-  BodoniItalic: ['bodoni-italic.woff2', { weight: '500' }],
-  Script: ['yellowtail.woff2', { weight: '400' }],
-  Gochi: ['gochi-hand.woff2', { weight: '400' }],
-  Inter: ['inter-500.woff2', { weight: '500' }],
-  /* Three files, one family. Helvetica has no variable cut and no
-     weights between roman and bold, which is the face, not a shortfall:
-     ask for 500 and you get the roman, ask for 700 and you get the bold
-     outline rather than a synthesised one. */
   Helvetica: [['heros-regular.woff2', { weight: '100 500' }],
               ['heros-bold.woff2', { weight: '600 900' }],
               ['heros-italic.woff2', { weight: '100 500', style: 'italic' }]],
-  InstrumentItalic: ['instrument-italic.woff2', { weight: '400' }],
-  PixelDisplay: ['pixel.woff2', { weight: '400' }],
   NeueBit: ['neuebit.woff2', { weight: '400 900' }],
-  Mondwest: ['mondwest-regular.woff2', { weight: '400' }],
 };
 await Promise.all(Object.entries(FILES).flatMap(([n, v]) =>
   (Array.isArray(v[0]) ? v : [v]).map(async ([f, d]) => {

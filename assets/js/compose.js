@@ -65,23 +65,88 @@ export const H = 1350;
  * Everything else here is SIL Open Font Licence.
  * tools/get_fonts.sh fetches them all.
  */
+/**
+ * TWO FACES. Helvetica and NeueBit, and nothing else.
+ *
+ * This was fifteen families, one per reference sheet, which is how you
+ * reproduce fifteen posters and not how you have a typeface. Ashley's
+ * pairing is the grotesque with the bitmap, so every role that used to
+ * name its own face now resolves to the grotesque, and NeueBit is the
+ * only other thing on any sheet.
+ *
+ * The role names stay. A layout saying `role: 'didone'` still says what
+ * that slot was FOR, which is worth keeping, and it now gets the
+ * grotesque like everything else. Deleting the names would lose the
+ * intent and gain nothing.
+ *
+ * Helvetica stands in for Neue Montreal until the licensed file is
+ * bought: both are neo-grotesques on Helvetica's proportions, so the
+ * measured tracking holds.
+ */
+const GROTESQUE = 'Helvetica';
 export const FACES = {
-  display: 'Bricolage',          // geometric heavy: most statements
-  geometric: 'Outfit',           // the circular geometric the agency sheets set
-  black: 'ArchivoBlack',         // when one word IS the sheet
-  fat: 'BagelFat',               // the rounded fat face the collage sheets shout in
-  condensed: 'Anton',            // long line, still huge
-  grotesque: 'Helvetica',        // subheads, labels, UI, and the fallback
-  body: 'Helvetica',             // anything you actually read
-  didone: 'Bodoni',              // the high-contrast serif sheets
-  didoneItalic: 'BodoniItalic',  // and their turn lines
-  italic: 'InstrumentItalic',    // a quieter italic
-  script: 'Script',              // the brush sheets
-  marker: 'Gochi',               // the felt-tip on the risograph sheets
-  pixel: 'NeueBit',              // the licensed bitmap: wordmark, rails, labels
-  pixelSerif: 'Mondwest',        // its serif companion
-  pixelOld: 'PixelDisplay',      // the 8-bit stand-in NeueBit replaced
+  display: GROTESQUE,
+  geometric: GROTESQUE,
+  black: GROTESQUE,
+  fat: GROTESQUE,
+  condensed: GROTESQUE,
+  grotesque: GROTESQUE,
+  body: GROTESQUE,
+  didone: GROTESQUE,
+  didoneItalic: GROTESQUE,
+  italic: GROTESQUE,
+  script: GROTESQUE,
+  marker: GROTESQUE,
+  pixel: 'NeueBit',              // the bitmap, and the only second face
+  pixelSerif: 'NeueBit',
+  pixelOld: 'NeueBit',
 };
+
+/**
+ * The roles that are HEADINGS, and so carry swapped letters.
+ *
+ * Not body, not the rails, not the labels. A swapped letter in a
+ * paragraph is a typo; in a headline it is the signature.
+ */
+const HEADING = new Set(['display', 'geometric', 'black', 'fat', 'condensed',
+                         'didone', 'didoneItalic', 'italic', 'script', 'marker']);
+
+/**
+ * A headline with a few letters in the bitmap face.
+ *
+ * The same device as the teaching slides, and the same two things that
+ * had to be right there. NeueBit's x-height is 71 units where the
+ * grotesque's is 108, so a swapped letter at the heading size reads as a
+ * subscript unless it is scaled 1.52. And Chrome puts letter-spacing
+ * AFTER each character, so a tight heading drags the next letter into a
+ * bitmap glyph, which has no sidebearing to give: the pull relaxes on
+ * both sides of a swap.
+ *
+ * Which letters is a hash of the line, so a sheet redrawn is the same
+ * sheet. Spaces and the first letter are never swapped.
+ */
+const ALT_SCALE = 1.52;
+function mixedRun(ctx, font, size, track, line, rate, seed) {
+  const alt = font.replace(/[\d.]+px\s+\S+$/, `${size * ALT_SCALE}px ${FACES.pixel}`);
+  const r = rng(hash(seed));
+  const ch = [...String(line)];
+  const pick = ch.map((c, i) => (i > 0 && c !== ' ' && r() < rate));
+  const setAt = (i) => {
+    ctx.font = pick[i] ? alt : font;
+    ctx.letterSpacing = (pick[i] || pick[i + 1]) ? '0px' : `${track}px`;
+  };
+  let total = 0;
+  ch.forEach((c, i) => { setAt(i); total += ctx.measureText(c).width; });
+  return { ch, setAt, total };
+}
+
+function drawMixedLine(ctx, font, size, track, line, x, y, rate, seed) {
+  const { ch, setAt } = mixedRun(ctx, font, size, track, line, rate, seed);
+  let cx = x;
+  ch.forEach((c, i) => { setAt(i); ctx.fillText(c, cx, y); cx += ctx.measureText(c).width; });
+  ctx.font = font;
+  ctx.letterSpacing = `${track}px`;
+}
 
 /** A slot's colour names, resolved against whatever ground it is on. */
 function ink(name, g) {
@@ -266,8 +331,22 @@ function drawType(ctx, slot, copy, g, report) {
   ctx.font = fontAt(slot, size);
   ctx.fillStyle = ink(slot.fill, g);
   if (slot.alpha != null) ctx.globalAlpha = slot.alpha;
-  if (slot.track) ctx.letterSpacing = `${slot.track * size}px`;
+  /* Headings are tracked tight. -0.070 is measured off the reference and
+     is the same number the teaching slides use; a slot that set its own
+     keeps it. Nothing else is tracked, because a paragraph at -0.070 is
+     a paragraph nobody finishes. */
+  const heading = HEADING.has(slot.role);
+  const track = (slot.track ?? (heading ? -0.070 : 0)) * size;
+  ctx.letterSpacing = `${track}px`;
   ctx.textBaseline = 'alphabetic';
+
+  /* Every heading carries swapped letters. `mix: 0` on a slot turns it
+     off, for the two or three that are a single letter or a numeral,
+     where a swap is not a signature but a mistake. */
+  const rate = slot.mix ?? (heading ? 0.18 : 0);
+  const wide = (line) => (rate
+    ? mixedRun(ctx, ctx.font, size, track, line, rate, `${slot.id}|${line}`).total
+    : ctx.measureText(line).width);
 
   lines.forEach((line, i) => {
     /*
@@ -286,7 +365,7 @@ function drawType(ctx, slot, copy, g, report) {
       );
       if (slot.track) ctx.letterSpacing = `${slot.track * size}px`;
     }
-    const lw = ctx.measureText(line).width;
+    const lw = wide(line);
     const align = slot.align ?? 'left';
     const x = align === 'right' ? bx + bw - lw
       : align === 'center' ? bx + (bw - lw) / 2
@@ -327,9 +406,13 @@ function drawType(ctx, slot, copy, g, report) {
       const parts = line.trim().split(/\s+/);
       span = { ...span, word: parts.slice(-span.last).join(' ') };
     }
+    const put = (t, tx, ty) => (rate
+      ? drawMixedLine(ctx, ctx.font, size, track, t, tx, ty, rate, `${slot.id}|${t}`)
+      : ctx.fillText(t, tx, ty));
+
     if (span?.word && line.includes(span.word)) {
       const at = line.indexOf(span.word);
-      ctx.fillText(line, x, y);
+      put(line, x, y);
       ctx.save();
       ctx.fillStyle = ink(span.fill, g);
       ctx.fillText(span.word, x + ctx.measureText(line.slice(0, at)).width, y);
@@ -359,7 +442,7 @@ function drawType(ctx, slot, copy, g, report) {
       ctx.strokeText(line, x, y);
       ctx.restore();
     } else {
-      ctx.fillText(line, x, y);
+      put(line, x, y);
     }
   });
   ctx.restore();
@@ -1220,9 +1303,18 @@ function typeLines(ctx, slot, copy) {
     : vAlign === 'middle' ? by + (bh - blockH) / 2 : by;
   ctx.save();
   ctx.font = fontAt(slot, size);
-  if (slot.track) ctx.letterSpacing = `${slot.track * size}px`;
+  /* Measured the way drawType paints, tracking and swapped letters and
+     all. This function feeds the knockout panel, and a panel measured
+     against a different width than the words are drawn at is a panel
+     with the words hanging out of it. */
+  const heading = HEADING.has(slot.role);
+  const track = (slot.track ?? (heading ? -0.070 : 0)) * size;
+  ctx.letterSpacing = `${track}px`;
+  const rate = slot.mix ?? (heading ? 0.18 : 0);
   const out = lines.map((line, i) => {
-    const lw = ctx.measureText(line).width;
+    const lw = rate
+      ? mixedRun(ctx, ctx.font, size, track, line, rate, `${slot.id}|${line}`).total
+      : ctx.measureText(line).width;
     const align = slot.align ?? 'left';
     const x = align === 'right' ? bx + bw - lw
       : align === 'center' ? bx + (bw - lw) / 2 : bx;
