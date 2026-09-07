@@ -1573,9 +1573,13 @@ function drawBars(ctx, slot, copy, g, report) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(Math.atan(slope));
-    ctx.fillStyle = ink(slot.bar ?? 'ground', g);
-    ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = ink(slot.fill ?? 'mark', g);
+    /* No slab unless one is asked for. The illustration already HAS the
+       white bars painted in it: drawing our own over them put a second
+       rectangle on top of the first, and on an ink ground that second
+       one was black. The type goes straight onto the picture's bars and
+       the only thing that has to be right is the bend. */
+    if (slot.bar) { ctx.fillStyle = ink(slot.bar, g); ctx.fillRect(0, 0, w, h); }
+    ctx.fillStyle = slot.fill ? ink(slot.fill, g) : '#14120F';
     ctx.font = font.replace(/[\d.]+px/, `${size}px`);
     const track = (slot.track ?? -0.03) * size;
     ctx.letterSpacing = `${track}px`;

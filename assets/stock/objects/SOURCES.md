@@ -35,9 +35,14 @@ his face. Swapping either one in changes nothing but this file.
 ## `../scenes/desk.jpg` — 1086x1448, YOUR CALL
 
 The desk illustration Ashley supplied: a CRT on a red curtain, hands on
-the keyboard, six blank bars across the screen. The app chrome it was
-screenshotted with is painted out, filled vertically from the rows
-either side of it, which the curtain's vertical stripes hide perfectly.
+the keyboard, six blank bars across the screen. Kept exactly as sent,
+including the app chrome it was screenshotted with. That was painted out
+once and he asked for it back: the floating amber marks are part of the
+picture rather than an accident of how it arrived.
+
+The white bars are IN the illustration. h009 sets black type straight
+onto them and draws no slab of its own, which is the whole reason the
+bend has to be right.
 
 **It is somebody else's illustration**, the same exposure as the handset
 above and as the flagged Windows 95 icons. It is in because Ashley asked
