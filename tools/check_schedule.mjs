@@ -153,8 +153,11 @@ console.log('\nscheduling refuses rather than dropping');
   ok('one with no cover refuses now rather than failing later',
      bare.ok === false && /cover/i.test(bare.reason));
 
+  /* The clock is pinned. Without it this asked for one slot in what was
+     left of TODAY, so it passed in the morning and failed after about
+     six, which is a scheduling test that only works before lunch. */
   const tight = await scheduleArticles(stub({ rows: two }),
-    { slugs: ['a', 'b'], days: 1, perDay: 1 });
+    { slugs: ['a', 'b'], days: 1, perDay: 1, now: new Date('2026-03-06T07:00:00Z') });
   ok('a window too small refuses and says so',
      tight.ok === false && /fits 1 of 2/.test(tight.reason), tight.reason);
   ok('and says what the window does hold, which is the actionable part',

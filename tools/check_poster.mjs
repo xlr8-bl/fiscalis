@@ -310,15 +310,25 @@ await step('the real Facebook poster refuses rather than guessing', async () => 
   if (!/never verified/i.test(out.error)) throw new Error(out.error);
 });
 
-await step('the cron lines are five, and valid', async () => {
+await step('the cron fires often enough to serve the queue', async () => {
+  /* Was asserting exactly FIVE cron lines, which was the old design:
+     five fixed slots a day, each one a posting time. It is one line now,
+     every five minutes, and that is not a regression — the run publishes
+     whatever is past its own slot, so a missed firing catches up rather
+     than skipping. What matters is that the trigger comes round faster
+     than the queue needs, not that there is a line per slot. */
   const toml = readFileSync(join(ROOT, 'poster/wrangler.toml'), 'utf8');
   const block = /crons\s*=\s*\[([\s\S]*?)\]/.exec(toml);
   if (!block) throw new Error('no crons');
   const lines = [...block[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  is(lines.length, 5, 'slots');
+  if (!lines.length) throw new Error('no cron lines');
   for (const c of lines) {
     if (c.trim().split(/\s+/).length !== 5) throw new Error(`not a 5-field cron: ${c}`);
   }
+  /* At least one has to run sub-hourly, or a slot set for 09:00 goes out
+     at 10:00 and the standing order becomes a suggestion. */
+  const often = lines.some((c) => /^\*\/\d+ /.test(c.trim()));
+  if (!often) throw new Error(`nothing fires sub-hourly: ${lines.join(', ')}`);
 });
 
 console.log(
