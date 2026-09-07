@@ -2647,8 +2647,13 @@ async function viewAccounts() {
 
      <div class="st-acts">
        <button class="st-link" type="button" data-acc-save>Save</button>
+       <button class="st-link" type="button" data-acc-check>Check posting</button>
        <button class="st-link" type="button" data-acc-post>Post anything that is due</button>
      </div>
+     <p class="st-note u-text-style-main">Check posting spends the tokens on a real
+       read and fetches a picture the way the platforms will, then stops. It posts
+       nothing.</p>
+     <div data-acc-checks></div>
      <p class="st-note u-text-style-main" data-acc-out></p>`;
 
   $('[data-acc-save]', host).addEventListener('click', async () => {
@@ -2678,6 +2683,25 @@ async function viewAccounts() {
       say(`Saved ${out.saved.length} field${out.saved.length === 1 ? '' : 's'}.`);
       await viewAccounts();
     } catch (e) { say(e.message, 'err'); }
+  });
+
+  $('[data-acc-check]', host).addEventListener('click', async () => {
+    const into = $('[data-acc-checks]', host);
+    into.innerHTML = '<p class="st-note u-text-style-main">Checking…</p>';
+    try {
+      const out = await api('/carousels/-/preflight');
+      // the verdict word carries the meaning, so it is not only a colour
+      const mark = { ok: 'OK', warn: 'Worth knowing', stop: 'Stops the post' };
+      into.innerHTML =
+        `<p class="st-note u-text-style-main"><strong>${
+          out.ready ? 'Ready to post.' : 'Not ready.'}</strong> Going out through ${
+          escapeHtml(out.route)}.</p>
+         <dl class="st-facts">${out.checks.map((c) =>
+           `<div><dt>${escapeHtml(mark[c.verdict] || c.verdict)}</dt>` +
+           `<dd>${escapeHtml(c.what)} — ${escapeHtml(c.detail)}</dd></div>`).join('')}</dl>`;
+    } catch (e) {
+      into.innerHTML = `<p class="st-note u-text-style-main">${escapeHtml(e.message)}</p>`;
+    }
   });
 
   $('[data-acc-post]', host).addEventListener('click', async () => {
