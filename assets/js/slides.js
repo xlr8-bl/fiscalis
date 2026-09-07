@@ -17,6 +17,8 @@ export const W = 1080;
 export const H = 1350;
 
 const px = { w: (v) => v * W, h: (v) => v * H, size: (v) => v * H };
+// a height already in frame fractions, for a block adding to its own top
+const M_h = (v) => v * H;
 
 /* ---------------------------------------------------------- the metrics
  *
@@ -43,6 +45,24 @@ export const M = {
   action:   { label: 0.0355, body: 0.0195, lead: 1.14,
               labelX: 0.1893, labelW: 0.2075, panelX: 0.3386, panelW: 0.4612,
               padX: 0.018, padY: 0.016 },
+
+  /* The closing blocks. A recap line is set at the paragraph size and
+     given a pitch a little over twice it, so the rules under the lines
+     have air and five of them still clear the instruction. */
+  recap:    { size: 0.0208, pitch: 0.049, num: 0.0230, indent: 0.072 },
+  echo:     { size: 0.0170, gap: 0.022 },
+
+  /* The hanging object. Read off the reference, which is 736x736: the
+     object's box runs x 0.30..0.48 and y 0.00..0.71 there, cord off the
+     top edge, ring marks in an arc off the earpiece. Carried over as
+     fractions of this frame, which is 4:5 and so taller. */
+  hang:     { x: 0.20, h: 0.62, earX: 0.60, earY: 0.88,
+              marks: 7, markR: 0.085, markLen: 0.030,
+              /* Above the instruction, not under it. The instruction keeps
+                 full width and its label starts at 0.1893, which is where
+                 the address was ending. */
+              foot: 0.845, addr: 0.0175, col: 0.50 },
+  mark:     { size: 0.0300, padX: 0.014, padY: 0.007, gap: 0.016 },
 
   // read off the reference's runs, rounded, not tuned
   gap:      { afterTitle: 0.063, between: 0.034, beforeIcons: 0.036 },
@@ -109,15 +129,37 @@ export const BLOCKS = {
         + 'actually explained, so it is the one block allowed to be prose.',
     height(ctx, block, g, col) {
       const n = lines(ctx, block.text, face(g, 'say'), col, trackOf('say')).length;
-      return M.say.size * CAP + (n - 1) * M.say.size * M.say.lead;
+      return (block.mark ? M.mark.size * CAP + M.mark.gap : 0)
+        + M.say.size * CAP + (n - 1) * M.say.size * M.say.lead;
     },
     draw(ctx, block, g, box) {
+      let top = box.y;
+      /* One word or two, on a marker swipe, above the paragraph. The
+         swipe is drawn behind and slightly low, the way a highlighter
+         goes on over something already printed rather than around it. */
+      if (block.mark) {
+        setType(ctx, g, 'say');
+        const s = px.size(M.mark.size);
+        ctx.font = `${TYPE.chip.weight} ${s}px ${TYPE.chip.family}`;
+        ctx.textAlign = 'left';
+        const x = alignX(box, block.align ?? 'left');
+        const w = ctx.measureText(block.mark).width;
+        const base = top + s * CAP;
+        ctx.save();
+        ctx.fillStyle = g.accentSoft;
+        ctx.fillRect(x - px.w(M.mark.padX), base - s * CAP - px.h(M.mark.padY) * 0.4,
+                     w + px.w(M.mark.padX) * 2, s * CAP + px.h(M.mark.padY) * 1.7);
+        ctx.restore();
+        ctx.fillStyle = g.mark;
+        ctx.fillText(block.mark, x, base);
+        top += M_h(M.mark.size * CAP + M.mark.gap);
+      }
       setType(ctx, g, 'say');
       const ls = lines(ctx, block.text, face(g, 'say'), box.w, trackOf('say'));
       ctx.textAlign = alignTo(block.align);
       const x = alignX(box, block.align);
       ls.forEach((line, i) => {
-        const y = box.y + px.size(M.say.size) * CAP
+        const y = top + px.size(M.say.size) * CAP
           + i * px.size(M.say.size * M.say.lead);
         ctx.fillText(line, x, y);
       });
@@ -141,6 +183,144 @@ export const BLOCKS = {
         const y = box.y + i * px.h(M.chip.pitch);
         chip(ctx, g, text, box.x + box.w / 2, y, { fill: 'accentSoft' });
       });
+    },
+  },
+
+  /**
+   * The carousel restated, one numbered line each.
+   *
+   * Not chips. A chip stack is a set of things that belong together and
+   * is the shape used mid-carousel; this is the same carousel read back,
+   * so it is numbered and it runs full width. Numbering is what makes it
+   * legible as a recap rather than as another list of reasons.
+   */
+  recap: {
+    takes: 'items',
+    what: 'The carousel read back, two to five numbered lines, one for each '
+        + 'slide that mattered. For a closing slide: somebody who swiped '
+        + 'without reading gets the whole thing here, and somebody who did '
+        + 'read gets it confirmed.',
+    height(_ctx, block) {
+      const n = Math.max(1, (block.items ?? []).length);
+      return n * M.recap.pitch;
+    },
+    draw(ctx, block, g, box) {
+      const items = block.items ?? [];
+      const num = px.size(M.recap.num);
+      items.forEach((text, i) => {
+        const y = box.y + i * px.h(M.recap.pitch) + px.size(M.recap.size) * CAP;
+        setType(ctx, g, 'label');
+        ctx.font = `${TYPE.label.weight} ${num}px ${TYPE.label.family}`;
+        ctx.textAlign = 'left';
+        ctx.fillText(String(i + 1).padStart(2, '0'), box.x, y);
+        ctx.font = `${TYPE.say.weight} ${px.size(M.recap.size)}px ${TYPE.say.family}`;
+        ctx.letterSpacing = trackOf('say');
+        ctx.fillText(text, box.x + px.w(M.recap.indent), y);
+        // a hairline under each, so five lines read as five and not as a paragraph
+        ctx.globalAlpha = 0.22;
+        ctx.fillRect(box.x, y + px.h(0.012), box.w, Math.max(1, px.h(0.0009)));
+        ctx.globalAlpha = 1;
+      });
+      ctx.textAlign = 'center';
+    },
+  },
+
+  /**
+   * The headline the carousel opened with, set small above the one it
+   * closes with. The research calls it a bookend and it is the one
+   * device that makes a last slide unmistakably last: the reader is
+   * shown the question they were asked, answered.
+   */
+  echo: {
+    takes: 'text',
+    what: 'The headline this carousel OPENED with, repeated small above the '
+        + 'closing headline. Only on a closing slide, and only the opening '
+        + 'line verbatim: paraphrasing it breaks the loop it exists to close.',
+    height(_ctx, _block) { return M.echo.size * CAP + M.echo.gap; },
+    draw(ctx, block, g, box) {
+      setType(ctx, g, 'label');
+      ctx.font = `${TYPE.label.weight} ${px.size(M.echo.size)}px ${TYPE.label.family}`;
+      ctx.letterSpacing = `${0.04 * px.size(M.echo.size)}px`;
+      ctx.textAlign = alignTo(block.align);
+      ctx.globalAlpha = 0.55;
+      const y = box.y + px.size(M.echo.size) * CAP;
+      ctx.fillText(`YOU ASKED: ${String(block.text ?? '').toUpperCase()}`,
+                   alignX(box, block.align), y);
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'center';
+    },
+  },
+
+  /**
+   * The object on its cord, ringing, with the address at the foot.
+   *
+   * One arrangement, fixed. It hangs from the top edge rather than
+   * sitting on the sheet, which is the whole trick: the cord running off
+   * the frame is what makes it read as an object in a room instead of a
+   * picture of a telephone. The marks say it is ringing and nobody has
+   * picked it up, which is the point of the slide.
+   *
+   * Costs no height. What it costs is the left half of the sheet, taken
+   * in layOut, the same way a cut-out takes its side.
+   */
+  calling: {
+    takes: 'nothing',
+    what: 'A handset hanging on its cord, ringing, and the address at the '
+        + 'foot. The closing slide for a carousel about not being reachable: '
+        + 'it is the only one that shows the thing going unanswered rather '
+        + 'than saying it. Nothing to set.',
+    height() { return 0; },
+    draw(ctx, block, g, box, art) {
+      const img = art?.objects?.handset;
+      const h = px.h(M.hang.h);
+      const w = img ? h * (img.width / img.height) : px.w(0.19);
+      const x0 = px.w(M.hang.x);
+
+      if (img) {
+        ctx.save();
+        /* Near-black on paper, near-paper on ink. The photographs are
+           monochrome now and an object that is not would be the only
+           colour on the sheet. */
+        /* Barely touched on paper: it is already a black object, and
+           crushing it further took the highlights off the handset and
+           left a blob. Inverted on ink, where black on black is nothing. */
+        ctx.filter = g.ground === GROUNDS.ink.ground
+          ? 'grayscale(1) invert(1) brightness(1.05)'
+          : 'grayscale(1) contrast(1.08)';
+        ctx.drawImage(img, x0, 0, w, h);
+        ctx.restore();
+      }
+
+      // the ring marks, an arc off the earpiece, none of them touching it
+      const ex = x0 + w * M.hang.earX;
+      const ey = h * M.hang.earY;
+      const r = px.h(M.hang.markR);
+      const len = px.h(M.hang.markLen);
+      ctx.save();
+      ctx.strokeStyle = g.mark;
+      ctx.lineWidth = Math.max(2, px.h(0.0035));
+      ctx.lineCap = 'round';
+      for (let i = 0; i < M.hang.marks; i++) {
+        const a = (-0.85 + (1.7 * i) / (M.hang.marks - 1));
+        ctx.beginPath();
+        ctx.moveTo(ex + Math.cos(a) * r, ey + Math.sin(a) * r);
+        ctx.lineTo(ex + Math.cos(a) * (r + len), ey + Math.sin(a) * (r + len));
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // the address, behind a short rule, the way a sheet is signed
+      const fy = px.h(M.hang.foot);
+      const s = px.size(M.hang.addr);
+      ctx.save();
+      ctx.fillStyle = g.mark;
+      ctx.fillRect(px.w(M.margin), fy - s, Math.max(2, px.w(0.0022)), s * 1.5);
+      ctx.font = `${TYPE.label.weight} ${s}px ${TYPE.label.family}`;
+      ctx.letterSpacing = `${0.03 * s}px`;
+      ctx.textAlign = 'left';
+      ctx.fillText(block.address ?? 'web3ashley.com', px.w(M.margin) + px.w(0.022), fy);
+      ctx.textAlign = 'center';
+      ctx.restore();
     },
   },
 
@@ -727,6 +907,42 @@ export const TEMPLATES = {
     what: 'The last slide. What to do now. The instruction is the whole '
         + 'slide, so nothing competes with it.',
   },
+
+  /*
+   * The two outros. Both close a carousel and they close it differently,
+   * which is the point of having two.
+   *
+   * What the guidance agrees on, across every source that is not selling
+   * a template pack: ONE ask, never a stack of them; the last slide
+   * should read as the reward for swiping rather than as an advert
+   * appended to the end; and it should bookend the opening so the set
+   * has a shape. The disagreement is only about what fills the rest of
+   * it, and the two answers given are a recap or a single statement. So
+   * there is one of each.
+   */
+  recap: {
+    blocks: ['title', 'recap', 'action'],
+    what: 'The whole carousel read back in numbered lines, then the ask. The '
+        + 'one to reach for by default: it is the only slide that pays off a '
+        + 'reader who swiped to the end without reading, and it is what makes '
+        + 'the post worth keeping rather than worth finishing.',
+  },
+  calling: {
+    blocks: ['calling', 'say', 'action'],
+    what: 'A handset hanging off the top of the sheet on its cord, ringing, '
+        + 'with the address at the foot. No headline: the object is the '
+        + 'headline. For the end of a carousel about being reachable, or not '
+        + 'being. `say` takes a `mark`, one or two words on a marker swipe '
+        + 'above the sentence, which is where the slide starts talking.',
+  },
+  bookend: {
+    blocks: ['echo', 'title', 'say', 'icons', 'action'],
+    what: 'Closes the loop out loud: the headline the carousel opened with, '
+        + 'set small, and under it the line that answers it. For a carousel '
+        + 'that opened on a question or a claim. Needs the opening headline '
+        + 'verbatim in `echo`, so it is the one template that cannot be '
+        + 'written without looking at slide one.',
+  },
 };
 
 export const TEMPLATE_NAMES = Object.keys(TEMPLATES);
@@ -738,7 +954,15 @@ export const TEMPLATE_NAMES = Object.keys(TEMPLATES);
  * into what is left, because the instruction's position is the promise
  * the format makes to a reader.
  */
-export function layOut(ctx, slide, g) {
+/**
+ * How wide the text column is, and where it starts.
+ *
+ * Exported because the copy budget needs the same answer. Working it out
+ * a second time in spec.js is the fault that already cost twenty false
+ * passes: a budget that believes the column is full width passes twelve
+ * lines of paragraph into a template that shows five.
+ */
+export function columnOf(slide) {
   let col = px.w(1 - M.margin * 2);
   let x = px.w(M.margin);
 
@@ -757,7 +981,18 @@ export function layOut(ctx, slide, g) {
    * which is backwards, and the paragraph ran under phone-chair's arm by
    * exactly that margin.
    */
-  const cut = slide.portrait && placementOf(slide.portrait, slide.context ?? 'cta');
+  // the hanging object claims the left half, the same way a cut-out does
+  const names0 = slide.blocks ?? TEMPLATES[slide.template]?.blocks ?? [];
+  if (names0.includes('calling')) {
+    x = px.w(M.hang.col);
+    col = px.w(1 - M.margin) - x;
+  }
+
+  /* Only when the template actually draws one. A stray `portrait` field
+     on a template with no portrait block was still taking its side of
+     the column, so the budget was narrowing every template it probed. */
+  const cut = names0.includes('portrait') && slide.portrait
+    && placementOf(slide.portrait, slide.context ?? 'cta');
   if (cut) {
     const wide = px.h(cut.h) * (CUTOUTS[slide.portrait]?.wide ?? 0.8);
     const gut = px.w(0.075);          // his edge to the first letter
@@ -776,6 +1011,12 @@ export function layOut(ctx, slide, g) {
     if (side === 'left') x = Math.max(x, mine.b + gut);
     col = Math.max(px.w(0.30), (side === 'left' ? right : Math.min(right, mine.a - gut)) - x);
   }
+  return { x, col };
+}
+
+export function layOut(ctx, slide, g) {
+  const { x: x0, col } = columnOf(slide);
+  let x = x0;
   const names = slide.blocks ?? TEMPLATES[slide.template]?.blocks ?? [];
 
   const flowing = [];

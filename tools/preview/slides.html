@@ -72,10 +72,13 @@ await Promise.all(PORTRAITS.map(async (n) => {
   portraits[n] = await load(`/assets/stock/own/${n}.jpg`);
 }));
 
+// props keyed out of a reference, drawn as objects rather than as photos
+const objects = { handset: await load('/assets/stock/objects/handset.png') };
+
 window.CATALOGUE = slideCatalogue();
 window.TEMPLATES = TEMPLATE_NAMES;
 window.render = async (slide) => {
-  const art = { icons, portraits };
+  const art = { icons, portraits, objects };
   /* A slide names a scene by file stem, the same way it names a
      portrait. Treating it as a URL meant `scene: 'black-wall'` fetched
      nothing and the slide drew as a bare ground. */

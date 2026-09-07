@@ -176,7 +176,9 @@ ok('the guide\'s room figures come from the validator, not from a second sum', (
   const g = slideGuide();
   for (const t of g.templates) {
     const n = t.paragraph_lines_total;
-    assert.ok(n >= 1, `${t.name} claims room for ${n} lines`);
+    // 0 is legal, and only for a template that has no paragraph at all
+    assert.ok(n >= 1 || !TEMPLATES[t.name].blocks.includes('say'),
+      `${t.name} claims room for ${n} lines and does have a paragraph`);
     /* Measured on the guide's OWN probe, imported rather than rebuilt.
        A check that builds its own probe is a second definition, and it
        found `portrait` failing at two lines only because its probe
@@ -185,6 +187,14 @@ ok('the guide\'s room figures come from the validator, not from a second sum', (
       const one = probeSlide(t.name, count);
       return validateSlides({ slides: [one, one] }).ok;
     };
+    /* A template with no paragraph reports 0, and the two assertions
+       below do not apply to it: there is nothing to overflow, so every
+       count "fits" and the figure could never be too low. */
+    if (n === 0) {
+      assert.ok(!TEMPLATES[t.name].blocks.includes('say'),
+        `${t.name} claims no paragraph room and has a paragraph block`);
+      continue;
+    }
     assert.ok(at(n), `${t.name} claims ${n} lines and the validator refuses ${n}`);
     assert.ok(!at(n + 1),
       `${t.name} claims ${n} lines but ${n + 1} also fits, so the figure is low`);
