@@ -21,7 +21,7 @@ const okAsync = async (name, fn) => {
   catch (e) { console.log(`  FAIL ${name}\n       ${e.message}`); process.exitCode = 1; }
 };
 
-const URLS = ['https://s/1.png', 'https://s/2.png', 'https://s/3.png'];
+const URLS = ['https://s/1.jpg', 'https://s/2.jpg', 'https://s/3.jpg'];
 const ALL = ['instagram', 'tiktok', 'facebook'];
 
 /** A fetch that answers with whatever this test wants, and records the call. */
@@ -76,9 +76,38 @@ await okAsync('a platform that failed inside a 200 is NOT recorded as posted', a
   assert.equal(r.facebook.ok, false, 'a platform they said nothing about is not posted');
 });
 
+await okAsync('a PNG is refused before it reaches TikTok', async () => {
+  /* TikTok's Media Transfer Guide takes WebP and JPEG, not PNG, and the
+     sheets are drawn as PNG. Through a broker that failure arrives
+     inside a 200 reading like a transfer problem, so it is caught here
+     instead. This test failed the first time it was run, on URLs the
+     other tests were using, which is the whole point of writing it. */
+  fakeFetch(200, { postIds: [] });
+  const r = await toAyrshare({ AYRSHARE_API_KEY: 'k' },
+    { urls: ['https://s/1.png', 'https://s/2.png'], caption: 'x', targets: ['tiktok'] });
+  assert.equal(r.tiktok.skipped, true);
+  assert.match(r.tiktok.error, /does not take png/);
+  assert.match(r.tiktok.error, /JPEG/);
+});
+
+await okAsync('the slide limit is the lowest platform in the call', async () => {
+  fakeFetch(200, { postIds: [] });
+  const twelve = Array.from({ length: 12 }, (_, i) => `https://s/${i}.jpg`);
+  // TikTok alone takes 35, so twelve is fine
+  const tt = await toAyrshare({ AYRSHARE_API_KEY: 'k' },
+    { urls: twelve, caption: 'x', targets: ['tiktok'] });
+  assert.notEqual(tt.tiktok.error, undefined, 'it should have tried and got an empty reply');
+  assert.ok(!/takes 10/.test(tt.tiktok.error ?? ''), 'TikTok alone is not held to ten');
+  // add Instagram and the whole call drops to ten
+  const both = await toAyrshare({ AYRSHARE_API_KEY: 'k' },
+    { urls: twelve, caption: 'x', targets: ['instagram', 'tiktok'] });
+  assert.equal(both.instagram.skipped, true);
+  assert.match(both.instagram.error, /instagram takes 10/);
+});
+
 await okAsync('eleven slides is refused, never trimmed to ten', async () => {
   fakeFetch(200, { postIds: [] });
-  const many = Array.from({ length: 11 }, (_, i) => `https://s/${i}.png`);
+  const many = Array.from({ length: 11 }, (_, i) => `https://s/${i}.jpg`);
   const r = await toAyrshare({ AYRSHARE_API_KEY: 'k' },
     { urls: many, caption: 'x', targets: ['instagram'] });
   assert.equal(r.instagram.skipped, true);

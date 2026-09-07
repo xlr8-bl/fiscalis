@@ -15,6 +15,7 @@ import { validateSlides, PER_LINE, LIMITS } from '../lib/slides/spec.js';
 import { TEMPLATES, TEMPLATE_NAMES, BLOCKS, SLIDE_GROUND_NAMES } from '../assets/js/slides.js';
 import { ICON_NAMES } from '../assets/js/icons.js';
 import { EXAMPLE_SLIDES } from '../lib/slides/examples.js';
+import { slideGuide } from '../lib/slides/guide.js';
 import { designBrief } from '../lib/designer.js';
 import { TOOLS } from '../lib/mcp.js';
 
@@ -160,6 +161,49 @@ ok('the limits and the pack are stated once, not copied', () => {
   const b = designBrief();
   assert.equal(b.teaching.icons.length, ICON_NAMES.length,
     'the brief has its own idea of how many icons there are');
+});
+
+ok('the guide\'s room figures come from the validator, not from a second sum', () => {
+  /* The figures said `open` holds twelve lines of paragraph when the
+     validator refuses it well before that, because the guide did the
+     arithmetic again instead of asking. Two sums of the same thing is
+     how a guide starts lying to the agent reading it. */
+  const g = slideGuide();
+  for (const t of g.templates) {
+    const n = t.paragraph_lines_total;
+    assert.ok(n >= 1, `${t.name} claims room for ${n} lines`);
+    // the claim must hold: n lines pass, n+1 does not
+    const line = 'wondering about the thing that happens next in a sentence';
+    const build = (count) => {
+      const s = { ...base(), template: t.name, title: 'Why nobody calls you back',
+                  chips: ['the number is a picture', 'the form emails nowhere',
+                          'the hours are last year'],
+                  duo: [{ head: 'Slow', tail: 'the server is thinking' },
+                        { head: 'Heavy', tail: 'the page is enormous' }],
+                  action: 'Open your own site on your phone and time how long it takes.' };
+      const says = TEMPLATES[t.name].blocks.filter((b) => b === 'say').length;
+      const text = Array.from({ length: Math.ceil(count / says) }, () => line).join(' ');
+      s.say = text;
+      if (says > 1) s.say2 = text;
+      return s;
+    };
+    assert.ok(validateSlides({ slides: [build(n), build(n)] }).ok,
+      `${t.name} claims ${n} lines and the validator refuses ${n}`);
+    assert.ok(!validateSlides({ slides: [build(n + 1), build(n + 1)] }).ok,
+      `${t.name} claims ${n} lines but ${n + 1} also fits, so the figure is low`);
+  }
+});
+
+ok('the guide tells Spark how to use icons and pictures, not just that they exist', () => {
+  const g = slideGuide();
+  assert.ok(g.icons.rules.length >= 3, 'no rules for icons');
+  assert.equal(g.icons.pack.length, ICON_NAMES.length);
+  assert.ok(g.pictures.when && g.pictures.never, 'pictures have no when and no never');
+  assert.match(JSON.stringify(g.pictures), /recognisable face/,
+    'the likeness rule is missing from what Spark reads');
+  for (const key of ['headline', 'paragraph', 'chips', 'duo', 'instruction']) {
+    assert.ok(g.writing[key]?.length, `nothing written about ${key}`);
+  }
 });
 
 console.log(`\n${pass} checks passed\n`);
