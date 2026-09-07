@@ -13,6 +13,8 @@ import { compose, W, H, FACES } from '/assets/js/compose.js';
 import { LAYOUTS, MEASURED, brief } from '/lib/hooks/layouts.js';
 import { EXAMPLES, sample } from '/lib/hooks/examples.js';
 import { resolveArt } from '/lib/hooks/art.js';
+import { OWN_PHOTOS } from '/lib/hooks/own.js';
+import { iconUrl } from '/assets/js/icons.js';
 import { screened, standee } from '/assets/js/slides.js';
 import { CUTOUTS } from '/lib/hooks/cutouts.js';
 import { STOCK } from '/lib/hooks/stock.js';
@@ -89,6 +91,31 @@ window.render = async (id, n = 0) => {
     if (slot.scene) {
       art[slot.id] = await get(`/assets/stock/scenes/${slot.scene}.jpg`);
       used[slot.id] = 'named';
+      continue;
+    }
+    /* `icon:` puts one object from the pack in an art box. Drawn rather
+       than resolved, because an icon is chosen for what it MEANS on that
+       sheet and no search term finds that. */
+    if (slot.icon) {
+      // the layout names a default and the copy may change it
+      art[slot.id] = await get(iconUrl(copy[slot.id] ?? slot.icon));
+      used[slot.id] = 'icon';
+      continue;
+    }
+    /* `own:` names WHICH of his photographs, when the sheet has been
+       designed around one of them rather than around the role. It still
+       goes through the key and the screen like any other. */
+    if (slot.own) {
+      const im = await get(`/assets/stock/own/${slot.own}.jpg`);
+      const p = OWN_PHOTOS[slot.own];
+      used[slot.id] = 'own';
+      mine++;
+      if (im && p?.keyed && slot.cut !== false) {
+        const cut = standee(im, { style: p.cut });
+        art[slot.id] = (p.stands && cut) ? [cut] : (cut ?? im);
+      } else if (im) {
+        art[slot.id] = screened(im, im.naturalWidth, im.naturalHeight);
+      }
       continue;
     }
     const got = resolveArt(slot, { ...(window.OWN ? { own: window.OWN } : {}),
