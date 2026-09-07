@@ -340,6 +340,26 @@ function drawType(ctx, slot, copy, g, report) {
   ctx.letterSpacing = `${track}px`;
   ctx.textBaseline = 'alphabetic';
 
+  /*
+   * ACCIDENTAL OVERLAP. If this slot's box lands on a picture and the
+   * layout did not say so, the type is drawn in `difference` against
+   * white, which makes every pixel the exact inverse of whatever is
+   * under it. Black on the paper, white where it crosses a dark jacket,
+   * and it changes mid-letter if the letter does.
+   *
+   * It is a safety net, not the normal path: a slot that MEANS to sit on
+   * a photograph says `over: 'art'` and gets a measured polarity and a
+   * scrim, which looks composed rather than rescued. This is for the
+   * copy that grew and met a shoulder nobody expected.
+   *
+   * On the paper ground it resolves to (13,19,31) against the brand ink
+   * of (20,18,15), which is a difference nobody can see.
+   */
+  if (slot.invert) {
+    ctx.globalCompositeOperation = 'difference';
+    ctx.fillStyle = '#FFFFFF';
+  }
+
   /* Every heading carries swapped letters. `mix: 0` on a slot turns it
      off, for the two or three that are a single letter or a numeral,
      where a swap is not a signature but a mistake. */
@@ -1689,9 +1709,20 @@ export function compose(ctx, spec, copy = {}, art = {}, opts = {}) {
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
 
+  /* The art boxes, so a type slot can be told it has landed on one. */
+  const artBoxes = spec.slots.filter((x) => x.t === 'art' && art[x.id]).map((x) => x.box);
+  const hits = (b) => artBoxes.some((a) =>
+    b[0] < a[0] + a[2] && b[0] + b[2] > a[0] && b[1] < a[1] + a[3] && b[1] + b[3] > a[1]);
+
   for (const raw of spec.slots) {
     const slot = refit(raw, spec);
     if (slot.when === 'copy' && !copy[slot.id]) continue;
+    /* Only when the layout has not already decided. `over: 'art'` is a
+       composed overlap and gets its own treatment; `invert: false` is a
+       layout saying it knows and wants the flat colour anyway. */
+    if (slot.t === 'type' && slot.invert == null && slot.over !== 'art' && hits(slot.box)) {
+      slot.invert = true;
+    }
 
     if (slot.t === 'art') { drawArt(ctx, slot, art[slot.id], g, report); continue; }
 
