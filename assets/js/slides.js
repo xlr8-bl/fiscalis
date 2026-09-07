@@ -35,6 +35,7 @@
 
 import { GROUNDS } from './design-spec.js';
 import { ICONS, ICON_NAMES } from './icons.js';
+import { CUTOUTS, placementOf } from '../../lib/slides/cutouts.js';
 
 export const W = 1080;
 export const H = 1350;
@@ -335,12 +336,39 @@ export const BLOCKS = {
     what: 'One of Ashley\'s own photographs, cut out and screened to a single '
         + 'ink with a hard outline. For an opening or closing slide. It is a '
         + 'shape on the sheet, not a photograph in a box.',
-    height(_ctx, block) { return block.h ?? 0.30; },
+    /* The height comes from the placement table, not from the slide. A
+       cut-out whose size is a per-slide decision is a cut-out that
+       changes size between slides of one carousel. */
+    /* Nothing. A cut-out pinned to the sheet's edge and bled off it is
+       not part of the stack, it is behind and beside it, so charging the
+       flow for its height pushed the copy up and overflowed the slide.
+       What it costs instead is WIDTH: layOut narrows the text column
+       away from whichever edge the photograph is pinned to. */
+    height() { return 0; },
     draw(ctx, block, g, box, art) {
       // the slide names a photograph by file stem: `portrait: 'blue-flat'`
-      const img = art?.portraits?.[block.text ?? block.name] ?? art?.portrait;
-      if (!img) return;
-      cutout(ctx, img, box, g, block);
+      const name = block.text ?? block.name;
+      const img = art?.portraits?.[name] ?? art?.portrait;
+      const place = placementOf(name, block.context ?? 'cta');
+      if (!img || !place || CUTOUTS[name]?.use !== 'cutout') return;
+
+      /*
+       * The anchor is the table's, and the table's alone.
+       *
+       * `bleed` runs the cut-out past the edge it is pinned to, because
+       * one that stops short looks placed and one that runs off looks
+       * photographed. Both are measured against the FRAME rather than
+       * the block's box, since the whole point is leaving the column.
+       */
+      const h = px.h(place.h);
+      const w = h * (img.width / img.height);
+      const bleed = px.w(place.bleed);
+      const x0 = place.at === 'left' ? -bleed
+        : place.at === 'centre' ? (W - w) / 2
+          : W - w + bleed;
+      const y0 = place.from === 'bottom' ? H - px.h(M.foot) - h : box.y;
+
+      cutout(ctx, img, { ...box, h, w }, g, { ...block, x0, y0 });
     },
   },
 
@@ -362,8 +390,8 @@ export const BLOCKS = {
     what: 'The one thing to actually do, in a sentence or two. Every slide '
         + 'ends with one and it is always in the same place, so a reader '
         + 'who only wants the instruction knows where to look.',
-    height(ctx, block, g) {
-      const inner = px.w(M.action.panelW) - px.w(M.action.padX) * 2;
+    height(ctx, block, g, col) {
+      const inner = Math.min(px.w(M.action.panelW), col) - px.w(M.action.padX) * 2;
       const n = lines(ctx, block.text, face(g, 'action'), inner, trackOf('action')).length;
       /* Same arithmetic as draw(): the first line clears the label, so
          the block is that much taller than its padding suggests. */
@@ -384,9 +412,14 @@ export const BLOCKS = {
        * box is what guarantees it — the label's right quarter laps the
        * panel's left edge every time.
        */
-      const labelX = px.w(M.action.labelX);
-      const panelX = px.w(M.action.panelX);
-      const panelW = px.w(M.action.panelW);
+      /* Both boxes are the reference's, until the column says otherwise.
+         A cut-out pinned to an edge narrows the column, and the panel
+         has to come with it: at the reference's fixed width it ran
+         straight under his face. */
+      const right = box.x + box.w;
+      const labelX = Math.max(px.w(M.action.labelX), box.x);
+      const panelX = Math.max(px.w(M.action.panelX), labelX + px.w(0.10));
+      const panelW = Math.min(px.w(M.action.panelW), right - panelX);
       const panelY = box.y + px.h(M.chip.h) * 0.63;
 
       /* The first line starts below the LABEL, not below the panel's own
@@ -730,8 +763,28 @@ export const TEMPLATE_NAMES = Object.keys(TEMPLATES);
  * the format makes to a reader.
  */
 export function layOut(ctx, slide, g) {
-  const col = px.w(1 - M.margin * 2);
-  const x = px.w(M.margin);
+  let col = px.w(1 - M.margin * 2);
+  let x = px.w(M.margin);
+
+  /*
+   * A cut-out takes width, not height.
+   *
+   * It is pinned to one edge of the sheet and runs off it, so the text
+   * has to give up that side or it sets straight across his face. How
+   * much it gives up comes from the placement table and the photograph's
+   * own proportions, so a taller cut-out takes more, and a centred one
+   * takes nothing because the type goes above it.
+   */
+  const cut = slide.portrait && placementOf(slide.portrait, slide.context ?? 'cta');
+  if (cut && cut.at !== 'centre' && cut.at !== 'cover') {
+    /* As much width as the cut-out actually occupies, not a constant.
+       phone-chair is a whole seated figure and takes over half the
+       sheet; a fixed third left the paragraph running under his knees. */
+    const shape = CUTOUTS[slide.portrait]?.aspect ?? 0.8;
+    const wide = px.h(cut.h) * shape - px.w(cut.bleed);
+    const take = Math.min(px.w(0.52), Math.max(px.w(0.26), wide - px.w(0.04)));
+    if (cut.at === 'left') { x += take; col -= take; } else { col -= take; }
+  }
   const names = slide.blocks ?? TEMPLATES[slide.template]?.blocks ?? [];
 
   const flowing = [];
@@ -757,7 +810,13 @@ export function layOut(ctx, slide, g) {
   const out = [];
   if (pinned) {
     const y = 1 - M.foot - pinned.h;
-    out.push({ ...pinned, box: { x, y: px.h(y), w: col, h: px.h(pinned.h) } });
+    /* The instruction keeps the FULL width even when a cut-out has
+       narrowed the column. It is an opaque sticker drawn last, so it
+       lies over the photograph rather than dodging it, which is what the
+       collage wants anyway. Narrowing it squeezed "Send me the URL and I
+       will tell you" into one word a line. */
+    out.push({ ...pinned,
+      box: { x: px.w(M.margin), y: px.h(y), w: px.w(1 - M.margin * 2), h: px.h(pinned.h) } });
   }
 
   /*
@@ -912,63 +971,143 @@ function cutout(ctx, img, box, g, opts = {}) {
   }
   if (bx1 <= bx0 || by1 <= by0) return;
 
-  const poly = simplify(trace(on, W_, H_), H_ * (opts.coarse ?? 0.045));
-  if (poly.length < 3) return;
+  /*
+   * TWO polygons at two coarsenesses, which is the whole trick.
+   *
+   * `rough` is the paper: cut fast, few strokes, deliberately imprecise.
+   * `close` is where the photograph is clipped, with many more vertices,
+   * so it follows the actual body. Laying the second over the first is
+   * what "slapped on top of a rough cut-out" means — the paper shows in
+   * uneven slivers where the scissors went wide, and the photograph
+   * reaches the edge where they went tight. One polygon for both gives a
+   * perfectly even border, which is a die cut and not this.
+   */
+  keepLargest(on, W_, H_);
+  const contour = trace(on, W_, H_);
+  const rough = simplify(contour, H_ * (opts.rough ?? 0.038));
+  const close = simplify(contour, H_ * (opts.coarse ?? 0.011));
+  if (rough.length < 3 || close.length < 3) return;
 
-  /* Bottom right, not centred. A cut-out sitting dead centre above the
-     headline reads as an illustration of the words; sitting into the
-     corner it reads as something laid on the sheet, which is the whole
-     point of cutting it out. `align: 'centre'` is still there for a
-     slide that wants it. */
-  const x0 = opts.align === 'centre' ? box.x + (box.w - W_) / 2
-    : box.x + box.w - W_ + px.w(0.02);
-  const y0 = box.y;
-  const path = (grow) => {
-    const c = centroid(poly);
+  const x0 = opts.x0 ?? (box.x + box.w - W_);
+  const y0 = opts.y0 ?? box.y;
+
+  const shape = (poly, grow) => {
     ctx.beginPath();
-    poly.forEach(([px_, py_], i) => {
-      /* Grown from the centroid rather than offset along the normals: a
-         real normal offset needs the miters solved and would give a
-         cleaner border than a pair of scissors ever does. */
-      const dx = px_ - c[0];
-      const dy = py_ - c[1];
-      const len = Math.hypot(dx, dy) || 1;
-      const X = x0 + px_ + (dx / len) * grow;
-      const Y = y0 + py_ + (dy / len) * grow;
-      i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+    const n = poly.length;
+    poly.forEach(([qx, qy], i) => {
+      let X = qx;
+      let Y = qy;
+      if (grow) {
+        /* Offset along the vertex normal rather than outward from the
+           centroid. Radial growth pushes whatever is furthest from the
+           middle furthest out, so the border came out thick at the head
+           and thin at the shoulders. The normal keeps one weight all the
+           way round, which is what "the cut should touch me" needs. */
+        const a = poly[(i - 1 + n) % n];
+        const b = poly[(i + 1) % n];
+        let nx = (qy - a[1]) + (b[1] - qy);
+        let ny = -((qx - a[0]) + (b[0] - qx));
+        const len = Math.hypot(nx, ny) || 1;
+        X += (nx / len) * grow;
+        Y += (ny / len) * grow;
+      }
+      i ? ctx.lineTo(x0 + X, y0 + Y) : ctx.moveTo(x0 + X, y0 + Y);
     });
     ctx.closePath();
   };
 
+  const edge = Math.max(3, H_ * (opts.edge ?? 0.015));
+
   ctx.save();
-  /*
-   * The border is WHITE, not the ground.
-   *
-   * The first version filled it with `g.ground`, which is the colour of
-   * the sheet it is sitting on, so the cut was invisible and the whole
-   * device did nothing. What makes a cut-out read is that it is a piece
-   * of PAPER lying on the sheet, and paper is a different white from a
-   * warm cream ground. Two strokes: a soft drop first, then the paper,
-   * because a cut-out casts a shadow and that is most of what says it
-   * is lying on top rather than printed in.
-   */
-  const edge = Math.max(4, H_ * (opts.edge ?? 0.035));
+  // the shadow, so it reads as lying on the sheet rather than printed in
   ctx.save();
-  ctx.globalAlpha = 0.16;
+  ctx.globalAlpha = 0.18;
   ctx.fillStyle = g.mark;
-  ctx.translate(px.w(0.006), px.h(0.006));
-  path(edge);
+  ctx.translate(px.w(0.007), px.h(0.007));
+  shape(rough, edge);
   ctx.fill();
   ctx.restore();
 
+  // the paper it was cut out of
   ctx.fillStyle = opts.paper ?? '#FFFFFF';
-  path(edge);
+  shape(rough, edge);
   ctx.fill();
-  // and the photograph, clipped to the cut
-  path(0);
+
+  // and the photograph, laid over it
+  shape(close, 0);
   ctx.clip();
-  ctx.drawImage(img, x0, y0, W_, H_);
+  ctx.drawImage(pixelate(img, W_, H_, opts.pixels), x0, y0, W_, H_);
   ctx.restore();
+}
+
+/**
+ * Optionally, big square pixels.
+ *
+ * Ashley's signature look, and it has to be BIG to read as a choice
+ * rather than as a compression artefact: drawn small with smoothing off
+ * and blown back up, so the blocks are hard-edged squares. `pixels` is
+ * how many blocks the picture gets across, so a lower number is
+ * chunkier.
+ *
+ * Off by default. On a face the whole point of the picture is that it is
+ * recognisably him, and there is a level of this past which it is not.
+ */
+function pixelate(img, W_, H_, blocks) {
+  if (!blocks) return img;
+  const w = Math.max(4, Math.round(blocks));
+  const h = Math.max(4, Math.round(blocks * (H_ / W_)));
+  const small = new OffscreenCanvas(w, h);
+  const sc = small.getContext('2d');
+  sc.imageSmoothingEnabled = true;          // average, so blocks are honest
+  sc.drawImage(img, 0, 0, w, h);
+
+  const big = new OffscreenCanvas(W_, H_);
+  const bc = big.getContext('2d');
+  bc.imageSmoothingEnabled = false;         // and hard-edged going back up
+  bc.drawImage(small, 0, 0, W_, H_);
+  return big;
+}
+
+/**
+ * Throw away everything but the biggest blob.
+ *
+ * The trace starts at the first set pixel it finds scanning downward and
+ * follows THAT connected region, so a single speck of noise in the top
+ * corner becomes the whole cut-out: sky-arms came out as a small blue
+ * triangle at the left edge, which is a speck of sky that keyed a shade
+ * off its own gradient. The subject is always the largest region, so
+ * that is the one kept.
+ */
+function keepLargest(on, W_, H_) {
+  const label = new Int32Array(W_ * H_).fill(-1);
+  const stack = [];
+  let best = -1;
+  let bestSize = 0;
+  let next = 0;
+  for (let p = 0; p < on.length; p++) {
+    if (!on[p] || label[p] >= 0) continue;
+    const id = next++;
+    let size = 0;
+    stack.push(p);
+    label[p] = id;
+    while (stack.length) {
+      const q = stack.pop();
+      size++;
+      const x = q % W_;
+      const y = (q - x) / W_;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W_ || ny >= H_) continue;
+        const r = ny * W_ + nx;
+        if (!on[r] || label[r] >= 0) continue;
+        label[r] = id;
+        stack.push(r);
+      }
+    }
+    if (size > bestSize) { bestSize = size; best = id; }
+  }
+  for (let p = 0; p < on.length; p++) if (label[p] !== best) on[p] = 0;
 }
 
 /**

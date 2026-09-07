@@ -76,7 +76,14 @@ window.CATALOGUE = slideCatalogue();
 window.TEMPLATES = TEMPLATE_NAMES;
 window.render = async (slide) => {
   const art = { icons, portraits };
-  if (slide.scene) art.scene = await load(slide.scene);
+  /* A slide names a scene by file stem, the same way it names a
+     portrait. Treating it as a URL meant `scene: 'black-wall'` fetched
+     nothing and the slide drew as a bare ground. */
+  if (slide.scene) {
+    art.scene = portraits[slide.scene]
+      ?? await load(slide.scene.includes('/') ? slide.scene
+                    : `/assets/stock/own/${slide.scene}.jpg`);
+  }
   ctx.clearRect(0, 0, W, H);
   const r = drawSlide(ctx, slide, { art });
   return { over: r.over, png: document.getElementById('c').toDataURL('image/png') };
