@@ -11,6 +11,22 @@
   font-style:normal;
   font-display:swap;
 }
+/* The licensed bitmap pair. NeueBit for anything set in the pixel voice,
+   Mondwest when it wants serifs. Both licensed, see assets/fonts/NEUE.md */
+@font-face {
+  font-family:NeueBit;
+  src:url(../fonts/neuebit.woff2)format("woff2");
+  font-weight:400 900;
+  font-style:normal;
+  font-display:swap;
+}
+@font-face {
+  font-family:Mondwest;
+  src:url(../fonts/mondwest-regular.woff2)format("woff2");
+  font-weight:400;
+  font-style:normal;
+  font-display:swap;
+}
 /* --- at-rules / media queries ---------------------------------- */
 
 /* --- reset ----------------------------------------------------- */

@@ -78,7 +78,9 @@ export const FACES = {
   italic: 'InstrumentItalic',    // a quieter italic
   script: 'Script',              // the brush sheets
   marker: 'Gochi',               // the felt-tip on the risograph sheets
-  pixel: 'PixelDisplay',         // the wordmark, and nothing else
+  pixel: 'NeueBit',              // the licensed bitmap: wordmark, rails, labels
+  pixelSerif: 'Mondwest',        // its serif companion
+  pixelOld: 'PixelDisplay',      // the 8-bit stand-in NeueBit replaced
 };
 
 /** A slot's colour names, resolved against whatever ground it is on. */

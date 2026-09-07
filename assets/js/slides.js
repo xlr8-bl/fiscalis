@@ -805,6 +805,13 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
     if (back.includes(item)) continue;
     item.spec.draw(ctx, item.block, g, item.box, art, head);
   }
+
+  /* Accents: one or two icons in the headline, ON TOP of whatever the
+     icons block is doing. `iconsWhere: 'scatter'` REPLACES the row,
+     which was the wrong reading — the row is the format and should not
+     move. This adds an icon here and there and leaves it alone. */
+  if (slide.accent?.length && head) accents(ctx, slide.accent, head, g, art);
+
   return { over };
 }
 
@@ -964,6 +971,33 @@ function keepLargest(on, W_, H_) {
     if (size > bestSize) { bestSize = size; best = id; }
   }
   for (let p = 0; p < on.length; p++) if (label[p] !== best) on[p] = 0;
+}
+
+/**
+ * One or two icons dropped into the headline, over the type rather than
+ * behind it, small. Different spots from `scatter` so the two can be on
+ * one slide without landing on each other.
+ */
+function accents(ctx, names, head, g, art) {
+  const s = px.h(M.icons.h) * 0.62;
+  ctx.save();
+  ctx.filter = iconFilter(g);
+  names.slice(0, 2).forEach((name, i) => {
+    const img = art?.icons?.[name];
+    if (!img) return;
+    const line = head.lines[Math.min(i, head.lines.length - 1)];
+    const cx = head.box.x + head.box.w / 2;
+    const top = head.box.y + Math.min(i, head.lines.length - 1)
+      * px.size(M.title.size * M.title.lead);
+    // tucked just inside the line's end, riding its cap
+    const x = i % 2 ? cx - line.w / 2 + s * 0.3 : cx + line.w / 2 - s * 0.3;
+    ctx.save();
+    ctx.translate(x, top - s * 0.15);
+    ctx.rotate(i % 2 ? -0.20 : 0.22);
+    ctx.drawImage(img, -s / 2, -s / 2, s, s);
+    ctx.restore();
+  });
+  ctx.restore();
 }
 
 /** Moore boundary trace. Outer boundary only: scissors do not cut holes. */

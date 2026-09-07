@@ -50,6 +50,8 @@ const FILES = {
               ['heros-italic.woff2', { weight: '100 500', style: 'italic' }]],
   InstrumentItalic: ['instrument-italic.woff2', { weight: '400' }],
   PixelDisplay: ['pixel.woff2', { weight: '400' }],
+  NeueBit: ['neuebit.woff2', { weight: '400 900' }],
+  Mondwest: ['mondwest-regular.woff2', { weight: '400' }],
 };
 await Promise.all(Object.entries(FILES).flatMap(([n, v]) =>
   (Array.isArray(v[0]) ? v : [v]).map(async ([f, d]) => {
