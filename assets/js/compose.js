@@ -1511,7 +1511,85 @@ function drawWave(ctx, slot, g, seed) {
   ctx.restore();
 }
 
+/**
+ * Lines of type on slabs that follow a bend.
+ *
+ * Measured off the reference at 1086x1448: six bars, x 0.2486 to 0.8135,
+ * and they are NOT parallel. The tilt swings from +0.51 degrees at the
+ * top to +2.00 at the bottom, and the bars shorten from 0.0541 to 0.0488
+ * of the frame as they go. That is a screen seen at an angle, and it is
+ * the whole device: parallel bars on the same picture read as a caption
+ * pasted over it rather than as words on the screen.
+ *
+ * So slope, height and pitch each run as a progression across the stack,
+ * and a line is drawn rotated about its own left edge.
+ *
+ * HOW MANY CHARACTERS FIT is the other half, and it is measured rather
+ * than guessed: `fitBars` below sets one size that holds every line,
+ * shrinking until the longest fits, and reports what it used. A layout
+ * that lets an agent write past the slab produces a sheet with words
+ * sticking out of a monitor, which is worse than a refusal.
+ */
+function barGeometry(slot, i) {
+  const n = Math.max(1, slot.lines ?? 6);
+  const t = n === 1 ? 0 : i / (n - 1);
+  return {
+    y: px.y(slot.y0 + slot.pitch * i + (slot.dpitch ?? 0) * i * i),
+    slope: slot.slope0 + (slot.dslope ?? 0) * t,
+    h: px.h(slot.barH + (slot.dbarH ?? 0) * t),
+  };
+}
+
+/** The size that holds every line, and the chars the widest one used. */
+function fitBars(ctx, slot, lines, font) {
+  const inner = px.w(slot.box[2]) - px.w(slot.padX ?? 0.018) * 2;
+  let size = px.h(slot.size ?? 0.030);
+  const min = px.h(slot.min ?? 0.017);
+  const at = (s) => {
+    ctx.font = font.replace(/[\d.]+px/, `${s}px`);
+    ctx.letterSpacing = `${(slot.track ?? -0.03) * s}px`;
+    return Math.max(...lines.map((l) => ctx.measureText(String(l)).width), 0);
+  };
+  while (size > min && at(size) > inner) size -= 1;
+  return { size, inner, over: at(size) > inner };
+}
+
+function drawBars(ctx, slot, copy, g, report) {
+  const raw = copy[slot.id] ?? slot.text ?? [];
+  const lines = (Array.isArray(raw) ? raw : [raw]).slice(0, slot.lines ?? 6);
+  if (!lines.length) return;
+
+  const font = fontAt({ ...slot, role: slot.role ?? 'grotesque' }, px.h(slot.size ?? 0.030));
+  const { size, over } = fitBars(ctx, slot, lines, font);
+  if (over) report.tight.push(slot.id);
+
+  const x = px.x(slot.box[0]);
+  const w = px.w(slot.box[2]);
+  const padX = px.w(slot.padX ?? 0.018);
+  const rate = slot.mix ?? 0.18;
+
+  lines.forEach((line, i) => {
+    const { y, slope, h } = barGeometry(slot, i);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.atan(slope));
+    ctx.fillStyle = ink(slot.bar ?? 'ground', g);
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = ink(slot.fill ?? 'mark', g);
+    ctx.font = font.replace(/[\d.]+px/, `${size}px`);
+    const track = (slot.track ?? -0.03) * size;
+    ctx.letterSpacing = `${track}px`;
+    ctx.textBaseline = 'alphabetic';
+    // optically centred in the slab: cap height is 0.72 of the em
+    const by = h / 2 + size * 0.72 / 2;
+    drawMixedLine(ctx, ctx.font, size, track, String(line), padX, by, rate,
+                  `${slot.id}|${i}|${line}`);
+    ctx.restore();
+  });
+}
+
 const DRAW = {
+  bars: (ctx, s, c, g, r) => drawBars(ctx, s, c, g, r),
   rect: (ctx, s, _c, g) => drawRect(ctx, s, g),
   card: (ctx, s, _c, g) => drawCard(ctx, s, g),
   dots: (ctx, s, _c, g) => drawDots(ctx, s, g),
@@ -1556,11 +1634,19 @@ const DRAW = {
 function firstPage(ctx, g, handle = '@web3ashley') {
   const y = px.y(0.947);
   const s = px.h(0.0165);
-  const dark = pickPolarity(ctx, { x: 0, y: y - s * 2, w: W, h: s * 4 },
-                            { light: g.ground, dark: g.mark });
+  /* Measured here rather than handed to pickPolarity, whose `light` and
+     `dark` name the GROUND and not the ink. On the desk sheet that put
+     dark furniture on a dark desk and the handle vanished. */
+  const strip = ctx.getImageData(0, Math.max(0, y - s * 2), W, Math.round(s * 3.2)).data;
+  let lum = 0;
+  for (let i = 0; i < strip.length; i += 4 * 64) {
+    lum += 0.2126 * strip[i] + 0.7152 * strip[i + 1] + 0.0722 * strip[i + 2];
+  }
+  lum /= Math.max(1, Math.floor(strip.length / (4 * 64)));
+  const colour = lum < 128 ? '#F2ECE0' : '#14120F';
   ctx.save();
-  ctx.globalAlpha = 0.9;
-  ctx.fillStyle = dark.colour;
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = colour;
   ctx.font = `600 ${s}px ${FACES.grotesque}`;
   ctx.letterSpacing = `${s * 0.06}px`;
   ctx.textAlign = 'left';
@@ -1575,7 +1661,7 @@ function firstPage(ctx, g, handle = '@web3ashley') {
 
   // a chevron and a stroke, at the cap height of the word beside it
   const cy = y - s * 0.26;
-  ctx.strokeStyle = dark.colour;
+  ctx.strokeStyle = colour;
   ctx.lineWidth = Math.max(2, s * 0.13);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';

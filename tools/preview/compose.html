@@ -83,6 +83,14 @@ window.render = async (id, n = 0) => {
   let mine = 0;
   const boxes = {};
   for (const slot of spec.slots.filter((x) => x.t === 'art')) {
+    /* A slot that NAMES its artwork wins outright. h009's bars are
+       measured against one illustration and fit no other frame, so the
+       role resolver must not swap a photograph in underneath them. */
+    if (slot.scene) {
+      art[slot.id] = await get(`/assets/stock/scenes/${slot.scene}.jpg`);
+      used[slot.id] = 'named';
+      continue;
+    }
     const got = resolveArt(slot, { ...(window.OWN ? { own: window.OWN } : {}),
                                    stock: STOCK, cut: CUTOUTS, seed: seedOf(id) + n });
     if (got.from === 'own' && mine >= 1) {

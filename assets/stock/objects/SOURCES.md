@@ -31,3 +31,18 @@ rotary base sitting on the chair arm. Both are his props on his sweep.
 The base is the easier key of the two: it sits against the white sweep
 with only the chair behind it, where the handset is against his hand and
 his face. Swapping either one in changes nothing but this file.
+
+## `../scenes/desk.jpg` — 1086x1448, YOUR CALL
+
+The desk illustration Ashley supplied: a CRT on a red curtain, hands on
+the keyboard, six blank bars across the screen. The app chrome it was
+screenshotted with is painted out, filled vertically from the rows
+either side of it, which the curtain's vertical stripes hide perfectly.
+
+**It is somebody else's illustration**, the same exposure as the handset
+above and as the flagged Windows 95 icons. It is in because Ashley asked
+for it having been told, and h009's bars are measured against this frame
+and fit no other.
+
+If it has to go, h009 goes with it: the layout is the illustration plus
+the bars, and there is no fallback that means anything.
