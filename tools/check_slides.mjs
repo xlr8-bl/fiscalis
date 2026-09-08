@@ -36,6 +36,15 @@ const base = () => ({
 });
 const one = (over = {}) => validateSlides({ slides: [ { ...base(), ...over }, base() ] });
 
+/* recap has neither chips nor icons, so spreading base() over it and
+   changing the template leaves fields that template cannot draw — which
+   the validator now refuses by name, correctly. Built properly instead. */
+const recapBase = () => ({
+  template: 'recap', ground: 'paper', handle: 'WEB3ASHLEY', series: 'SITE CHECKS',
+  title: 'The whole check',
+  action: 'Send yourself an enquiry and wait a day for it to arrive.',
+});
+
 console.log('\nthe teaching carousel:\n');
 
 ok('every example slide validates', () => {
@@ -213,8 +222,7 @@ ok('a recap can list the longest carousel that is allowed to exist', () => {
 
   // and it is measured, not written down: it follows the metrics
   const items = (n) => Array.from({ length: n }, () => 'Read what Google says your hours');
-  const slide = (n) => ({ ...base(), template: 'recap', title: 'The whole check',
-                          recap: items(n) });
+  const slide = (n) => ({ ...recapBase(), recap: items(n) });
   assert.ok(validateSlides({ slides: [slide(RECAP_MAX.n), base()] }).ok,
     `${RECAP_MAX.n} lines is the measured ceiling and the validator refuses it`);
   assert.ok(!validateSlides({ slides: [slide(RECAP_MAX.n + 1), base()] }).ok,
@@ -252,20 +260,48 @@ ok('engagement bait is refused, not just advised against', () => {
   }
   const q = { question: 'Save this for later?', options: ['yes', 'no'] };
   assert.ok(!validateSlides({ slides: [
-    { ...base(), template: 'recap', title: 'The whole check', prompt: q,
-      recap: ['one thing', 'another thing'] }, base()] }).ok,
+    { ...recapBase(), prompt: q, recap: ['one thing', 'another thing'] }, base()] }).ok,
     'bait in a prompt question was accepted');
 });
 
 ok('a prompt carries answers, because that is what makes it answerable', () => {
   const mk = (prompt) => validateSlides({ slides: [
-    { ...base(), template: 'recap', title: 'The whole check', prompt,
-      recap: ['one thing', 'another thing'] }, base()] });
+    { ...recapBase(), prompt, recap: ['one thing', 'another thing'] }, base()] });
   assert.ok(!mk({ question: 'What did you find?' }).ok, 'no answers was accepted');
   assert.match(mk({ question: 'What did you find?' }).problems.join(' '), /cost a letter/);
   assert.ok(!mk({ question: 'What did you find?', options: ['a', 'b', 'c', 'd'] }).ok,
     'four answers was accepted');
   assert.ok(mk({ question: 'What did you find?', options: ['the phone', 'the form'] }).ok);
+});
+
+ok('a field the template has not got is refused, not silently dropped', () => {
+  /* The failure this catches: Spark filed slides carrying its own
+     invented fields — an ACTION DIRECTIVE label and a slide number — and
+     every check passed. They were dropped at render, so the writer
+     believed they were set and the sheet said otherwise. Silence is the
+     worst answer here: a refusal naming the field is the only way it
+     finds out. */
+  const r = one({ actionDirective: 'AUDIT', slideNumber: '01 / 04' });
+  assert.ok(!r.ok, 'invented fields were accepted');
+  assert.match(r.problems.join(' '), /"actionDirective"/);
+  assert.match(r.problems.join(' '), /"slideNumber"/);
+  // and it says what the template DOES take, so the fix is in the refusal
+  assert.match(r.problems.join(' '), /It takes .*chips.*say.*title/);
+  // a note to a person is not a field and does not trip it
+  assert.ok(one({ _name: 'the slow one' }).ok, '_name was refused');
+});
+
+ok('a template is a choice, not a starting point', () => {
+  // dropping an optional block is fine; adding one the template has not
+  // got is composing a layout, which is what templates exist to stop
+  const added = one({ blocks: ['title', 'say', 'chips', 'icons', 'action', 'duo'] });
+  assert.ok(!added.ok, 'a foreign block was accepted');
+  assert.match(added.problems.join(' '), /has no "duo"/);
+  assert.match(added.problems.join(' '), /do not add one/);
+
+  const gutted = one({ blocks: ['say', 'action'] });
+  assert.ok(!gutted.ok, 'a required block was dropped');
+  assert.match(gutted.problems.join(' '), /needs/);
 });
 
 ok('a photograph is only snapped to an edge it was actually cut on', () => {
