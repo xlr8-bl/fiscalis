@@ -110,7 +110,15 @@ export const BLOCKS = {
     draw(ctx, block, g, box) {
       setType(ctx, g, 'title');
       const ls = lines(ctx, block.text, face(g, 'title'), box.w, trackOf('title'));
-      const mix = block.mix ?? 0.18;
+      /* Off by default. At 0.18 nearly a fifth of a headline came out in
+         the bitmap face, and a swapped letter inside a common word does
+         not read as a device: "broken" read as a typo and "second" as a
+         glyph that failed to load, because the bitmap is lighter than the
+         800-weight grotesque around it. It also contradicted the rule
+         written on TYPE below, which says the pixel face carries the rail
+         and the label and never the headline. A slide can still ask for
+         it by name; nothing asks by accident. */
+      const mix = block.mix ?? 0;
       /* A word wider than the column cannot wrap, so it overflows: a big
          cut-out narrowed the portrait slide's column to 336px and
          "checking" is 537px, which came out with its first letter off the
