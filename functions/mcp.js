@@ -41,6 +41,7 @@ import { runDue } from '../lib/publish.js';
 import { preflight, preflightAccounts } from '../lib/preflight.js';
 import { workOrder } from '../lib/workorder.js';
 import { addReference } from '../lib/references.js';
+import { capture } from '../lib/shots.js';
 import { progress } from '../lib/progress.js';
 import { refreshStats } from '../lib/insights.js';
 import { drawCarousel } from '../lib/draw.js';
@@ -332,6 +333,17 @@ async function runTool(name, args, env) {
       });
       if (out.error) return toolFailed(out.error);
       return toolResult(out);
+    }
+
+    case 'capture_page': {
+      const out = await capture(env, args);
+      if (out.error) return toolFailed(out.error);
+      return toolResult({
+        ...out,
+        preview: `${SITE}/media/${out.key}`,
+        next: 'Put `put_on_the_slide` straight into the slide\'s `shot` field and '
+          + 'add a `caption` saying what to look at.',
+      });
     }
 
     case 'add_reference': {

@@ -84,7 +84,8 @@ export const M = {
               labW: 0.30, r: 0.003 },
   // two stacked halves: what not to do, struck through, then what to do
   swap:     { size: 0.0215, padX: 0.020, padY: 0.011, gap: 0.020, r: 0.004 },
-  term:     { word: 0.0620, gap: 0.024, size: 0.0225, lead: 1.45 },
+  // the word IS this slide's headline, so it is set near headline size
+  term:     { word: 0.0980, gap: 0.034, size: 0.0225, lead: 1.45 },
   apps:     { h: 0.0660, gap: 0.052, lab: 0.0135, labGap: 0.016 },
   quote:    { size: 0.0430, lead: 1.24, who: 0.0165, whoGap: 0.026, markX: 0.030 },
   stat:     { size: 0.1500, of: 0.0210, ofGap: 0.020 },

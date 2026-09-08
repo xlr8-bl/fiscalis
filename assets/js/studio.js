@@ -2339,11 +2339,12 @@ async function drawTheDesigns() {
      renderer fix shipped and the browser went on running the old one. */
   const V = new URL(import.meta.url).search;
   const art2 = teaching || sheets;
-  const [{ renderPanel }, slidesEngine, iconsMod, faces, hookEngine, hookArt] =
+  const [{ renderPanel }, slidesEngine, iconsMod, appsMod, faces, hookEngine, hookArt] =
     await Promise.all([
       panels ? import(`./generate.js${V}`) : Promise.resolve({}),
       art2 ? import(`./slides.js${V}`) : Promise.resolve(null),
       art2 ? import(`./icons.js${V}`) : Promise.resolve(null),
+      art2 ? import(`./apps.js${V}`) : Promise.resolve(null),
       art2 ? import(`./faces.js${V}`) : Promise.resolve(null),
       sheets ? import(`./compose.js${V}`) : Promise.resolve(null),
       sheets ? import(`./hooks/layouts.js${V}`) : Promise.resolve(null),
@@ -2358,13 +2359,25 @@ async function drawTheDesigns() {
 
   /* The teaching renderer is handed its art the way the preview harness
      hands it: every icon and every one of his photographs, by name. */
-  const art = { icons: {}, portraits: {} };
+  const art = { icons: {}, portraits: {}, apps: {}, shots: {} };
   if (art2) {
     await Promise.all(iconsMod.ICON_NAMES.map(async (n) => {
       art.icons[n] = await load(iconsMod.iconUrl(n));
     }));
     await Promise.all(['blue-flat', 'black-wall', 'sky-arms', 'phone-chair']
       .map(async (n) => { art.portraits[n] = await load(`/assets/stock/own/${n}.jpg`); }));
+    await Promise.all(appsMod.APP_NAMES.map(async (n) => {
+      art.apps[n] = await load(appsMod.appUrl(n));
+    }));
+    /* Captures, by the key capture_page gave back. Only the ones this
+       carousel actually names: the bucket holds every screenshot ever
+       taken and loading them all would be most of a megabyte for a
+       slide that references one. */
+    const keys = [...new Set(slides
+      .map((s) => s.design?.shot?.src).filter(Boolean))];
+    await Promise.all(keys.map(async (k) => {
+      art.shots[k] = await load(`/media/${k}`);
+    }));
   }
 
   const assets = {

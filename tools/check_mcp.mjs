@@ -240,13 +240,14 @@ await step('tools/list describes every tool with a schema', async () => {
     if (t.inputSchema?.type !== 'object') throw new Error(`${t.name}: no object inputSchema`);
   }
   /* Frozen on purpose, and this is what the wire actually serves: the
-     carousel scope. The full set is thirty-three and lives behind
+     carousel scope. The full set is thirty-four and lives behind
      `agent.scope`; check_context asserts that the rest is out of reach
      rather than deleted. Adding a name here has to be a line in a diff
      somebody wrote. */
   const names = tools.map((t) => t.name).sort();
   is(names.join(','),
-     'add_reference,brief,check_posting,deliver_slide,design_brief,design_carousel,'
+     'add_reference,brief,capture_page,check_posting,deliver_slide,design_brief,'
+     + 'design_carousel,'
      + 'design_status,draw,hand_over,list_carousels,next_carousel,plan_carousel,'
      + 'progress,queue,teach_carousel',
      'the tool set');

@@ -122,7 +122,7 @@ console.log('\nand the checked ones are actually checked');
 
 console.log('\nthe surface it actually gets');
 {
-  /* Thirty-three tools with five that stop and ask is what he was
+  /* Thirty-four tools with five that stop and ask is what he was
      looking at, and none of those five is any part of making a
      carousel. The default scope is the job he asked for and nothing
      else, which is also the only scope that never interrupts him. */
