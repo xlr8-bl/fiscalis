@@ -62,16 +62,26 @@ const asJson = (v) => {
   try { return JSON.stringify(v).slice(0, 40_000); } catch { return ''; }
 };
 
-/* Which surface the agent gets. Carousel-only by default: it is the job
-   he asked for, and it is the only scope with nothing in it that makes
-   Gemini stop and ask. Reading it costs one settings row per request,
-   and a database that cannot answer falls back to the smaller surface,
-   which is the safe direction to fail in. */
+/*
+ * Which surface the agent gets. Carousel-only by default: it is the job
+ * he asked for, and it is the only scope with nothing in it that makes
+ * Gemini stop and ask.
+ *
+ * The setting wins, then AGENT_SCOPE from the deployment, then the
+ * smallest. AGENT_SCOPE exists for the integration suite, which drives
+ * the whole server and cannot reach a settings row over HTTP; it is a
+ * binding rather than anything a request can set, so no client can
+ * widen its own surface by asking. A database that cannot answer falls
+ * back to the smaller scope, which is the safe direction to fail in.
+ */
+const SCOPE_NAMES = new Set(['carousel', 'everything']);
+const oneOf = (v) => (SCOPE_NAMES.has(v) ? v : null);
+
 const agentScope = async (env) => {
   try {
-    const v = await getSetting(env.DB, 'agent.scope');
-    return v === 'everything' ? 'everything' : 'carousel';
-  } catch { return 'carousel'; }
+    return oneOf(await getSetting(env.DB, 'agent.scope'))
+      ?? oneOf(env.AGENT_SCOPE) ?? 'carousel';
+  } catch { return oneOf(env.AGENT_SCOPE) ?? 'carousel'; }
 };
 
 const json = (body, status = 200, headers = {}) =>
