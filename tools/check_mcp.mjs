@@ -228,7 +228,8 @@ await step('tools/list describes every tool with a schema', async () => {
   is(names.join(','),
      'add_reference,brief,check_draft,check_posting,deliver_slide,design_brief,'
      + 'design_carousel,design_status,draw,find_photo,finish_run,hand_over,'
-     + 'keep_photo,list_carousels,performance,plan_carousel,post_due,progress,'
+     + 'keep_photo,list_carousels,next_carousel,performance,plan_carousel,post_due,'
+     + 'progress,'
      + 'publish_article,publish_articles,queue,schedule_articles,scheduled_articles,'
      + 'send_digest,set_writing_schedule,teach_carousel,unschedule_article,'
      + 'voice_rules,write_article,writing_brief,writing_run,writing_schedule',

@@ -183,8 +183,14 @@ console.log('\nthe instructions');
      /do not design a slide yourself/i.test(INSTRUCTIONS));
   ok('the agent is told not to render in a canvas',
      /canvas/i.test(INSTRUCTIONS));
-  ok('design_carousel is named as the usual path',
-     /design_carousel for each/i.test(INSTRUCTIONS));
+  /* It used to be "the usual path". The usual path is next_carousel and a
+     hook sheet now; design_carousel is the one for a set of designed
+     panels with no sheet, and the instructions have to say which is
+     which or the agent picks by whichever it read last. */
+  ok('design_carousel is named, and named as the panel path',
+     /design_carousel/.test(INSTRUCTIONS) && /DESIGNED PANELS/i.test(INSTRUCTIONS));
+  ok('and next_carousel is named as where to start',
+     /next_carousel/.test(INSTRUCTIONS) && /THIS IS THE WHOLE JOB/i.test(INSTRUCTIONS));
 }
 
 console.log(failed ? `\n${failed} failed\n` : '\nall good\n');

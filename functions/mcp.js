@@ -39,6 +39,7 @@ import { scheduleArticles, unscheduleArticle, timetable, runDueArticles } from '
 import { writingPlan, setWritingPlan, inWords, recurrence, finishRun } from '../lib/routine.js';
 import { runDue } from '../lib/publish.js';
 import { preflight, preflightAccounts } from '../lib/preflight.js';
+import { workOrder } from '../lib/workorder.js';
 import { addReference } from '../lib/references.js';
 import { progress } from '../lib/progress.js';
 import { refreshStats } from '../lib/insights.js';
@@ -75,6 +76,12 @@ async function runTool(name, args, env) {
   switch (name) {
     case 'brief':
       return toolResult(await brief(db, { site: SITE }));
+
+    case 'next_carousel':
+      return toolResult(await workOrder(db, {
+        pillar: args.pillar ? clean(args.pillar, 120) : null,
+        topic: args.topic ? clean(args.topic, 400) : null,
+      }));
 
     case 'queue':
       return toolResult(await agentQueue(db));
