@@ -25,39 +25,7 @@ const ctx = document.getElementById('c').getContext('2d');
  * bitmap, so the rail and the label will look chunkier than intended
  * until the real one arrives.
  */
-const FILES = {
-  NeueMontreal: [
-    [['neue-montreal-regular.woff2', 'heros-regular.woff2'], { weight: '100 500' }],
-    [['neue-montreal-bold.woff2', 'heros-bold.woff2'], { weight: '600 900' }],
-  ],
-  NeueBit: [
-    [['neuebit.woff2', 'pixel.woff2'], { weight: '400 900' }],
-  ],
-  Mondwest: [
-    [['mondwest-regular.woff2', 'pixel.woff2'], { weight: '400' }],
-  ],
-};
-
-const firstThatLoads = async (name, files, desc) => {
-  for (const [i, f] of files.entries()) {
-    try {
-      const ff = new FontFace(name, `url(/assets/fonts/${f})`, desc);
-      await ff.load();
-      document.fonts.add(ff);
-      // whether a fallback won is what matters, not what the file is called
-      return { file: f, fallback: i > 0 };
-    } catch { /* try the next one */ }
-  }
-  return null;
-};
-
-window.FACES_IN_USE = {};
-await Promise.all(Object.entries(FILES).flatMap(([name, faces]) =>
-  faces.map(async ([files, desc]) => {
-    const got = await firstThatLoads(name, files, desc);
-    (window.FACES_IN_USE[name] ??= []).push(got);
-  })));
-await document.fonts.ready;
+window.FACES_IN_USE = await (await import('/assets/js/faces.js')).loadFaces();
 
 const load = (src) => new Promise((res) => {
   const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src;

@@ -16,7 +16,7 @@ import { TEMPLATES, TEMPLATE_NAMES, BLOCKS, SLIDE_GROUND_NAMES, M, recapPitch } 
 import { ICON_NAMES, ICONS, PIXEL_NAMES, iconUrl } from '../assets/js/icons.js';
 import { EXAMPLE_SLIDES } from '../lib/slides/examples.js';
 import { slideGuide, probeSlide } from '../lib/slides/guide.js';
-import { CUTOUTS, placementOf } from '../lib/slides/cutouts.js';
+import { CUTOUTS, placementOf } from '../assets/js/cutouts.js';
 import { designBrief } from '../lib/designer.js';
 import { TOOLS } from '../lib/mcp.js';
 

@@ -28,6 +28,12 @@
  * into white slabs. Background off, nothing else, and never against an
  * edge, because it runs off none of its own.
  */
+/* Lives under assets/ because the BROWSER imports it: slides.js needs the
+   placements to draw. Nothing under lib/ is published — it is server code
+   — so importing it from there resolved to a 404 on the deployed site,
+   the whole slides module failed to load, and the studio drew nothing
+   with no error anyone could see. */
+
 
 /**
  * `h` is HIS height on the sheet, not the photograph's.

@@ -2302,7 +2302,6 @@ async function drawTheDesigns() {
   if (!owed.length) return 0;
 
   say(`Drawing ${owed.length} panel${owed.length === 1 ? '' : 's'}\u2026`);
-  const { renderPanel } = await import('./generate.js');
 
   const pick = (list) => (list && list.length ? list[0] : null);
   const load = (src) => new Promise((res) => {
@@ -2312,6 +2311,44 @@ async function drawTheDesigns() {
     i.onload = () => res(i); i.onerror = () => res(null);
     i.src = src;
   });
+
+  /*
+   * Two engines, and the slide says which.
+   *
+   * fileTeaching writes `engine: 'slides'` into the design and nothing
+   * read it, so every teaching slide was handed to renderPanel — which
+   * reads `payoff`, a field a teaching slide does not have. Five panels,
+   * five identical "undefined is not an object" and no way to tell from
+   * the message that the wrong drawer had been opened.
+   */
+  const teaching = owed.some((s) => s.design?.engine === 'slides');
+  const panels = owed.some((s) => s.design?.engine !== 'slides');
+
+  const [{ renderPanel }, slidesEngine, iconsMod, faces] = await Promise.all([
+    panels ? import('./generate.js') : Promise.resolve({}),
+    teaching ? import('./slides.js') : Promise.resolve(null),
+    teaching ? import('./icons.js') : Promise.resolve(null),
+    teaching ? import('./faces.js') : Promise.resolve(null),
+  ]);
+
+  /* A canvas does not wait for a font: type set in a face the document
+     has not loaded falls back to serif and draws anyway. The studio's
+     stylesheet never declares NeueMontreal, because nothing else on the
+     site sets type in it, so the first render of every teaching slide
+     came out in Times. */
+  if (teaching) await faces.loadFaces();
+
+  /* The teaching renderer is handed its art the way the preview harness
+     hands it: every icon and every one of his photographs, by name. */
+  const art = { icons: {}, portraits: {} };
+  if (teaching) {
+    await Promise.all(iconsMod.ICON_NAMES.map(async (n) => {
+      art.icons[n] = await load(iconsMod.iconUrl(n));
+    }));
+    await Promise.all(['blue-flat', 'black-wall', 'sky-arms', 'phone-chair']
+      .map(async (n) => { art.portraits[n] = await load(`/assets/stock/own/${n}.jpg`); }));
+  }
+
   const assets = {
     scene: await load(pick(c.scenes)),
     cutout: await load(pick(c.cutouts)),
@@ -2322,7 +2359,21 @@ async function drawTheDesigns() {
   for (const slide of owed) {
     try {
       const canvas = document.createElement('canvas');
-      const report = await renderPanel(canvas, slide.design, slide.design.seed, assets);
+      let report;
+      if (slide.design?.engine === 'slides') {
+        canvas.width = slidesEngine.W;
+        canvas.height = slidesEngine.H;
+        const mine = { ...art };
+        if (slide.design.scene) {
+          mine.scene = art.portraits[slide.design.scene]
+            ?? await load(`/assets/stock/own/${slide.design.scene}.jpg`);
+        }
+        const r = slidesEngine.drawSlide(canvas.getContext('2d'), slide.design, { art: mine });
+        if (r.over) throw new Error(`the copy runs ${r.over} past the instruction`);
+        report = { findings: [] };
+      } else {
+        report = await renderPanel(canvas, slide.design, slide.design.seed, assets);
+      }
       const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
       if (!blob) throw new Error('the canvas produced nothing');
 

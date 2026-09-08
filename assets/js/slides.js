@@ -11,7 +11,7 @@
 
 import { GROUNDS } from './design-spec.js';
 import { ALL_ICONS, ICON_NAMES, PIXEL } from './icons.js';
-import { CUTOUTS, placementOf } from '../../lib/slides/cutouts.js';
+import { CUTOUTS, placementOf } from './cutouts.js';
 
 export const W = 1080;
 export const H = 1350;
