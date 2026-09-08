@@ -85,9 +85,13 @@ ok('one panel is not a carousel', !validateSpec(spec({ panels: [panel()] })).ok)
 ok('eleven panels is past the ceiling',
    !validateSpec(spec({ panels: Array.from({ length: 11 }, () => panel()) })).ok);
 ok('a missing title is refused', !validateSpec(spec({ title: '' })).ok);
-ok('a refusal explains itself',
+/* The number comes from the ground table, not from here. It was written
+   down as 4.31, the ratio was later re-measured to 4.62, and this check
+   went on failing for a value nothing produces any more — asserting the
+   figure rather than the property is how a check rots. */
+ok('a refusal explains itself, with the measured ratio',
    validateSpec(spec({ panels: [panel({ ground: 'red' }), panel()] }))
-     .errors.some((e) => e.includes('4.31')));
+     .errors.some((e) => e.includes(String(GROUNDS.red.ratio))));
 
 console.log('\nthe plan');
 const planned = validateSpec(spec());
