@@ -103,6 +103,38 @@ Setup (database, R2 bucket, secrets, importing the existing articles) is in
 `content/README.md`. Until D1 is bound, `/journal/` returns a page telling you
 which commands to run rather than a 500.
 
+## Screenshots on slides
+
+`capture_page` opens a real page and screenshots it so a slide can cite it.
+It needs two values, both set in the Pages project under
+**Settings → Variables and Secrets**. Until they are there the tool says so
+and captures nothing; it does not fail quietly.
+
+**`CF_ACCOUNT_ID`** — the account, not the project.
+In the dashboard press `Cmd/Ctrl + K`, type `Copy account ID`, and pick the
+result. On a phone: **Workers & Pages → Account Details**, copy button beside
+the ID. It is a 32-character hex string and it is not secret.
+
+**`CF_BROWSER_TOKEN`** — tick Encrypt on this one.
+
+1. dash.cloudflare.com/profile/api-tokens
+2. **Create Token → Create Custom Token** (not a template; none of them
+   include this permission)
+3. Name it something you will recognise in a year: `web3ashley screenshots`
+4. Permissions: **Account** → **Browser Rendering** → **Edit**. One row, and
+   nothing else — a token that can only screenshot cannot do anything else
+   with the account if it leaks.
+5. Account Resources: this account
+6. Optionally set a TTL. Continue to summary → Create Token.
+7. **Copy it now.** It is shown once.
+
+What it costs: nothing. The free plan gives 10 minutes of browser time a day
+and one capture every 10 seconds, which is dozens of screenshots and far more
+than a carousel needs. Past the allowance it errors rather than charging.
+
+`node tools/check_shots.mjs` verifies the whole road with a fake fetcher, so
+it passes with no token at all — it checks the refusals, not the pictures.
+
 ## Showing the booking page only
 
 `/studio.html` → Settings → **What's showing** → Booking only.

@@ -77,7 +77,7 @@ export const M = {
      then measured back out of the renderer by check_slides. */
 
   // 16:10, which is the shape the capture comes back as, plus the bar
-  shot:     { w: 0.72, chromeH: 0.030, dot: 0.0055, urlSize: 0.0150,
+  shot:     { w: 0.68, chromeH: 0.030, dot: 0.0055, urlSize: 0.0150,
               cap: 0.0165, capGap: 0.014, r: 0.006 },
   // a bar is the row; `gapRow` is between rows; `lab` is the name beside it
   bars:     { rowH: 0.0300, gapRow: 0.0130, lab: 0.0165, val: 0.0165,
@@ -94,11 +94,19 @@ export const M = {
   stack:    { rowH: 0.0620, gap: 0.0180, mark: 0.0400, gut: 0.024,
               name: 0.0215, url: 0.0145, line: 0.0175, lineGap: 0.012 },
   trio:     { size: 0.0720, gap: 0.020, of: 0.0165 },
+  /* The foot band, off the hook sheets' own footer strip. `h` is what
+     the flow gives up; the stack settles above it. */
+  /* 0.052 is measured, not chosen: at 0.070 the recap held five lines
+     and at 0.044 it held nine, and six is where the densest arrangement
+     stops losing anything a writer would notice. */
+  band:     { h: 0.0520, pad: 0.018, line: 0.0155, linePad: 0.009,
+              mark: 0.0135, tag: 0.0195, tagH: 0.0300 },
 
   // read off the reference's runs, rounded, not tuned
   gap:      { afterTitle: 0.063, between: 0.034, beforeIcons: 0.036 },
   top:      0.117,      // where the headline's cap starts
-  foot:     0.030,      // clear space under the action block
+  // clear space under the action block, ABOVE the foot band
+  foot:     0.016,
 };
 
 /* Blocks. Each reports its height before drawing, which is what makes
@@ -1298,6 +1306,11 @@ export const TYPE = {
   stackLine: { family: 'NeueMontreal', weight: '500', track: 0 },
   trioFig:   { family: 'NeueMontreal', weight: '700', track: 0 },
   trioOf:    { family: 'NeueBit', weight: '400', track: 0.040 },
+  /* The band. Its one line of writing is the grotesque; everything else
+     down there is machine text and takes the bitmap. */
+  footLine:  { family: 'NeueMontreal', weight: '500', track: 0 },
+  footMark:  { family: 'NeueBit', weight: '400', track: 0.055 },
+  footTag:   { family: 'NeueBit', weight: '400', track: 0.050 },
 };
 
 /**
@@ -1326,6 +1339,7 @@ const SIZE = {
   swap: M.swap.size,
   stackName: M.stack.name, stackUrl: M.stack.url, stackLine: M.stack.line,
   trioFig: M.trio.size, trioOf: M.trio.of,
+  footLine: M.band.line, footMark: M.band.mark, footTag: M.band.tag,
 };
 
 const sizeOf = (role) =>
@@ -1540,6 +1554,94 @@ function rail(ctx, g, { handle, series }) {
   if (series) ctx.fillText(series, W - px.w(M.rail.pad), h / 2);
 }
 
+/** The outros. A set ends on one, so they are the slides with no SWIPE. */
+const ENDS = new Set(['signoff', 'close', 'recap', 'calling', 'bookend']);
+
+/**
+ * The foot band, on every teaching slide.
+ *
+ * A hook sheet carries six pieces of furniture — two rails, a hero, a
+ * black box, a footer strip, a tag — and a teaching panel carried ONE,
+ * the rail at the top. So the two halves of a set looked like two
+ * different designs, and a panel with a short paragraph was two thirds
+ * empty ground with a headline floating in it.
+ *
+ * This is the hook sheet's own footer, brought across: a tinted strip,
+ * a hairline above it, the handle at the left, a tag box, and the swipe
+ * on every slide but the last. It draws with no copy at all, so density
+ * is the default rather than something Spark has to remember.
+ */
+function band(ctx, g, slide) {
+  const h = px.h(M.band.h);
+  const top = H - h;
+
+  ctx.fillStyle = g.halo ?? g.ground;
+  ctx.fillRect(0, top, W, h);
+  ctx.globalAlpha = 0.30;
+  ctx.fillStyle = g.mark;
+  ctx.fillRect(0, top, W, Math.max(1, px.h(0.0011)));
+  ctx.globalAlpha = 1;
+
+  const pad = px.w(M.rail.pad);
+  ctx.textBaseline = 'alphabetic';
+  /* Everything on ONE baseline. The band is one line tall, so a
+     standing line above the handle put the two on top of each other;
+     the rail already carries the handle, and repeating it down here
+     bought nothing but the collision. */
+  const baseY = top + h / 2 + px.size(M.band.line) * CAP * 0.5;
+
+  // the one part of the band that is writing rather than machine text
+  if (slide.foot) {
+    ctx.font = face(g, 'footLine');
+    ctx.letterSpacing = trackOf('footLine');
+    ctx.fillStyle = g.mark;
+    ctx.textAlign = 'left';
+    ctx.fillText(String(slide.foot), pad, baseY);
+  }
+
+  ctx.font = face(g, 'footMark');
+  ctx.letterSpacing = trackOf('footMark');
+  ctx.fillStyle = g.mark;
+
+  /* SWIPE on every slide but the last. Not a slide number — it says
+     there is more without saying how much, which is the whole reason
+     counting is banned. */
+  if (!ENDS.has(slide.template)) {
+    ctx.textAlign = 'right';
+    const arrow = px.w(0.030);
+    ctx.fillText('SWIPE', W - pad - arrow - px.w(0.012), baseY);
+    const y = baseY - px.size(M.band.mark) * CAP * 0.32;
+    ctx.fillRect(W - pad - arrow, y, arrow, Math.max(2, px.h(0.0016)));
+    ctx.beginPath();
+    ctx.moveTo(W - pad, y + px.h(0.0008));
+    ctx.lineTo(W - pad - px.w(0.011), y - px.w(0.008));
+    ctx.lineTo(W - pad - px.w(0.011), y + px.w(0.009));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /* The tag box: one or two words, reversed out of a black slab. It is
+     the hook sheets' THE EYE box and it is what ties a panel to the
+     poster that opened the set. */
+  if (slide.tag) {
+    const text = String(slide.tag).toUpperCase();
+    ctx.font = face(g, 'footTag');
+    ctx.letterSpacing = trackOf('footTag');
+    const tw = ctx.measureText(text).width;
+    const bw = tw + px.w(0.030) * 2;
+    const bh = px.h(M.band.tagH);
+    const bx = W - pad - bw - (ENDS.has(slide.template) ? 0 : px.w(0.185));
+    const by = top + (h - bh) / 2;
+    ctx.fillStyle = g.mark;
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = g.ground;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, bx + bw / 2, by + bh / 2 + px.size(M.band.tag) * CAP * 0.5);
+  }
+
+  ctx.textAlign = 'center';
+}
+
 /* -------------------------------------------------------------- ground */
 
 /** Fewer grounds than the hook engine: a teaching slide is all paragraph,
@@ -1667,7 +1769,9 @@ export const TEMPLATES = {
   },
 
   shot: {
-    blocks: ['title', 'say', 'shot', 'source'],
+    /* No `source`: the address in the chrome bar IS the citation, and a
+       second one under it is the same fact twice. */
+    blocks: ['title', 'say', 'shot'],
     for: 'showing a real page, on the record',
     what: 'A screenshot of an actual page in browser chrome with its address '
         + 'showing. For taking one real thing apart in public, or for '
@@ -1902,7 +2006,8 @@ export function layOut(ctx, slide, g) {
 
   const out = [];
   if (pinned) {
-    const y = 1 - M.foot - pinned.h;
+    // above the band, not over it
+    const y = 1 - M.band.h - M.foot - pinned.h;
     /* The instruction keeps the FULL width even when a cut-out has
        narrowed the column. It is an opaque sticker drawn last, so it
        lies over the photograph rather than dodging it, which is what the
@@ -1922,7 +2027,8 @@ export function layOut(ctx, slide, g) {
   };
   const tall = flowing.reduce((sum, item, i) => sum + item.h + gapBefore(i), 0);
 
-  const floor = pinned ? 1 - M.foot - pinned.h - M.gap.between : 1 - M.foot;
+  const bottom = 1 - M.band.h - M.foot;
+  const floor = pinned ? bottom - pinned.h - M.gap.between : bottom;
   const room = floor - M.top;
 
   /* Slack opens the gaps before it centres the stack. Capped at 1.5x:
@@ -1984,6 +2090,7 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
   if (slide.grain !== false) grain(ctx, g, slide.slug ?? slide.title ?? '');
 
   rail(ctx, g, slide);
+  band(ctx, g, slide);
   const { placed, over } = layOut(ctx, slide, g);
 
   /* Where the headline landed, and how wide each of its lines is.

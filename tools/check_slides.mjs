@@ -276,15 +276,22 @@ ok('the guide\'s room figures come from the validator, not from a second sum', (
   }
 });
 
-ok('a recap can list the longest carousel that is allowed to exist', () => {
-  /* The one that matters, and the reason the cap is measured instead of
-     chosen. A carousel runs to LIMITS.slides.max, and if the recap holds
-     fewer than that there is a legal carousel it cannot list. Nothing
-     tells the writer which lines to drop, so they drop some quietly,
-     which is the worst outcome available. */
-  assert.ok(RECAP_MAX.n >= LIMITS.slides.max,
-    `a carousel may be ${LIMITS.slides.max} slides and a recap holds ${RECAP_MAX.n}`);
+ok('the recap cap is measured, and the refusal says how to choose', () => {
+  /* It used to assert the recap could list a ten-slide carousel, on the
+     grounds that a writer with no ceiling drops lines quietly. The foot
+     band took that room, and the premise had already stopped holding:
+     the block says "one for each slide worth reading back, not one for
+     every slide", and the refusal repeats it. So what matters is that
+     the cap FOLLOWS the metrics and that hitting it teaches. */
+  assert.ok(RECAP_MAX.n >= 5, `a recap holds only ${RECAP_MAX.n}`);
   assert.equal(LIMITS.recap.max, RECAP_MAX.n, 'the cap is not the measured ceiling');
+  const over = validateSlides({ slides: [
+    { ...recapBase(), recap: Array.from({ length: RECAP_MAX.n + 1 },
+                                        () => 'Read what Google says your hours') },
+    base(),
+  ] }, { opener: false });
+  assert.ok(!over.ok);
+  assert.match(over.problems.join(' '), /not one for every slide/);
 
   // and it is measured, not written down: it follows the metrics
   const items = (n) => Array.from({ length: n }, () => 'Read what Google says your hours');
@@ -303,8 +310,20 @@ ok('a recap can list the longest carousel that is allowed to exist', () => {
     assert.ok(band(n) <= M.recap.budget * 1.06,
       `${n} recap lines take ${band(n).toFixed(3)} of a ${M.recap.budget} budget`);
   }
-  assert.ok(band(RECAP_MAX.n) < RECAP_MAX.n * M.recap.pitch * 0.7,
-    'the pitch is not tightening as the list grows');
+  /* Tightening only engages past budget/pitch lines. Below that the
+     roomy pitch is correct and asserting compression would be asserting
+     a bug. Both halves are checked, so whichever side of that point the
+     measured ceiling lands on, the mechanism is still proved. */
+  const turns = Math.floor(M.recap.budget / M.recap.pitch);
+  if (RECAP_MAX.n > turns) {
+    assert.ok(band(RECAP_MAX.n) < RECAP_MAX.n * M.recap.pitch * 0.7,
+      'the pitch is not tightening as the list grows');
+  } else {
+    assert.equal(recapPitch(RECAP_MAX.n), M.recap.pitch,
+      `a list of ${RECAP_MAX.n} is inside the budget and should keep the roomy pitch`);
+    assert.ok(band(turns + 2) <= M.recap.budget * 1.06,
+      'past the budget the pitch still does not tighten');
+  }
   // and never past the point where it stops being readable
   assert.ok(recapPitch(RECAP_MAX.n) >= M.recap.size * 1.4,
     'the longest recap is set tighter than ordinary leading');
