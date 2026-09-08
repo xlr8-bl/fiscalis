@@ -22,7 +22,7 @@ import { renderMarkdown, countWords, readingMinutes } from '/assets/js/markdown.
 import { attachEditor, attachAll } from '/assets/js/editor.js?v=ac48360925';
 import { choosePicture, uploadImage, fileSize, readImageSize } from '/assets/js/picker.js?v=f337b82d38';
 import { ask, sure } from '/assets/js/dialog.js?v=107f7a8978';
-import { problems as platformProblems } from '/assets/js/platforms.js?v=4b5476660c';
+import { problems as platformProblems } from '/assets/js/platforms.js?v=bbe4c0b222';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -2324,11 +2324,16 @@ async function drawTheDesigns() {
   const teaching = owed.some((s) => s.design?.engine === 'slides');
   const panels = owed.some((s) => s.design?.engine !== 'slides');
 
+  /* Carry this file's own ?v= onto everything it pulls in. The stamp
+     busts studio.js and nothing else, so a dynamic import kept serving
+     the cached copy of a module that had changed underneath it — the
+     renderer fix shipped and the browser went on running the old one. */
+  const V = new URL(import.meta.url).search;
   const [{ renderPanel }, slidesEngine, iconsMod, faces] = await Promise.all([
-    panels ? import('./generate.js') : Promise.resolve({}),
-    teaching ? import('./slides.js') : Promise.resolve(null),
-    teaching ? import('./icons.js') : Promise.resolve(null),
-    teaching ? import('./faces.js') : Promise.resolve(null),
+    panels ? import(`./generate.js${V}`) : Promise.resolve({}),
+    teaching ? import(`./slides.js${V}`) : Promise.resolve(null),
+    teaching ? import(`./icons.js${V}`) : Promise.resolve(null),
+    teaching ? import(`./faces.js${V}`) : Promise.resolve(null),
   ]);
 
   /* A canvas does not wait for a font: type set in a face the document
@@ -2412,7 +2417,7 @@ async function setTheType() {
   if (!owed.length) return 0;
 
   say(`Setting the type on ${owed.length} slide${owed.length === 1 ? '' : 's'}…`);
-  const { typeset } = await import('./typeset.js');
+  const { typeset } = await import(`./typeset.js${new URL(import.meta.url).search}`);
 
   let done = 0;
   const failed = [];
