@@ -156,9 +156,16 @@ the ID. It is a 32-character hex string and it is not secret.
 2. **Create Token → Create Custom Token** (not a template; none of them
    include this permission)
 3. Name it something you will recognise in a year: `web3ashley screenshots`
-4. Permissions: **Account** → **Browser Rendering** → **Edit**. One row, and
+4. Permissions: **Account** → **Browser Run** → **Edit**. One row, and
    nothing else — a token that can only screenshot cannot do anything else
    with the account if it leaks.
+
+   It may still be listed as **Browser Rendering**. Cloudflare renamed the
+   product to Browser Run in April 2026 and the rename has not reached
+   everything: the docs still write the permission as `Browser Rendering -
+   Edit` and the REST endpoint still has `browser-rendering` in its path.
+   Whichever name your dashboard shows, it is the same permission and it is
+   the right one.
 5. Account Resources: this account
 6. Optionally set a TTL. Continue to summary → Create Token.
 7. **Copy it now.** It is shown once.

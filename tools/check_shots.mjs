@@ -105,7 +105,12 @@ await okAsync('with no token it says exactly what to set, and captures nothing',
                             { fetcher: okFetch(seen) });
   assert.ok(out.error);
   assert.match(out.error, /CF_ACCOUNT_ID/);
-  assert.match(out.error, /Browser Rendering: Edit/);
+  /* Both names, because Cloudflare renamed the product to Browser Run
+     and left the permission written the old way in its own docs. A
+     refusal that names only one of them sends him looking for a row
+     that is not there. */
+  assert.match(out.error, /Browser Run/);
+  assert.match(out.error, /Browser Rendering/);
   assert.equal(seen.length, 0, 'it called out anyway');
   // and it says what to do instead, rather than inviting an invented screenshot
   assert.match(out.error, /without a screenshot rather than describing one/);
