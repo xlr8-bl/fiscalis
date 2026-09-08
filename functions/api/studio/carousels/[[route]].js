@@ -49,7 +49,7 @@ import { problems as platformProblems, INSTAGRAM } from '../../../../assets/js/p
 import { problems as brandProblems } from '../../../../assets/js/brand.js';
 import { send as sendMail } from '../../../../lib/mail.js';
 import { gather, compose } from '../../../../lib/digest.js';
-import { runDue } from '../../../../lib/publish.js';
+import { runDue, postOne } from '../../../../lib/publish.js';
 import { preflight, preflightAccounts } from '../../../../lib/preflight.js';
 import { accountState, putSetting } from '../../../../lib/tokens.js';
 import { refreshStats, storedStats } from '../../../../lib/insights.js';
@@ -420,6 +420,26 @@ async function route({ request, env, params }) {
    * what it handed over will actually go out, which is the opposite of a
    * decision to post.
    */
+  /*
+   * Post THIS one, now. No slot.
+   *
+   * `-/post` is the scheduled run, which posts everything past its
+   * slot, and it was the only road there was — so posting anything at
+   * all meant giving it a time first, and meeting a scheduling form
+   * when what you wanted was to press post. This is the direct road.
+   *
+   * A person only. The agent's ceiling stops at review and this route
+   * sits behind the studio session, not the agent token.
+   */
+  if (action === 'post' && method === 'POST') {
+    const body = await request.json().catch(() => ({}));
+    const out = await postOne({ ...env, SITE }, slug, {
+      visibility: body.visibility === 'test' ? 'test' : 'public',
+      story: body.story === true,
+    });
+    return out.error ? json({ error: out.error }, 400) : json(out);
+  }
+
   if (action === 'preflight' && method === 'GET') {
     return json(await preflight({ ...env, SITE }, {
       id: existing.id,

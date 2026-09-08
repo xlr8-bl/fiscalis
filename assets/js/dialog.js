@@ -32,6 +32,10 @@ function build() {
         <label class="st-label u-text-style-main" for="st-ask-input" data-label></label>
         <input class="st-input" id="st-ask-input" data-input>
       </div>
+      <label class="st-check u-text-style-main" data-checkwrap hidden>
+        <input type="checkbox" data-check>
+        <span data-checklabel></span>
+      </label>
       <div class="st-ask__acts">
         <button class="st-link" type="submit" value="cancel" data-no>Cancel</button>
         <button class="st-btn" type="submit" value="ok" data-yes>OK</button>
@@ -51,14 +55,16 @@ function build() {
  * @param {object} opts   body: a line under it. value/label/placeholder for
  *                        a text answer. yes/no: the button words. danger:
  *                        marks the confirming button as the destructive one.
- * @returns {Promise<string|boolean|null>} the text, or true/false when
- *          there is no field. null when cancelled, so an empty answer and
- *          a cancelled one stay different things.
+ *                        check: a tick box that rides along with the answer.
+ * @returns {Promise<string|boolean|{ok,checked}|null>} the text, or true
+ *          when there is no field, or {ok, checked} when there is a tick
+ *          box. null when cancelled, so an empty answer and a cancelled
+ *          one stay different things.
  */
 export function ask(title, opts = {}) {
   const {
     body = '', value = null, label = '', placeholder = '',
-    yes = 'OK', no = 'Cancel', danger = false,
+    yes = 'OK', no = 'Cancel', danger = false, check = '',
   } = opts;
 
   const el = node || build();
@@ -81,6 +87,15 @@ export function ask(title, opts = {}) {
   input.value = wants ? String(value) : '';
   input.placeholder = placeholder;
 
+  /* An extra yes/no that rides along with the confirmation, for the
+     thing that is part of the same decision — putting a story up is not
+     a second question, it is part of "post it". */
+  const checkWrap = el.querySelector('[data-checkwrap]');
+  const checkBox = el.querySelector('[data-check]');
+  checkWrap.hidden = !check;
+  el.querySelector('[data-checklabel]').textContent = check;
+  checkBox.checked = false;
+
   const yesBtn = el.querySelector('[data-yes]');
   yesBtn.textContent = yes;
   yesBtn.classList.toggle('is-danger', Boolean(danger));
@@ -90,6 +105,9 @@ export function ask(title, opts = {}) {
     el.addEventListener('close', function done() {
       el.removeEventListener('close', done);
       if (el.returnValue !== 'ok') return resolve(null);
+      /* An object only when there is a tick to report, so every existing
+         call site keeps getting the string or the plain true it reads. */
+      if (check) return resolve({ ok: true, checked: checkBox.checked });
       resolve(wants ? input.value : true);
     });
     el.returnValue = 'cancel';

@@ -542,27 +542,51 @@ await step('and it can be approved without going through review', async () => {
   );
 });
 
-await step('a slot puts it in the poster\'s way', async () => {
-  await page.click('[data-car-acts] .st-link');
-  await answer('1');
-  await answer('2020-01-01T00:00:00Z');
-  await page.waitForFunction(
-    () => /Scheduled/.test(document.querySelector('.st-facts')?.textContent || ''), null, { timeout: 15000 }
-  );
+/*
+ * Posting used to need a slot first — approve, give it a time, then
+ * post — so the only road to posting ran through a scheduling form.
+ * Two buttons now, and the difference between them cannot be undone in
+ * one direction, so it is worth asserting they are both there and that
+ * only one of them stops to ask.
+ */
+await step('an approved carousel offers both ways to post', async () => {
+  const acts = await page.$$eval('[data-car-acts] .st-link',
+                                 (n) => n.map((x) => x.textContent.trim()));
+  for (const want of ['Test post (only you see it)', 'Post it publicly']) {
+    if (!acts.includes(want)) throw new Error(`offered: ${acts.join(', ')}`);
+  }
+  // and the scheduling form is not in the way of either of them
+  if (acts.includes('Give it a slot')) throw new Error('the slot button is still there');
 });
 
-/*
- * A slot in the past with nothing having happened is the failure that
- * looks like success — the board says Scheduled, and Scheduled sounds
- * like something is coming. Nothing here has a cron, so it is not.
- */
-await step('a past-due carousel says so, and offers the run', async () => {
-  const acts = await page.$$eval('[data-car-acts] .st-link', (n) => n.map((x) => x.textContent.trim()));
-  if (!acts.includes('Post it now')) throw new Error(`offered: ${acts.join(', ')}`);
-  const notes = await page.$$eval('[data-car-acts] .st-note', (n) => n.map((x) => x.textContent));
-  if (!notes.some((t) => /Nothing posts on its own/.test(t))) {
-    throw new Error(`said: ${notes.join(' | ') || 'nothing'}`);
-  }
+await step('posting publicly stops to ask, and offers the story there', async () => {
+  const acts = await page.$$eval('[data-car-acts] .st-link',
+                                 (n) => n.map((x) => x.textContent.trim()));
+  await page.click(`[data-car-acts] .st-link >> nth=${acts.indexOf('Post it publicly')}`);
+  await page.waitForSelector('.st-ask[open]', { timeout: 8000 });
+
+  const title = await page.textContent('.st-ask [data-title]');
+  if (!/publicly/i.test(title)) throw new Error(`asked: ${title}`);
+  const tick = await page.textContent('.st-ask [data-checklabel]');
+  if (!/story/i.test(tick)) throw new Error(`the tick said: ${tick}`);
+  const hidden = await page.$eval('.st-ask [data-checkwrap]', (n) => n.hidden);
+  if (hidden) throw new Error('the story tick is hidden on a public post');
+
+  // cancel: this run is not posting anything to a real account
+  await page.click('.st-ask [data-no]');
+  await page.waitForFunction(
+    () => !document.querySelector('.st-ask')?.open, null, { timeout: 8000 });
+});
+
+await step('a test post does not ask, and never offers a story', async () => {
+  /* A story is public by definition, so it is not part of a rehearsal.
+     The tick must not be reachable from the private road at all. */
+  const acts = await page.$$eval('[data-car-acts] .st-link',
+                                 (n) => n.map((x) => x.textContent.trim()));
+  await page.click(`[data-car-acts] .st-link >> nth=${acts.indexOf('Test post (only you see it)')}`);
+  const asked = await page.waitForSelector('.st-ask[open]', { timeout: 2500 })
+    .then(() => true).catch(() => false);
+  if (asked) throw new Error('the test post stopped to ask');
 });
 
 await step('no browser prompt or confirm was used anywhere', async () => {

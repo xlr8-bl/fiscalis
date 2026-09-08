@@ -1764,7 +1764,7 @@ const CAR_STATES = {
   generating: { label: 'Making',     note: 'The slides are being drawn.' },
   review:     { label: 'Waiting on you', note: 'Everything is drawn. Your turn.' },
   changes:    { label: 'Being redone', note: 'Spark is redoing the slides you flagged.' },
-  approved:   { label: 'Approved',   note: 'Cleared to post. Give it a slot.' },
+  approved:   { label: 'Approved',   note: 'Cleared to post, privately or publicly.' },
   // "it goes out at its slot" was a promise nothing here keeps. Pages
   // Functions have no cron: a slot marks it due, and a run has to be
   // triggered — from this screen, or by one of Spark's scheduled tasks.
@@ -2171,14 +2171,17 @@ function paintCarouselActions(host) {
   if (readyToApprove.includes(c.status) && !blocked) {
     acts.push(['Approve it', () => move('approved')]);
   }
-  if (c.status === 'approved') {
-    acts.push(['Give it a slot', schedule]);
+  /* Posting used to need a slot first: approve, give it a time, then
+     press post. So the way to post anything was through a scheduling
+     form, which is a strange thing to meet when what you wanted was to
+     post. Two buttons instead, and the slot is only for something that
+     genuinely wants one. */
+  if (c.status === 'approved' || c.status === 'scheduled') {
+    acts.push(['Test post (only you see it)', () => postDirect('test')]);
+    acts.push(['Post it publicly', () => postDirect('public')]);
     acts.push(['Send it back', () => move('changes')]);
   }
-  if (c.status === 'scheduled') {
-    acts.push(['Post it now', postNow]);
-    acts.push(['Unschedule', () => move('approved')]);
-  }
+  if (c.status === 'scheduled') acts.push(['Take the slot off', () => move('approved')]);
   if (c.status !== 'posted' && c.status !== 'rejected') {
     acts.push(['Kill it', () => move('rejected', {
       title: 'Kill this carousel?', body: 'Spark will stop proposing it.',
@@ -2228,6 +2231,59 @@ function paintCarouselActions(host) {
  * so there is no second implementation to drift — and then reloads this
  * carousel so the result lands where you are looking.
  */
+/**
+ * Post this one, now.
+ *
+ * Two visibilities, because rehearsing and meaning it are different
+ * things and the difference cannot be undone in one direction. `test`
+ * genuinely posts to TikTok at SELF_ONLY — a real post through the real
+ * API that only he can see — and skips Instagram, which has no private
+ * post of any kind.
+ *
+ * The story tick is only offered on a public post, and only for
+ * Instagram: a story is public by definition, and TikTok's Content
+ * Posting API has no story endpoint at all.
+ */
+async function postDirect(visibility) {
+  const c = carousel;
+  const test = visibility === 'test';
+  let story = false;
+
+  if (!test) {
+    const answer = await ask('Post it publicly?', {
+      body: 'This goes out under your accounts and cannot be taken back from here.',
+      check: 'Also put slide one up as an Instagram story',
+      yes: 'Post it',
+      danger: true,
+    });
+    if (!answer) return;
+    story = answer.checked === true;
+  }
+
+  say(test ? 'Posting privately…' : 'Posting…');
+  try {
+    const out = await api(`/carousels/${encodeURIComponent(c.slug)}/post`, {
+      method: 'POST',
+      body: JSON.stringify({ visibility, story }),
+    });
+    await viewCarousel(c.slug);
+    const rows = Object.entries(out.results || {});
+    const went = rows.filter(([, r]) => r.ok).map(([n]) => n);
+    const failed = rows.filter(([, r]) => !r.ok && !r.skipped)
+      .map(([n, r]) => `${n}: ${r.error}`);
+    const skipped = rows.filter(([, r]) => r.skipped)
+      .map(([n, r]) => `${n}: ${r.error}`);
+    say(
+      failed.length ? failed.join(' · ')
+        : went.length
+          ? `${test ? 'Posted privately to' : 'Posted to'} ${went.join(', ')}.${
+            skipped.length ? ` (${skipped.join(' · ')})` : ''}`
+          : skipped.join(' · ') || 'Nothing went out.',
+      failed.length ? 'err' : undefined
+    );
+  } catch (e) { say(e.message, 'err'); }
+}
+
 async function postNow() {
   const c = carousel;
   say('Posting…');
@@ -2584,27 +2640,12 @@ async function askAgain(position) {
   } catch (e) { say(e.message, 'err'); }
 }
 
-async function schedule() {
-  const slot = await ask('Which slot?', {
-    value: String(carousel.slot || 1), label: '1 to 5', yes: 'Next',
-  });
-  if (slot === null) return;
-  const at = await ask('When should it go?', {
-    value: carousel.scheduled_for || '',
-    label: 'Leave it blank to make it due now',
-    placeholder: 'YYYY-MM-DDTHH:MM:SSZ',
-    yes: 'Schedule it',
-  });
-  if (at === null) return;
-  try {
-    await api(`/carousels/${encodeURIComponent(carousel.slug)}/schedule`, {
-      method: 'POST',
-      body: JSON.stringify({ slot: Number(slot), at }),
-    });
-    await viewCarousel(carousel.slug);
-    say('Scheduled.');
-  } catch (e) { say(e.message, 'err'); }
-}
+/* The scheduling form used to live here: pick a slot, type a time, and
+   only then was there a Post button. It was the only road to posting, so
+   the way to post anything was to fill in a form about when. Gone from
+   the studio; /carousels/:slug/schedule is still there for anything that
+   genuinely wants a slot, and a carousel already in `scheduled` still
+   posts and can have its slot taken off. */
 
 /* ------------------------------------------------------- pillars and kit */
 
