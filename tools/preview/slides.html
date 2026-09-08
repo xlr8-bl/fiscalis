@@ -9,6 +9,7 @@ canvas{width:432px;height:540px}</style></head>
    the flow is measured with real font metrics. */
 import { drawSlide, W, H, TEMPLATE_NAMES, slideCatalogue } from '/assets/js/slides.js';
 import { ICON_NAMES, iconUrl } from '/assets/js/icons.js';
+import { APP_NAMES, appUrl } from '/assets/js/apps.js';
 
 const ctx = document.getElementById('c').getContext('2d');
 
@@ -43,10 +44,20 @@ await Promise.all(PORTRAITS.map(async (n) => {
 // props keyed out of a reference, drawn as objects rather than as photos
 const objects = { handset: await load('/assets/stock/objects/handset.png') };
 
+// brand marks, for the tools template
+const apps = {};
+await Promise.all(APP_NAMES.map(async (n) => { apps[n] = await load(appUrl(n)); }));
+
+/* Captures. In the studio these come out of R2 by key; here anything
+   the slide names is looked for under a local folder, so a template can
+   be drawn without a Cloudflare token. */
+const shots = {};
+window.SHOT = async (key, url) => { shots[key] = await load(url); };
+
 window.CATALOGUE = slideCatalogue();
 window.TEMPLATES = TEMPLATE_NAMES;
 window.render = async (slide) => {
-  const art = { icons, portraits, objects };
+  const art = { icons, portraits, objects, apps, shots };
   /* A slide names a scene by file stem, the same way it names a
      portrait. Treating it as a URL meant `scene: 'black-wall'` fetched
      nothing and the slide drew as a bare ground. */

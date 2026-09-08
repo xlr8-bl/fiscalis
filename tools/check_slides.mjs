@@ -32,7 +32,6 @@ const base = () => ({
   say: 'The enquiries are not missing because the site is ugly.',
   chips: ['the number is a picture', 'the form emails nowhere'],
   icons: ['message', 'no'],
-  action: 'Send yourself an enquiry and wait a day for it to arrive.',
 });
 const one = (over = {}) => validateSlides({ slides: [ { ...base(), ...over }, base() ] });
 
@@ -163,11 +162,60 @@ ok('the tool has no coordinate in it anywhere', () => {
   }
 });
 
-ok('a slide must carry an instruction: that is the format\'s promise', () => {
+ok('the SET carries an instruction, and not every slide does', () => {
+  /* It used to be every slide, so a five-slide set gave a reader five
+     orders and none of them landed. The promise is one ask per
+     carousel, which the sign-off guarantees; a DO THIS: panel on a
+     teaching panel is now refused by name. */
   const tool = TOOLS.find((t) => t.name === 'teach_carousel');
   const req = tool.inputSchema.properties.slides.items.required;
-  assert.ok(req.includes('action'), 'action is not required');
+  assert.ok(!req.includes('action'), 'action is still required on every slide');
   assert.ok(req.includes('template'), 'template is not required');
+
+  const asking = TEMPLATE_NAMES.filter((n) => TEMPLATES[n].blocks.includes('action'));
+  assert.ok(asking.length < TEMPLATE_NAMES.length / 2,
+            `${asking.length} of ${TEMPLATE_NAMES.length} templates still ask`);
+  assert.ok(TEMPLATES.signoff.blocks.includes('action'), 'the sign-off does not ask');
+  for (const t of ['open', 'reasons', 'steps', 'compare', 'proof']) {
+    assert.ok(!TEMPLATES[t].blocks.includes('action'), `${t} still ends DO THIS:`);
+  }
+  // and it cannot be added back through `blocks`, which may only narrow
+  const r = one({ action: 'Do the thing.' });
+  assert.ok(!r.ok);
+  assert.match(r.problems.join(' '), /"action" is not a field on reasons/);
+});
+
+ok('every template says what it is FOR, not just what it holds', () => {
+  /* Spark sorted on the template name and took whichever was first,
+     which is how three sets in a row came back as panels of reasons. */
+  for (const n of TEMPLATE_NAMES) {
+    assert.ok(TEMPLATES[n].for, `${n} has no \`for\``);
+    assert.ok(TEMPLATES[n].for.length > 12, `${n}'s \`for\` says nothing`);
+  }
+  const jobs = TEMPLATE_NAMES.map((n) => TEMPLATES[n].for);
+  assert.equal(new Set(jobs).size, jobs.length, 'two templates claim the same job');
+});
+
+ok('what carries evidence refuses to draw without the evidence', () => {
+  /* A screenshot with no address, a chart with no source and a
+     quotation with no name are all the shape of proof with none in it,
+     and all three are easier to write than the real thing. */
+  const from = (name) => EXAMPLE_SLIDES.find((s) => s._name === name);
+  const drop = (name, kill) => {
+    const s = { ...from(name) };
+    kill(s);
+    return validateSlides({ slides: [s, s] }, { opener: false });
+  };
+  const noUrl = drop('shot', (s) => { s.shot = { ...s.shot, url: '' }; });
+  assert.ok(!noUrl.ok, 'a screenshot with no address was accepted');
+  assert.match(noUrl.problems.join(' '), /address/);
+
+  const noSource = drop('chart', (s) => { delete s.source; });
+  assert.ok(!noSource.ok, 'a chart with no source was accepted');
+
+  const noWho = drop('quote', (s) => { s.quote = { ...s.quote, who: '' }; });
+  assert.ok(!noWho.ok, 'an unattributed quotation was accepted');
+  assert.match(noWho.problems.join(' '), /who/i);
 });
 
 ok('the packs sum, no name collides, and the brief agrees', () => {
@@ -249,19 +297,28 @@ ok('a recap can list the longest carousel that is allowed to exist', () => {
     'the longest recap is set tighter than ordinary leading');
 });
 
+/* The instruction moved off the teaching panels, so bait has to be
+   tried on a template that actually carries one. */
+const asks = (over = {}) => validateSlides({ slides: [
+  base(),
+  { template: 'close', ground: 'paper', handle: 'WEB3ASHLEY', series: 'SITE CHECKS',
+    title: 'That is the whole check', say: 'Three things, an afternoon.',
+    icons: ['ring', 'idea'], action: 'Run the three before you rebuild.', ...over },
+] });
+
 ok('engagement bait is refused, not just advised against', () => {
   /* It was a list in the guide, which held for as long as whoever was
      writing had read the guide. These are the lines every account posts. */
   for (const line of ['Save this for later.', 'Tag a friend who needs this.',
                       'Link in bio.', 'Follow for more like this.']) {
-    const r = one({ action: line });
+    const r = asks({ action: line });
     assert.ok(!r.ok, `"${line}" was accepted as an instruction`);
     assert.match(r.problems.join(' '), /read THIS carousel/);
   }
   // and the replacements for the same jobs are not caught by it
   for (const line of ['Keep this. It is the list to run before you rebuild.',
                       'Send it to whoever built the site.']) {
-    assert.ok(one({ action: line }).ok, `"${line}" was refused and should not be`);
+    assert.ok(asks({ action: line }).ok, `"${line}" was refused and should not be`);
   }
   const q = { question: 'Save this for later?', options: ['yes', 'no'] };
   assert.ok(!validateSlides({ slides: [
@@ -377,7 +434,7 @@ ok('a field the template has not got is refused, not silently dropped', () => {
 ok('a template is a choice, not a starting point', () => {
   // dropping an optional block is fine; adding one the template has not
   // got is composing a layout, which is what templates exist to stop
-  const added = one({ blocks: ['title', 'say', 'chips', 'icons', 'action', 'duo'] });
+  const added = one({ blocks: ['title', 'say', 'chips', 'icons', 'duo'] });
   assert.ok(!added.ok, 'a foreign block was accepted');
   assert.match(added.problems.join(' '), /has no "duo"/);
   assert.match(added.problems.join(' '), /do not add one/);

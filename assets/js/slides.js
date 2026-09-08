@@ -12,6 +12,7 @@
 import { GROUNDS } from './design-spec.js';
 import { ALL_ICONS, ICON_NAMES, PIXEL } from './icons.js';
 import { CUTOUTS, placementOf } from './cutouts.js';
+import { APP_LABELS } from './apps.js';
 
 export const W = 1080;
 export const H = 1350;
@@ -69,6 +70,25 @@ export const M = {
   mark:     { size: 0.0300, padX: 0.014, padY: 0.007, gap: 0.016 },
   prompt:   { gap: 0.020, row: 0.011 },
   line:     { size: 0.0165 },
+
+  /* The blocks that carry evidence rather than argument. None of these
+     is off a reference card: the set had nothing that could show a real
+     page or a real figure, so these are chosen against the sheet and
+     then measured back out of the renderer by check_slides. */
+
+  // 16:10, which is the shape the capture comes back as, plus the bar
+  shot:     { w: 0.72, chromeH: 0.030, dot: 0.0055, urlSize: 0.0150,
+              cap: 0.0165, capGap: 0.014, r: 0.006 },
+  // a bar is the row; `gapRow` is between rows; `lab` is the name beside it
+  bars:     { rowH: 0.0300, gapRow: 0.0130, lab: 0.0165, val: 0.0165,
+              labW: 0.30, r: 0.003 },
+  // two stacked halves: what not to do, struck through, then what to do
+  swap:     { size: 0.0215, padX: 0.020, padY: 0.011, gap: 0.020, r: 0.004 },
+  term:     { word: 0.0620, gap: 0.024, size: 0.0225, lead: 1.45 },
+  apps:     { h: 0.0660, gap: 0.052, lab: 0.0135, labGap: 0.016 },
+  quote:    { size: 0.0430, lead: 1.24, who: 0.0165, whoGap: 0.026, markX: 0.030 },
+  stat:     { size: 0.1500, of: 0.0210, ofGap: 0.020 },
+  source:   { size: 0.0140 },
 
   // read off the reference's runs, rounded, not tuned
   gap:      { afterTitle: 0.063, between: 0.034, beforeIcons: 0.036 },
@@ -457,6 +477,360 @@ export const BLOCKS = {
   },
 
   /**
+   * A real page, in browser chrome, with its address showing.
+   *
+   * The address bar is not decoration: it is the citation. A screenshot
+   * with no URL on it is an assertion, and this set's whole standard is
+   * that a claim is traceable. So the frame draws what was captured and
+   * where it came from as one object, and neither can be set without
+   * the other.
+   */
+  shot: {
+    takes: 'shot',
+    what: 'A screenshot of a real page, drawn in browser chrome with its '
+        + 'address showing. Capture it with capture_page and pass the key it '
+        + 'gives back as `src`, with the page\'s address as `url`. The '
+        + 'address IS the citation, so both are required. `caption` is one '
+        + 'line under it saying what to look at.',
+    height(ctx, block, g, col) {
+      const w = Math.min(px.w(M.shot.w), col);
+      // 16:10 is what the capture comes back as, plus the chrome bar
+      const h = w * 0.625 + px.h(M.shot.chromeH);
+      if (!block.caption) return h / H;
+      const ls = lines(ctx, block.caption, face(g, 'caption'), w, trackOf('caption'));
+      return (h + px.h(M.shot.capGap)) / H + ls.length * M.shot.cap * 1.35;
+    },
+    draw(ctx, block, g, box, art) {
+      const img = art?.shots?.[block.src];
+      const w = Math.min(px.w(M.shot.w), box.w);
+      const bar = px.h(M.shot.chromeH);
+      const h = w * 0.625;
+      const x = box.x + (box.w - w) / 2;
+      const r = px.h(M.shot.r);
+
+      ctx.save();
+      /* The whole frame on one path, so the picture is clipped by the
+         same rounded corner the chrome has. Two paths and the capture's
+         square corners poke out of the frame's round ones. */
+      round(ctx, x, box.y, w, bar + h, r);
+      ctx.fillStyle = g.mark;
+      ctx.fill();
+      ctx.clip();
+
+      if (img) ctx.drawImage(img, x, box.y + bar, w, h);
+      else {
+        // nothing captured yet: the frame still says what is missing
+        ctx.fillStyle = g.halo ?? g.ground;
+        ctx.fillRect(x, box.y + bar, w, h);
+      }
+      ctx.restore();
+
+      // three dots, then the address, in the chrome bar
+      const d = px.h(M.shot.dot);
+      ctx.fillStyle = g.ground;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.arc(x + px.w(0.018) + i * d * 3.2, box.y + bar / 2, d, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.font = face(g, 'url');
+      ctx.letterSpacing = trackOf('url');
+      ctx.textAlign = 'left';
+      ctx.fillStyle = g.ground;
+      ctx.fillText(shortUrl(block.url), x + px.w(0.075),
+                   box.y + bar / 2 + px.size(M.shot.urlSize) * CAP * 0.5);
+      ctx.textAlign = 'center';
+
+      if (!block.caption) return;
+      setType(ctx, g, 'caption');
+      const ls = lines(ctx, block.caption, face(g, 'caption'), w, trackOf('caption'));
+      ls.forEach((line, i) => {
+        ctx.fillText(line, box.x + box.w / 2,
+          box.y + bar + h + px.h(M.shot.capGap)
+          + px.size(M.shot.cap) * CAP + i * px.size(M.shot.cap * 1.35));
+      });
+    },
+  },
+
+  /**
+   * Figures as bars, with where they came from underneath.
+   *
+   * Proportional to the largest, not to a scale starting anywhere but
+   * zero: a truncated axis is the oldest way to lie with a chart and
+   * this set does not get to use it. `source` is required for the same
+   * reason the shot's URL is.
+   */
+  bars: {
+    takes: 'bars',
+    what: 'Two to five figures as bars, each a name and a number. Longest '
+        + 'bar is the largest value and every bar is proportional to it from '
+        + 'zero, so the picture cannot mislead. `unit` labels the numbers '
+        + '("seconds", "%"). Needs a `source` block on the slide saying where '
+        + 'the figures came from; a chart with no source is a drawing.',
+    height(_ctx, block) {
+      const n = Math.max(1, (block.items ?? []).length);
+      return n * M.bars.rowH + (n - 1) * M.bars.gapRow;
+    },
+    draw(ctx, block, g, box) {
+      const items = (block.items ?? []).slice(0, 5);
+      const most = Math.max(...items.map((i) => Number(i.value) || 0), 1);
+      const labW = Math.min(px.w(M.bars.labW), box.w * 0.34);
+      const track = box.w - labW - px.w(0.02);
+      const rowH = px.h(M.bars.rowH);
+
+      items.forEach((item, i) => {
+        const y = box.y + i * (rowH + px.h(M.bars.gapRow));
+        ctx.textAlign = 'left';
+        ctx.font = face(g, 'barLab');
+        ctx.letterSpacing = trackOf('barLab');
+        ctx.fillStyle = g.mark;
+        ctx.fillText(item.label, box.x, y + rowH / 2 + px.size(M.bars.lab) * CAP * 0.5);
+
+        const w = Math.max(px.w(0.01), track * ((Number(item.value) || 0) / most));
+        const x = box.x + labW;
+        ctx.fillStyle = i === 0 ? g.accent : (g.accentSoft ?? g.accent);
+        round(ctx, x, y, w, rowH, px.h(M.bars.r));
+        ctx.fill();
+
+        ctx.font = face(g, 'barVal');
+        ctx.letterSpacing = trackOf('barVal');
+        ctx.fillStyle = g.mark;
+        const text = `${item.value}${block.unit ? ` ${block.unit}` : ''}`;
+        ctx.fillText(text, x + w + px.w(0.014),
+                     y + rowH / 2 + px.size(M.bars.val) * CAP * 0.5);
+      });
+      ctx.textAlign = 'center';
+    },
+  },
+
+  /**
+   * Instead of this, do this. The instruction as a slide of its own.
+   *
+   * The DO THIS: panel used to sit on every template, so a five-slide
+   * set gave a reader five orders and none of them landed. This is the
+   * shape that actually wants one: the wrong way struck through, the
+   * right way under it, and nothing else on the sheet.
+   */
+  swap: {
+    takes: 'pair',
+    what: 'Two lines: what people do, struck through, and what to do instead '
+        + 'under it. `pair` is [{ head, tail }] where head is the wrong way '
+        + 'and tail is the right one. This is the instruction slide; a '
+        + 'teaching panel does not carry one.',
+    height(ctx, block, g, col) {
+      const [a, b] = block.pair ?? [];
+      const inner = col - px.w(M.swap.padX) * 2;
+      const n = (t) => (t ? lines(ctx, t, face(g, 'swap'), inner, trackOf('swap')).length : 0);
+      const one = (t) => (n(t) * M.swap.size * 1.42 + M.swap.padY * 2);
+      return one(a?.head) + M.swap.gap + one(a?.tail ?? b?.head);
+    },
+    draw(ctx, block, g, box) {
+      const [a] = block.pair ?? [];
+      if (!a) return;
+      const inner = box.w - px.w(M.swap.padX) * 2;
+      let y = box.y;
+
+      for (const [text, strike] of [[a.head, true], [a.tail, false]]) {
+        if (!text) continue;
+        const ls = lines(ctx, text, face(g, 'swap'), inner, trackOf('swap'));
+        const h = ls.length * px.size(M.swap.size * 1.42) + px.h(M.swap.padY) * 2;
+        ctx.fillStyle = strike ? (g.halo ?? g.ground) : (g.accentSoft ?? g.accent);
+        round(ctx, box.x, y, box.w, h, px.h(M.swap.r));
+        ctx.fill();
+
+        ctx.font = face(g, 'swap');
+        ctx.letterSpacing = trackOf('swap');
+        ctx.fillStyle = g.chipInk ?? g.mark;
+        ctx.textAlign = 'left';
+        ls.forEach((line, i) => {
+          const ty = y + px.h(M.swap.padY) + px.size(M.swap.size) * CAP
+            + i * px.size(M.swap.size * 1.42);
+          const tx = box.x + px.w(M.swap.padX);
+          ctx.fillText(line, tx, ty);
+          /* Ruled through rather than greyed out. Grey reads as
+             secondary; a line through it reads as refused, which is
+             what the half means. */
+          if (!strike) return;
+          const lw = ctx.measureText(line).width;
+          ctx.fillRect(tx, ty - px.size(M.swap.size) * CAP * 0.34,
+                       lw, Math.max(2, px.h(0.0016)));
+        });
+        y += h + px.h(M.swap.gap);
+      }
+      ctx.textAlign = 'center';
+    },
+  },
+
+  /**
+   * One word and what it actually means. The educational slide.
+   *
+   * The jargon rule says a technical term is dropped and moved past,
+   * never defined mid-paragraph. This is where a term gets defined
+   * instead: on its own sheet, where a reader can save it.
+   */
+  term: {
+    takes: 'term',
+    what: 'One technical word set large, and underneath it what it means in '
+        + 'plain language, in a sentence or two. `term` is { word, means }. '
+        + 'For teaching a word somebody has been nodding along to. Never '
+        + 'more than one word a slide.',
+    height(ctx, block, g, col) {
+      const ls = lines(ctx, block.means, face(g, 'means'), col, trackOf('means'));
+      return M.term.word * CAP + M.term.gap
+        + ls.length * M.term.size * M.term.lead;
+    },
+    draw(ctx, block, g, box) {
+      setType(ctx, g, 'word');
+      ctx.textAlign = alignTo(block.align);
+      const x = alignX(box, block.align);
+      ctx.fillText(block.word ?? '', x, box.y + px.size(M.term.word) * CAP);
+
+      setType(ctx, g, 'means');
+      ctx.textAlign = alignTo(block.align);
+      const ls = lines(ctx, block.means, face(g, 'means'), box.w, trackOf('means'));
+      ls.forEach((line, i) => {
+        ctx.fillText(line, x,
+          box.y + px.size(M.term.word) * CAP + px.h(M.term.gap)
+          + px.size(M.term.size) * CAP + i * px.size(M.term.size * M.term.lead));
+      });
+      ctx.textAlign = 'center';
+    },
+  },
+
+  /**
+   * The tools, named by their own marks.
+   *
+   * A brand mark here NAMES the thing being discussed and does nothing
+   * else. It never sits where a logo would sit, it is never recoloured
+   * into the palette, and its presence is not an endorsement in either
+   * direction. assets/icons/apps/SOURCES.md carries the licence and the
+   * rule; check_slides asserts the rule is still written down.
+   */
+  apps: {
+    takes: 'apps',
+    what: 'Two to five app or product marks in a row, each with its name '
+        + 'under it, for a slide about the tools themselves. Names come from '
+        + 'the apps pack. A mark may only NAME a product the slide is talking '
+        + 'about: never as a logo, never recoloured, never implying the brand '
+        + 'endorses any of this.',
+    height() { return M.apps.h + M.apps.labGap + M.apps.lab * CAP; },
+    draw(ctx, block, g, box, art) {
+      const names = (block.items ?? []).slice(0, 5);
+      if (!names.length) return;
+      const s = px.h(M.apps.h);
+      const step = s + px.w(M.apps.gap);
+      const total = names.length * s + (names.length - 1) * px.w(M.apps.gap);
+      let x = box.x + (box.w - total) / 2 + s / 2;
+
+      for (const name of names) {
+        const img = art?.apps?.[name];
+        if (img) {
+          const w = s * (img.width / img.height);
+          ctx.drawImage(img, x - w / 2, box.y, w, s);
+        }
+        ctx.font = face(g, 'appLab');
+        ctx.letterSpacing = trackOf('appLab');
+        ctx.fillStyle = g.mark;
+        ctx.textAlign = 'center';
+        ctx.fillText(appLabel(name), x,
+                     box.y + s + px.h(M.apps.labGap) + px.size(M.apps.lab) * CAP);
+        x += step;
+      }
+    },
+  },
+
+  /**
+   * Somebody else's words, with their name on them.
+   *
+   * `who` is required. The naming rule says "a Harvard study" is
+   * forgettable and a named person is a story, and an unattributed
+   * quotation is worse than either: it is the shape of evidence with
+   * none in it.
+   */
+  quote: {
+    takes: 'quote',
+    what: 'A line somebody else actually wrote or said, set large, with who '
+        + 'said it underneath. `quote` is { text, who }. Both required: an '
+        + 'unattributed quotation is the shape of evidence with nothing in '
+        + 'it. Never invent one, and never tidy up the wording.',
+    height(ctx, block, g, col) {
+      const ls = lines(ctx, block.text, face(g, 'quote'),
+                       col - px.w(M.quote.markX), trackOf('quote'));
+      return ls.length * M.quote.size * M.quote.lead
+        + M.quote.whoGap + M.quote.who * CAP;
+    },
+    draw(ctx, block, g, box) {
+      const x = box.x + px.w(M.quote.markX);
+      const w = box.w - px.w(M.quote.markX);
+      ctx.font = face(g, 'quote');
+      ctx.letterSpacing = trackOf('quote');
+      ctx.fillStyle = g.mark;
+      ctx.textAlign = 'left';
+      const ls = lines(ctx, block.text, face(g, 'quote'), w, trackOf('quote'));
+      ls.forEach((line, i) => {
+        ctx.fillText(line, x, box.y + px.size(M.quote.size) * CAP
+          + i * px.size(M.quote.size * M.quote.lead));
+      });
+
+      /* The rule down the left, not a curly quotation mark. A big glyph
+         at this size is a piece of decoration that competes with the
+         words; a rule is the same signal and stays out of the way. */
+      const h = ls.length * px.size(M.quote.size * M.quote.lead);
+      ctx.fillStyle = g.accent;
+      ctx.fillRect(box.x, box.y, Math.max(3, px.w(0.006)), h);
+
+      ctx.font = face(g, 'who');
+      ctx.letterSpacing = trackOf('who');
+      ctx.fillStyle = g.mark;
+      ctx.fillText(block.who ?? '', x,
+                   box.y + h + px.h(M.quote.whoGap) + px.size(M.quote.who) * CAP);
+      ctx.textAlign = 'center';
+    },
+  },
+
+  /** One figure, set at headline size, and what it is a figure OF. */
+  stat: {
+    takes: 'stat',
+    what: 'A single measured number set as large as a headline, with one '
+        + 'line under it saying what it counts. `stat` is { figure, of }. '
+        + 'Needs a `source` block: a number with no source is the one thing '
+        + 'the research rule refuses outright.',
+    height(ctx, block, g, col) {
+      const ls = lines(ctx, block.of, face(g, 'of'), col, trackOf('of'));
+      return M.stat.size * CAP + M.stat.ofGap + ls.length * M.stat.of * 1.4;
+    },
+    draw(ctx, block, g, box) {
+      setType(ctx, g, 'figure');
+      ctx.fillText(block.figure ?? '', box.x + box.w / 2,
+                   box.y + px.size(M.stat.size) * CAP);
+      setType(ctx, g, 'of');
+      const ls = lines(ctx, block.of, face(g, 'of'), box.w, trackOf('of'));
+      ls.forEach((line, i) => {
+        ctx.fillText(line, box.x + box.w / 2,
+          box.y + px.size(M.stat.size) * CAP + px.h(M.stat.ofGap)
+          + px.size(M.stat.of) * CAP + i * px.size(M.stat.of * 1.4));
+      });
+    },
+  },
+
+  /** Where a figure came from. Small, quiet, and not optional. */
+  source: {
+    takes: 'text',
+    what: 'Where the figures on this slide came from: who published it and '
+        + 'when, in one line. Set small on purpose — it is not the point of '
+        + 'the slide, it is what makes the point stand up.',
+    height() { return M.source.size * CAP; },
+    draw(ctx, block, g, box) {
+      setType(ctx, g, 'source');
+      ctx.fillStyle = g.mark;
+      ctx.globalAlpha = 0.62;
+      ctx.fillText(block.text ?? '', box.x + box.w / 2,
+                   box.y + px.size(M.source.size) * CAP);
+      ctx.globalAlpha = 1;
+    },
+  },
+
+  /**
    * The row of objects.
    *
    * It carries no information and it is not decoration either: it is the
@@ -612,9 +986,15 @@ export const BLOCKS = {
   action: {
     takes: 'text',
     pinned: true,
-    what: 'The one thing to actually do, in a sentence or two. Every slide '
-        + 'ends with one and it is always in the same place, so a reader '
-        + 'who only wants the instruction knows where to look.',
+    /* It used to be on every template, so every panel ended DO THIS: and
+       a five-slide set gave a reader five orders. An instruction is a
+       kind of slide, not a footer. Only the templates whose whole point
+       is an instruction have it now. */
+    optional: true,
+    what: 'The one thing to actually do, in a sentence or two. It belongs to '
+        + 'the few templates whose job IS an instruction — swap, close, the '
+        + 'sign-off — and NOT to a teaching panel. A set carries one ask, at '
+        + 'the end. `label` renames the tab from DO THIS:.',
     height(ctx, block, g, col) {
       const inner = Math.min(px.w(M.action.panelW), col) - px.w(M.action.padX) * 2;
       const n = lines(ctx, block.text, face(g, 'action'), inner, trackOf('action')).length;
@@ -776,16 +1156,54 @@ export const TYPE = {
   action: { family: 'NeueMontreal', weight: '500', track: 0 },
   label:  { family: 'NeueBit', weight: '400', track: 0.020 },
   rail:   { family: 'NeueBit', weight: '400', track: 0.060 },
+
+  /* The evidence blocks. A figure and a defined word are set in the
+     headline face because they ARE the headline of their slide; a URL,
+     a caption and a source are set in the bitmap, which is what the rail
+     uses, because all three are machine text rather than writing. */
+  word:    { family: 'NeueMontreal', weight: '700', track: 0 },
+  means:   { family: 'NeueMontreal', weight: '500', track: 0 },
+  quote:   { family: 'NeueMontreal', weight: '500', track: 0 },
+  who:     { family: 'NeueBit', weight: '400', track: 0.040 },
+  figure:  { family: 'NeueMontreal', weight: '700', track: 0 },
+  of:      { family: 'NeueMontreal', weight: '500', track: 0 },
+  url:     { family: 'NeueBit', weight: '400', track: 0.030 },
+  caption: { family: 'NeueMontreal', weight: '500', track: 0 },
+  source:  { family: 'NeueBit', weight: '400', track: 0.040 },
+  barLab:  { family: 'NeueMontreal', weight: '500', track: 0 },
+  barVal:  { family: 'NeueBit', weight: '400', track: 0.030 },
+  appLab:  { family: 'NeueBit', weight: '400', track: 0.030 },
+  swap:    { family: 'NeueMontreal', weight: '500', track: 0 },
 };
 
-const sizeOf = (role) => px.size(
-  role === 'title' || role === 'titleAlt' ? M.title.size
-    : role === 'action' ? M.action.body
-      : role === 'label' ? M.action.label
-        : role === 'rail' ? M.rail.size
-          : role === 'chip' ? M.chip.h * 0.52
-            : M.say.size
-) * (TYPE[role]?.scale ?? 1);
+/**
+ * The address, as a browser shows it: host and path, no scheme, no
+ * query. A full URL with tracking parameters on it is unreadable at
+ * 15px and tells the reader nothing they can type in themselves.
+ */
+export function shortUrl(url) {
+  const s = String(url ?? '').replace(/^https?:\/\//, '').replace(/\?.*$/, '');
+  return s.length > 52 ? `${s.slice(0, 51)}…` : s;
+}
+
+/** The name under a mark. The pack's slug is not what a person calls it. */
+const appLabel = (name) => APP_LABELS[name] ?? name;
+
+/** Every role's size, so a new one is a row rather than another ternary. */
+const SIZE = {
+  title: M.title.size, titleAlt: M.title.size,
+  action: M.action.body, label: M.action.label, rail: M.rail.size,
+  chip: M.chip.h * 0.52,
+  word: M.term.word, means: M.term.size,
+  quote: M.quote.size, who: M.quote.who,
+  figure: M.stat.size, of: M.stat.of,
+  url: M.shot.urlSize, caption: M.shot.cap, source: M.source.size,
+  barLab: M.bars.lab, barVal: M.bars.val, appLab: M.apps.lab,
+  swap: M.swap.size,
+};
+
+const sizeOf = (role) =>
+  px.size(SIZE[role] ?? M.say.size) * (TYPE[role]?.scale ?? 1);
 
 const face = (g, role) => {
   const t = TYPE[role] ?? TYPE.say;
@@ -1021,50 +1439,152 @@ export const SLIDE_GROUND_NAMES = Object.keys(SLIDE_GROUNDS);
  * one — a slide may give its own `blocks` array — but naming a template
  * is what stops the common case being reinvented five times a day.
  */
+/*
+ * `for` is the job the slide does, and it is what Spark sorts on.
+ *
+ * Sorting on the template NAME meant picking whichever was first in the
+ * list, which is how three carousels in a row came back as six panels of
+ * reasons. A name says what a slide contains; `for` says what it is for,
+ * and that is the question a writer actually has when they know what the
+ * next slide has to accomplish and not what it should look like.
+ *
+ * `asks` marks the four templates that carry a DO THIS: panel. It used
+ * to be all of them, which gave a reader five orders in five slides and
+ * meant none of them landed. An instruction is a kind of slide.
+ */
 export const TEMPLATES = {
   open: {
-    blocks: ['title', 'say', 'icons', 'action'],
-    what: 'The first slide. Names the thing and says what it is, then the '
-        + 'instruction. Nothing picked out yet, because there is nothing to '
-        + 'pick out until the reader knows what the subject is.',
+    blocks: ['title', 'say', 'icons'],
+    for: 'say what the subject is, before anything is picked out',
+    what: 'The first teaching slide. Names the thing and says what it is. '
+        + 'Nothing picked out yet, because there is nothing to pick out '
+        + 'until the reader knows what the subject is.',
   },
   reasons: {
-    blocks: ['title', 'say', 'chips', 'icons', 'action'],
-    what: 'Why it matters. A short setup, then the reasons as chips. The '
-        + 'workhorse: most middle slides are this one.',
+    blocks: ['title', 'say', 'chips', 'icons'],
+    for: 'why it matters, as a short list',
+    what: 'A short setup, then the reasons as chips. The workhorse, which '
+        + 'is exactly why a set should not be three of them: if two '
+        + 'consecutive slides are both this, one of them is the wrong shape.',
   },
   steps: {
-    blocks: ['title', 'say', 'chips', 'say', 'icons', 'action'],
-    what: 'How to do it. Setup, the steps as chips, then a line that lands '
-        + 'the whole thing. The second paragraph is the point of this '
-        + 'template — it is the reassurance after the list.',
+    blocks: ['title', 'say', 'chips', 'say', 'icons'],
+    for: 'how to do it, in order',
+    what: 'Setup, the steps as chips, then a line that lands the whole '
+        + 'thing. The second paragraph is the point of this template — it '
+        + 'is the reassurance after the list.',
   },
   compare: {
-    blocks: ['title', 'say', 'duo', 'say', 'icons', 'action'],
+    blocks: ['title', 'say', 'duo', 'say', 'icons'],
+    for: 'two kinds that get confused for each other',
     what: 'Two kinds, side by side, with a line under each. Only for an '
         + 'actual difference between two things.',
   },
   proof: {
-    blocks: ['title', 'say', 'chips', 'icons', 'action'],
+    blocks: ['title', 'say', 'chips', 'icons'],
+    for: 'evidence you can point at, as a short list',
     what: 'The same shape as reasons, used for evidence rather than '
         + 'argument: each chip is a figure you can point at. Named apart '
         + 'so a slide of numbers is a decision rather than an accident.',
   },
   portrait: {
-    blocks: ['title', 'say', 'portrait', 'action'],
-    what: 'An opening or closing slide carrying Ashley himself, cut out and '
-        + 'monochrome and screened. Use it once in a set at most: it is the slide '
-        + 'that says a person is behind this, and twice makes it about him.',
+    blocks: ['title', 'say', 'portrait'],
+    for: 'saying a person is behind this, mid-set',
+    what: 'A middle slide carrying Ashley himself, cut out and monochrome '
+        + 'and screened. The sign-off already carries him, so this is the '
+        + 'SECOND time he appears in a set and usually one time too many. '
+        + 'Reach for it only when the slide is about him doing the work.',
+  },
+
+  /* ------------------------------------------------- showing rather
+   * than saying. Everything below carries evidence, and every one of
+   * them refuses to draw without the thing that makes it checkable: a
+   * screenshot without its address, a chart without its source and a
+   * quotation without a name are all the shape of proof with none in it.
+   */
+
+  shot: {
+    blocks: ['title', 'say', 'shot'],
+    for: 'showing a real page, on the record',
+    what: 'A screenshot of an actual page in browser chrome with its address '
+        + 'showing. For taking one real thing apart in public, or for '
+        + 'referencing somebody else\'s page, documentation or announcement. '
+        + 'Capture it with capture_page first. The address is the citation, '
+        + 'so the slide cannot be written from memory.',
+  },
+  annotated: {
+    blocks: ['title', 'shot', 'swap'],
+    for: 'showing a real page and what to do about it',
+    what: 'The screenshot with the fix under it: what is on the page struck '
+        + 'through, what it should say instead below. The one arrangement '
+        + 'that shows the fault and the fix on the same sheet.',
+  },
+  chart: {
+    blocks: ['title', 'say', 'bars', 'source'],
+    for: 'figures, drawn to scale, with where they came from',
+    what: 'Two to five measured figures as bars, from zero, longest bar '
+        + 'largest. For analytics, timings, sizes, counts. `source` is not '
+        + 'optional: a chart without one is a drawing.',
+  },
+  figure: {
+    blocks: ['stat', 'say', 'source'],
+    for: 'one number that is the whole slide',
+    what: 'A single measured figure at headline size, one line saying what '
+        + 'it counts, and the source. For when the number IS the argument '
+        + 'and a chart would be three bars pretending to be a comparison.',
+  },
+  define: {
+    blocks: ['term', 'say', 'icons'],
+    for: 'teaching one word somebody has been nodding along to',
+    what: 'A technical word set large, then what it means in plain language. '
+        + 'The educational slide. The jargon rule says a term is normally '
+        + 'dropped and moved past; this is the sheet where one gets '
+        + 'explained properly instead. One word only.',
+  },
+  quote: {
+    blocks: ['quote', 'say'],
+    for: 'somebody else said it, and here is who',
+    what: 'A line somebody actually published, set large, with their name '
+        + 'under it, then why it matters here. For a platform announcement, '
+        + 'a spec, a named study. Never invented, never tidied up.',
+  },
+  tools: {
+    blocks: ['title', 'say', 'apps'],
+    for: 'naming the products involved',
+    what: 'A row of app marks with their names, for a slide about the tools '
+        + 'themselves. A mark may only name a product this slide discusses. '
+        + 'Read USE_A_MARK before reaching for it: the failure is a post '
+        + 'that reads as a partnership with a company that has never heard '
+        + 'of him.',
+  },
+
+  /* ------------------------------------------------- the ones that ask.
+   * Four, out of sixteen. `swap` is the mid-set instruction and the
+   * sign-off is the end of every set; `close` and `recap` are the older
+   * endings and stay for carousels that want them.
+   */
+
+  swap: {
+    blocks: ['title', 'swap', 'action'],
+    asks: true,
+    for: 'instead of this, do this',
+    what: 'The instruction slide. What people do, struck through, and what '
+        + 'to do instead under it, then the DO THIS: panel. This is where an '
+        + 'instruction belongs mid-set; a teaching panel does not carry one '
+        + 'and cannot be given one.',
   },
   close: {
     blocks: ['title', 'say', 'icons', 'action'],
-    what: 'The last slide. What to do now. The instruction is the whole '
-        + 'slide, so nothing competes with it.',
+    asks: true,
+    for: 'the last slide, when the instruction is the whole point',
+    what: 'What to do now, with nothing competing with it.',
   },
   signoff: {
     /* No echo. His column beside the cut-out is about 19 characters a
        line, and echo plus a paragraph came to 102% of the sheet. */
     blocks: ['title', 'say', 'portrait', 'action'],
+    asks: true,
+    for: 'ending the set. Every set, the same way.',
     what: 'The sign-off, and the only slide whose look is not a decision: '
         + 'Ashley seated with the phone, on yellow, every time. It ends every '
         + 'set, so a reader knows one has ended. Write the words; the ground '
@@ -1086,6 +1606,8 @@ export const TEMPLATES = {
    */
   recap: {
     blocks: ['title', 'recap', 'prompt', 'line', 'action'],
+    asks: true,
+    for: 'the last slide, read back for whoever swiped without reading',
     what: 'The whole carousel read back in numbered lines, then the ask. The '
         + 'one to reach for by default: it is the only slide that pays off a '
         + 'reader who swiped to the end without reading, and it is what makes '
@@ -1093,6 +1615,8 @@ export const TEMPLATES = {
   },
   calling: {
     blocks: ['calling', 'say', 'prompt', 'line', 'action'],
+    asks: true,
+    for: 'ending a carousel about not being reachable',
     what: 'A handset hanging off the top of the sheet on its cord, ringing, '
         + 'with the address at the foot. No headline: the object is the '
         + 'headline. For the end of a carousel about being reachable, or not '
@@ -1101,6 +1625,8 @@ export const TEMPLATES = {
   },
   bookend: {
     blocks: ['echo', 'title', 'say', 'icons', 'line', 'action'],
+    asks: true,
+    for: 'answering the opening headline out loud',
     what: 'Closes the loop out loud: the headline the carousel opened with, '
         + 'set small, and under it the line that answers it. For a carousel '
         + 'that opened on a question or a claim. Needs the opening headline '
@@ -1277,7 +1803,9 @@ const blockData = (slide, name, key) => {
        a slide reads better as `icons: [...], iconsWhere: 'corner'` than
        as a nested object, and Spark writes these by hand. */
     return name === 'icons' ? { icons: own, where: slide.iconsWhere }
-      : name === 'duo' ? { pair: own } : { items: own };
+      : name === 'duo' || name === 'swap' ? { pair: own }
+        : name === 'bars' ? { items: own, unit: slide.unit }
+          : { items: own };
   }
   return own;
 };
