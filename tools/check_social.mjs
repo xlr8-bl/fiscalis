@@ -302,11 +302,30 @@ await step('Instagram will not take a PNG, and it is said at approval', async ()
   if (!Array.isArray(body.problems)) throw new Error('no problems array to show');
 });
 
-await step('the same batch is fine once Instagram is not a target', async () => {
+await step('and so will TikTok, which takes JPEG and WebP', async () => {
+  /* This used to switch the target to Facebook and assert the batch then
+     passed, because Facebook had no format rules to trip. Facebook is
+     not a target any more, and there is no platform left that will take
+     a PNG — which is the more useful thing to assert. */
   await person(`/carousels/${slug.value}`, {
     method: 'PUT',
-    body: JSON.stringify({ targets: 'facebook' }),
+    body: JSON.stringify({ targets: 'tiktok' }),
   });
+  const refused = await person(`/carousels/${slug.value}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status: 'approved' }),
+  });
+  is(refused.status, 400, 'status');
+  if (!/JPEG/.test(refused.body.error || '')) throw new Error(refused.body.error);
+
+  // and it passes once the pictures are ones TikTok will actually fetch
+  for (const pos of [0, 1, 2]) {
+    const form = new FormData();
+    form.set('file', new File([PNG], `slide-${pos}.jpg`, { type: 'image/jpeg' }));
+    form.set('width', '1080');
+    form.set('height', '1350');
+    await spark(`/carousels/${slug.value}/slides/${pos}`, { method: 'PUT', body: form });
+  }
   const { status } = await person(`/carousels/${slug.value}/status`, {
     method: 'POST',
     body: JSON.stringify({ status: 'approved' }),

@@ -104,7 +104,7 @@ async function runTool(name, args, env) {
           clean(args.caption, 2200),
           clean(args.hashtags, 8000),
           clean(Array.isArray(args.targets) ? args.targets.join(',') : args.targets)
-            || 'tiktok'
+            || 'instagram,tiktok'
         )
         .run();
       const row = await db.prepare('SELECT id FROM carousels WHERE slug = ?1').bind(slug).first();
@@ -392,7 +392,7 @@ async function runTool(name, args, env) {
           clean(args.caption, 2200),
           clean(args.hashtags, 8000),
           clean(Array.isArray(args.targets) ? args.targets.join(',') : args.targets)
-            || 'tiktok'
+            || 'instagram,tiktok'
         )
         .run();
       const row = await db.prepare('SELECT id FROM carousels WHERE slug = ?1').bind(slug).first();
@@ -444,10 +444,6 @@ async function runTool(name, args, env) {
           clean(args.caption, 2200),
           clean(args.hashtags, 8000),
           clean(Array.isArray(args.targets) ? args.targets.join(',') : args.targets)
-            /* Not Facebook. Its poster is deliberately unimplemented —
-               the multi-photo shape was never verified against a working
-               reference — so defaulting to it would mean every teaching
-               carousel silently skipping a platform it said it targeted. */
             || 'instagram,tiktok'
         )
         .run();

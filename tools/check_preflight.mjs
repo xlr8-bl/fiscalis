@@ -224,11 +224,6 @@ console.log('\nwhat it catches before the slot burns');
      audit.ready === false
      && /Private account/.test(verdict(audit, 'the account suits an unaudited app').detail));
 
-  const fb = await preflight(ENV({ carousels: [row({ targets: 'facebook' })], slides: [slide(0), slide(1)] }),
-                             row({ targets: 'facebook' }), { fetcher: fakeNet([MEDIA_OK]) });
-  ok('Facebook says it was never implemented rather than pretending',
-     fb.ready === false && /never implemented/.test(verdict(fb, 'Facebook').detail));
-
   const long = row({ caption: 'x'.repeat(2300) });
   const wordy = await preflight(ENV({ carousels: [long], slides: [slide(0), slide(1)] }), long,
                                 { fetcher: fakeNet([MEDIA_OK, IG_OK, TT_OK]) });

@@ -19,7 +19,7 @@ import { json } from '../../../lib/respond.js';
 import { identify } from '../../../lib/auth.js';
 import { SCHEMA, SEED } from '../../../lib/seed.js';
 import {
-  applyCorrections, applyEntryCorrections, applyArticleTouches,
+  applyCorrections, applyEntryCorrections, applyArticleTouches, dropRetiredTargets,
 } from '../../../lib/corrections.js';
 
 /**
@@ -179,6 +179,7 @@ export async function onRequestPost({ request, env }) {
   // edited since. The seed itself cannot do this: it inserts only where
   // nothing exists, precisely so it never walks over an edit.
   const corrected = await applyCorrections(env.DB);
+  const retargeted = await dropRetiredTargets(env.DB);
   const touched = await applyArticleTouches(env.DB);
 
   const after = await state(env.DB);
@@ -189,6 +190,7 @@ export async function onRequestPost({ request, env }) {
     corrected,
     moved,
     touched,
+    retargeted,
     counts: after.counts,
   });
 }

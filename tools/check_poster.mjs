@@ -111,8 +111,8 @@ const slides = (n, id = 1) =>
  */
 const platformsUrl = new URL('../lib/publishers.js', import.meta.url).href;
 const real = await import(platformsUrl);
-if (!real.POSTERS.instagram || !real.POSTERS.tiktok || !real.POSTERS.facebook) {
-  console.error('lib/publishers.js does not export the three posters');
+if (!real.POSTERS.instagram || !real.POSTERS.tiktok) {
+  console.error('lib/publishers.js does not export both posters');
   process.exit(1);
 }
 
@@ -154,7 +154,6 @@ await step('it posts what is due, to every target', async () => {
   setPosters({
     instagram: stub({ ok: true, id: 'ig_1' }),
     tiktok: stub({ ok: true, id: 'tt_1' }),
-    facebook: stub({ ok: false, skipped: true, error: 'not implemented' }),
   });
   const state = { carousels: [carousel()], slides: slides(3) };
   const out = await runOnce(state);
@@ -303,11 +302,12 @@ await step('the optional cron Worker is a shell over the same code', async () =>
   is(res.status, 401, '/run without the token');
 });
 
-await step('the real Facebook poster refuses rather than guessing', async () => {
-  const out = await real.toFacebook();
-  is(out.ok, false, 'ok');
-  is(out.skipped, true, 'skipped');
-  if (!/never verified/i.test(out.error)) throw new Error(out.error);
+await step('a platform with no poster is skipped, not silently dropped', async () => {
+  setPosters({ instagram: stub({ ok: true, id: 'ig' }) });
+  const state = { carousels: [carousel({ targets: 'instagram,mastodon' })], slides: slides(3) };
+  await runOnce(state);
+  const results = JSON.parse(state.carousels[0].results);
+  is(results.mastodon.skipped, true, 'skipped');
 });
 
 await step('the cron fires often enough to serve the queue', async () => {
