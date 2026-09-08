@@ -280,14 +280,19 @@ ok('a first slide that labels a topic instead of naming a thing is refused', () 
      do not do. Name the thing and hold back what it costs. */
   const opener = (title) => validateSlides({ slides: [{ ...base(), title }, base()] });
   for (const vague of ['Leads going nowhere', 'Fix your online presence',
-                       'Growth is a system', 'Nothing looks broken']) {
+                       'Growth is a system', 'Nothing looks broken',
+                       // counting is not enough: "leaks" is still a metaphor
+                       'Three quiet leaks', 'Unlock your potential',
+                       // a concrete noun does not rescue an abstraction
+                       'Your site presence', 'Better results, faster']) {
     const r = opener(vague);
     assert.ok(!r.ok, `"${vague}" was accepted`);
-    assert.match(r.problems.join(' '), /label on a topic/);
+    assert.match(r.problems.join(' '), /label on a topic|describes the work/);
   }
   // named object, or something counted, and it passes
   for (const good of ['Your contact form emails nobody', 'Eleven fields before anyone asks',
-                      'Your hours on Google are wrong']) {
+                      'Your hours on Google are wrong', 'Three checks your site fails',
+                      'Nobody sees your best photo', 'The phone audit']) {
     assert.ok(opener(good).ok, `"${good}" was refused`);
   }
   // and the refusal points at where the examples are
