@@ -47,10 +47,15 @@ const recapBase = () => ({
 
 console.log('\nthe teaching carousel:\n');
 
+/* One example per template, which is more templates than a carousel may
+   have slides, so they are checked as themselves rather than as a set:
+   the opener and outro rules judge a whole carousel's shape and these
+   are a catalogue. Those two rules have their own checks below. */
 ok('every example slide validates', () => {
-  const r = validateSlides({ slides: EXAMPLE_SLIDES });
-  assert.ok(r.ok, r.problems.join('; '));
-  assert.equal(r.plan.length, EXAMPLE_SLIDES.length);
+  for (const s of EXAMPLE_SLIDES) {
+    const r = validateSlides({ slides: [s, s] }, { opener: false });
+    assert.ok(r.ok, `${s._name}: ${r.problems.join('; ')}`);
+  }
 });
 
 ok('every template has an example, so none is untested geometry', () => {
@@ -297,6 +302,59 @@ ok('a first slide that labels a topic instead of naming a thing is refused', () 
   }
   // and the refusal points at where the examples are
   assert.match(opener('Leads going nowhere').problems.join(' '), /design_brief/);
+});
+
+ok('a hook sheet is held to the same rules the rest of the set is', () => {
+  /* The hole this closes: `problems()` reads a teaching slide's `copy`
+     and a hook sheet has none, and the opener rule looks for `title`,
+     which a sheet has none of either. So a sheet was the one slide
+     nothing checked, and it drew "Douala, working worldwide" and
+     "No. 04" — two rules that were already written down. */
+  const sheet = (over) => validateSlides({
+    slides: [{ hook: 'h051', handle: '@web3ashley', series: 'SITE CHECKS',
+               setup: 'One of them looks', hero: 'CHEAP',
+               subhead: 'And it is not the money', ...over },
+             ...EXAMPLE_SLIDES.filter((s) => s._name === 'signoff')],
+  });
+
+  const vague = sheet({});
+  assert.ok(!vague.ok, 'a hook naming nothing was accepted');
+  assert.match(vague.problems.join(' '), /label on a topic/);
+
+  // the same hook, with the thing it is about actually in it
+  assert.ok(sheet({ setup: 'One of these two sites looks' }).ok,
+            sheet({ setup: 'One of these two sites looks' }).problems.join('; '));
+
+  for (const [slot, bad, why] of [
+    ['railR', 'Douala, working worldwide', /where he is/],
+    ['tagA', 'No. 04', /a slide number/],
+    ['note', 'Packages start at $500.', /a price or a package/],
+    ['body', 'We are a seamless agency.', /first person plural|the spec bans/],
+  ]) {
+    const r = sheet({ setup: 'One of these two sites looks', [slot]: bad });
+    assert.ok(!r.ok, `"${bad}" was accepted in ${slot}`);
+    assert.match(r.problems.join(' '), why);
+  }
+});
+
+ok('every set ends on the same sign-off, and it is not a choice', () => {
+  /* Asked for and not written down, so it was not done: the outro must
+     be him seated with the phone, on yellow, every time. */
+  const signoff = EXAMPLE_SLIDES.find((s) => s._name === 'signoff');
+  const set = (last) => validateSlides({ slides: [base(), base(), last] });
+
+  assert.ok(set(signoff).ok, set(signoff).problems.join('; '));
+
+  for (const wrong of [
+    { ...signoff, ground: 'paper' },
+    { ...signoff, portrait: 'blue-flat' },
+    { ...signoff, context: 'middle' },
+  ]) {
+    assert.ok(!set(wrong).ok, `${JSON.stringify(wrong.ground)} was accepted`);
+    assert.match(set(wrong).problems.join(' '), /sign-off is fixed/);
+  }
+  // and a teaching panel at the end is not an ending
+  assert.match(set(base()).problems.join(' '), /every set ends on signoff/);
 });
 
 ok('a field the template has not got is refused, not silently dropped', () => {

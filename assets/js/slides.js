@@ -1061,6 +1061,16 @@ export const TEMPLATES = {
     what: 'The last slide. What to do now. The instruction is the whole '
         + 'slide, so nothing competes with it.',
   },
+  signoff: {
+    /* No echo. His column beside the cut-out is about 19 characters a
+       line, and echo plus a paragraph came to 102% of the sheet. */
+    blocks: ['title', 'say', 'portrait', 'action'],
+    what: 'The sign-off, and the only slide whose look is not a decision: '
+        + 'Ashley seated with the phone, on yellow, every time. It ends every '
+        + 'set, so a reader knows one has ended. Write the words; the ground '
+        + 'and the photograph are fixed, and the column beside him is narrow, '
+        + 'so the title answers the opening and the paragraph is one sentence.',
+  },
 
   /*
    * The two outros. Both close a carousel and they close it differently,
@@ -1188,7 +1198,13 @@ export function layOut(ctx, slide, g) {
     const nth = (seen.get(name) ?? 0) + 1;
     seen.set(name, nth);
     const key = nth === 1 ? name : `${name}${nth}`;
-    const block = { align: slide.align, name, key, ...blockData(slide, name, key) };
+    /* `context` travels beside `portrait` the way `iconsWhere` travels
+       beside `icons`. Without it the block fell back to the cta
+       placement while columnOf narrowed for the one the slide asked
+       for, so the renderer drew a bigger figure than the type made room
+       for and the headline ran into his shoulder. */
+    const block = { align: slide.align, context: slide.context,
+                    name, key, ...blockData(slide, name, key) };
     const h = spec.height(ctx, block, g, col);
     (spec.pinned ? (pinned = { block, h, spec }) : flowing.push({ block, h, spec }));
   }

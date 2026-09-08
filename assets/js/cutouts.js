@@ -94,6 +94,14 @@ export const CUTOUTS = {
     cta: { h: 0.46, cx: 0.68, cy: 0.66 },
     hook: { h: 0.54, cx: 0.62, cy: 0.63 },
     middle: { h: 0.38, cx: 0.70, cy: 0.60 },
+    /* The sign-off, which carries a headline the CTA did not.
+       He is seated with one leg out, so his box is far wider than the
+       torso looks: the slippers reach the right of it and the chair the
+       left. At the cta size that box left the column on the 0.30 floor
+       and "It was never the money." set one word to a line; at 0.36 the
+       headline still ran into his shoulder. 0.32 with the box's right
+       edge just inside the sheet leaves 0.55 of it for type. */
+    signoff: { h: 0.42, cx: 0.76, cy: 0.68 },
     why: 'The one that keys clean and takes no treatment. It is a whole '
        + 'figure on chrome tubing about six pixels across at the size a sheet '
        + 'draws it, and the scissors cut is coarse on purpose, so it bridges '
@@ -135,7 +143,7 @@ export function placementOf(name, context = 'cta') {
   return place ? { style: c.style, ...place } : null;
 }
 
-const CONTEXTS = ['cta', 'hook', 'middle'];
+const CONTEXTS = ['cta', 'hook', 'middle', 'signoff'];
 
 /** What Spark reads: it picks a photograph, never a position. */
 export const cutoutCatalogue = () => CUTOUT_NAMES.map((n) => ({

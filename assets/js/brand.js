@@ -48,7 +48,19 @@ export const ASSERTED =
  * "01 / 04".
  */
 export const NUMBERING =
-  /\b\d{1,2}\s*(\/|of)\s*\d{1,2}\b|\bslide\s*\d|\bpart\s*\d\s*of\b/i;
+  /\b\d{1,2}\s*(\/|of)\s*\d{1,2}\b|\bslide\s*\d|\bpart\s*\d\s*of\b|\bno\.?\s*\d{1,2}\b/i;
+
+/**
+ * Where he is. Never named, anywhere.
+ *
+ * The reader's decision is about their own site, and a place tells them
+ * which side of a border he is on, which is a reason to stop reading
+ * that has nothing to do with the work. It reached a hook sheet as a
+ * rail reading "Douala, working worldwide" because nothing looked at a
+ * hook sheet's slots.
+ */
+export const PLACE =
+  /\b(douala|yaound[eé]|cameroon|cameroun|based in|working worldwide|worldwide)\b/i;
 
 /**
  * An instruction that needs a laptop.
@@ -244,6 +256,10 @@ export const VOICE = {
     'Never number the slides. No "01 / 04", no "slide 2 of 5", not in the copy and '
     + 'not as a label. Counting tells a reader how much is left, which is an '
     + 'invitation to stop reading.',
+  place:
+    'Never name where I am. No city, no country, no "based in", no "working '
+    + 'worldwide". A place gives the reader a reason to stop reading that has '
+    + 'nothing to do with their site.',
   doable:
     'The one thing to do on each slide has to be doable today, alone, on a phone, '
     + 'without buying anything and without being a developer. DevTools, a '
@@ -296,7 +312,14 @@ const RULES = [
    'a carousel never counts itself — it tells a reader how much is left'],
   ['an instruction that needs a laptop', NEEDS_A_LAPTOP,
    'the reader is an owner on a phone, so it has to be doable there'],
+  ['where he is', PLACE, 'the location is never named, on any surface'],
 ];
+
+/** Every rule one piece of text breaks, named. */
+export const scan = (text) => RULES
+  .map(([name, re, why]) => [name, re.exec(String(text ?? '')), why])
+  .filter(([, hit]) => hit)
+  .map(([name, hit, why]) => `${name} — "${hit[0]}". ${why}`);
 
 /**
  * Which VOICE rules the server will actually catch, keyed to the RULES
@@ -312,6 +335,7 @@ const RULES = [
  */
 const ENFORCED = {
   numbering: 'a slide number',
+  place: 'where he is',
   doable: 'an instruction that needs a laptop',
   close: 'asks for something',
   person: 'first person plural',
@@ -344,11 +368,7 @@ export const RULE_NAMES = RULES.map((r) => r[0]);
 export function problems(c) {
   const out = [];
   const look = (where, text) => {
-    if (!text) return;
-    for (const [name, re, why] of RULES) {
-      const hit = re.exec(String(text));
-      if (hit) out.push(`${where} has ${name} — "${hit[0]}". ${why}.`);
-    }
+    for (const found of scan(text)) out.push(`${where} has ${found}.`);
   };
 
   look('The title', c.title);
