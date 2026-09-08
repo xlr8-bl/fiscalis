@@ -90,6 +90,10 @@ export const M = {
   quote:    { size: 0.0430, lead: 1.24, who: 0.0165, whoGap: 0.026, markX: 0.030 },
   stat:     { size: 0.1500, of: 0.0210, ofGap: 0.020 },
   source:   { size: 0.0140 },
+  // a round-up row: mark, then name + address, then the line under both
+  stack:    { rowH: 0.0620, gap: 0.0180, mark: 0.0400, gut: 0.024,
+              name: 0.0215, url: 0.0145, line: 0.0175, lineGap: 0.012 },
+  trio:     { size: 0.0720, gap: 0.020, of: 0.0165 },
 
   // read off the reference's runs, rounded, not tuned
   gap:      { afterTitle: 0.063, between: 0.034, beforeIcons: 0.036 },
@@ -814,9 +818,123 @@ export const BLOCKS = {
     },
   },
 
+  /**
+   * A list of real things, each with its own mark, name and address.
+   *
+   * The "five sites I use" slide, and the reason both roads exist: an
+   * app mark names the thing and the captured address proves it is real
+   * and typeable. A round-up with neither is a list of words.
+   *
+   * `shot` on the same slide draws ONE of them big; this draws the run.
+   */
+  stack: {
+    takes: 'stack',
+    what: 'Two to five real things in a run, each a row: the app mark if the '
+        + 'pack has one, the name, the address, and one line saying what it '
+        + 'is for. For a round-up — the sites I use, the four places to '
+        + 'check, the tools that do one job. `stack` is [{ app, name, url, '
+        + 'line }]; `app` is optional and `name` and `line` are not.',
+    height(_ctx, block) {
+      const n = Math.max(1, (block.items ?? []).length);
+      return n * M.stack.rowH + (n - 1) * M.stack.gap;
+    },
+    draw(ctx, block, g, box, art) {
+      const items = (block.items ?? []).slice(0, 5);
+      const rowH = px.h(M.stack.rowH);
+      const mark = px.h(M.stack.mark);
+      const gut = px.w(M.stack.gut);
+
+      items.forEach((item, i) => {
+        const y = box.y + i * (rowH + px.h(M.stack.gap));
+        const img = item.app ? art?.apps?.[item.app] : null;
+        let x = box.x;
+
+        if (img) {
+          const w = mark * (img.width / img.height);
+          ctx.drawImage(img, x, y + (rowH - mark) / 2, w, mark);
+        }
+        x += mark + gut;
+
+        ctx.textAlign = 'left';
+        ctx.font = face(g, 'stackName');
+        ctx.letterSpacing = trackOf('stackName');
+        ctx.fillStyle = g.mark;
+        ctx.fillText(item.name ?? '', x, y + px.size(M.stack.name) * CAP);
+
+        /* The address in the bitmap, beside the name rather than under
+           it: it is machine text and it is what makes the row real. */
+        if (item.url) {
+          const nw = ctx.measureText(item.name ?? '').width;
+          ctx.font = face(g, 'stackUrl');
+          ctx.letterSpacing = trackOf('stackUrl');
+          ctx.globalAlpha = 0.62;
+          ctx.fillText(shortUrl(item.url), x + nw + px.w(0.016),
+                       y + px.size(M.stack.name) * CAP);
+          ctx.globalAlpha = 1;
+        }
+
+        ctx.font = face(g, 'stackLine');
+        ctx.letterSpacing = trackOf('stackLine');
+        ctx.fillStyle = g.mark;
+        ctx.fillText(item.line ?? '', x,
+                     y + px.size(M.stack.name) * CAP + px.h(M.stack.lineGap)
+                     + px.size(M.stack.line) * CAP);
+
+        // a hairline under every row but the last, so the run reads as one
+        if (i < items.length - 1) {
+          ctx.globalAlpha = 0.22;
+          ctx.fillRect(box.x, y + rowH + px.h(M.stack.gap) / 2 - 1,
+                       box.w, Math.max(1, px.h(0.0009)));
+          ctx.globalAlpha = 1;
+        }
+      });
+      ctx.textAlign = 'center';
+    },
+  },
+
+  /**
+   * Three figures across, for when the comparison IS the point.
+   *
+   * `figure` lands one number and `chart` draws a set to scale. This is
+   * the third case: two or three numbers that are read against each
+   * other rather than measured against each other.
+   */
+  trio: {
+    takes: 'items',
+    what: 'Two or three figures side by side, each with one word under it. '
+        + 'For numbers read against each other rather than drawn to scale — '
+        + 'if they belong on an axis, use chart. `trio` is [{ figure, of }]. '
+        + 'Needs a `source` block like every other figure on these sheets.',
+    height() { return M.trio.size * CAP + M.trio.gap + M.trio.of * CAP; },
+    draw(ctx, block, g, box) {
+      const items = (block.items ?? []).slice(0, 3);
+      if (!items.length) return;
+      const w = box.w / items.length;
+      items.forEach((item, i) => {
+        const cx = box.x + w * i + w / 2;
+        ctx.textAlign = 'center';
+        ctx.font = face(g, 'trioFig');
+        ctx.letterSpacing = trackOf('trioFig');
+        ctx.fillStyle = i === 0 ? g.accent : g.mark;
+        ctx.fillText(item.figure ?? '', cx, box.y + px.size(M.trio.size) * CAP);
+        ctx.font = face(g, 'trioOf');
+        ctx.letterSpacing = trackOf('trioOf');
+        ctx.fillStyle = g.mark;
+        ctx.fillText(item.of ?? '', cx,
+          box.y + px.size(M.trio.size) * CAP + px.h(M.trio.gap)
+          + px.size(M.trio.of) * CAP);
+      });
+    },
+  },
+
   /** Where a figure came from. Small, quiet, and not optional. */
   source: {
     takes: 'text',
+    /* Optional as a block, required by the templates that draw figures:
+       a `shot` slide already carries its citation in the address bar, so
+       demanding a second one there is noise. checkSource names the
+       templates that cannot go without. */
+    optional: true,
     what: 'Where the figures on this slide came from: who published it and '
         + 'when, in one line. Set small on purpose — it is not the point of '
         + 'the slide, it is what makes the point stand up.',
@@ -1175,6 +1293,11 @@ export const TYPE = {
   barVal:  { family: 'NeueBit', weight: '400', track: 0.030 },
   appLab:  { family: 'NeueBit', weight: '400', track: 0.030 },
   swap:    { family: 'NeueMontreal', weight: '500', track: 0 },
+  stackName: { family: 'NeueMontreal', weight: '700', track: 0 },
+  stackUrl:  { family: 'NeueBit', weight: '400', track: 0.030 },
+  stackLine: { family: 'NeueMontreal', weight: '500', track: 0 },
+  trioFig:   { family: 'NeueMontreal', weight: '700', track: 0 },
+  trioOf:    { family: 'NeueBit', weight: '400', track: 0.040 },
 };
 
 /**
@@ -1201,6 +1324,8 @@ const SIZE = {
   url: M.shot.urlSize, caption: M.shot.cap, source: M.source.size,
   barLab: M.bars.lab, barVal: M.bars.val, appLab: M.apps.lab,
   swap: M.swap.size,
+  stackName: M.stack.name, stackUrl: M.stack.url, stackLine: M.stack.line,
+  trioFig: M.trio.size, trioOf: M.trio.of,
 };
 
 const sizeOf = (role) =>
@@ -1504,8 +1629,45 @@ export const TEMPLATES = {
    * quotation without a name are all the shape of proof with none in it.
    */
 
+  roundup: {
+    blocks: ['title', 'say', 'stack', 'source'],
+    for: 'the five sites I use, as a run of real things',
+    what: 'A list where every row is something real: its app mark, its name, '
+        + 'its address and one line saying what it is for. The mark names it '
+        + 'and the address proves it is typeable, which is the whole point — '
+        + 'a round-up with neither is a list of words. Capture one of them '
+        + 'with capture_page and put it on the NEXT slide as a `shot` to show '
+        + 'what it actually looks like.',
+  },
+  numbers: {
+    blocks: ['title', 'trio', 'say', 'source'],
+    for: 'two or three figures read against each other',
+    what: 'Figures side by side rather than drawn to scale. Use it when the '
+        + 'comparison is the point and an axis would be a lie — three prices, '
+        + 'three durations, three counts of different things. If they belong '
+        + 'on one axis, use chart instead.',
+  },
+  myth: {
+    blocks: ['title', 'swap', 'say', 'icons'],
+    for: 'people say this, and here is what is true',
+    what: 'The received-wisdom slide. `swap` carries what people say, struck '
+        + 'through, and what is actually true under it; `say` is the reason, '
+        + 'which is the part that makes it worth posting. Set `label` on it to '
+        + 'rename the halves. Different from `swap`, which tells somebody what '
+        + 'to DO: this one corrects what they believe and carries no '
+        + 'instruction.',
+  },
+  checklist: {
+    blocks: ['title', 'say', 'chips', 'say', 'icons', 'source'],
+    for: 'the run-through, with what it means underneath',
+    what: 'The densest teaching arrangement there is: a setup, the checks as '
+        + 'chips, then the line that says what a failed one costs. Same shape '
+        + 'as steps, and named apart because a checklist is run once and '
+        + 'steps are followed in order.',
+  },
+
   shot: {
-    blocks: ['title', 'say', 'shot'],
+    blocks: ['title', 'say', 'shot', 'source'],
     for: 'showing a real page, on the record',
     what: 'A screenshot of an actual page in browser chrome with its address '
         + 'showing. For taking one real thing apart in public, or for '
@@ -1514,6 +1676,8 @@ export const TEMPLATES = {
         + 'so the slide cannot be written from memory.',
   },
   annotated: {
+    /* No paragraph. The frame is over a third of the sheet and the swap
+       is two slabs under it; a `say` as well came out three lines over. */
     blocks: ['title', 'shot', 'swap'],
     for: 'showing a real page and what to do about it',
     what: 'The screenshot with the fix under it: what is on the page struck '
@@ -1528,14 +1692,14 @@ export const TEMPLATES = {
         + 'optional: a chart without one is a drawing.',
   },
   figure: {
-    blocks: ['stat', 'say', 'source'],
+    blocks: ['title', 'stat', 'say', 'source'],
     for: 'one number that is the whole slide',
     what: 'A single measured figure at headline size, one line saying what '
         + 'it counts, and the source. For when the number IS the argument '
         + 'and a chart would be three bars pretending to be a comparison.',
   },
   define: {
-    blocks: ['term', 'say', 'icons'],
+    blocks: ['term', 'say', 'chips', 'icons'],
     for: 'teaching one word somebody has been nodding along to',
     what: 'A technical word set large, then what it means in plain language. '
         + 'The educational slide. The jargon rule says a term is normally '
@@ -1543,14 +1707,14 @@ export const TEMPLATES = {
         + 'explained properly instead. One word only.',
   },
   quote: {
-    blocks: ['quote', 'say'],
+    blocks: ['quote', 'say', 'icons', 'source'],
     for: 'somebody else said it, and here is who',
     what: 'A line somebody actually published, set large, with their name '
         + 'under it, then why it matters here. For a platform announcement, '
         + 'a spec, a named study. Never invented, never tidied up.',
   },
   tools: {
-    blocks: ['title', 'say', 'apps'],
+    blocks: ['title', 'say', 'apps', 'say', 'icons'],
     for: 'naming the products involved',
     what: 'A row of app marks with their names, for a slide about the tools '
         + 'themselves. A mark may only name a product this slide discusses. '

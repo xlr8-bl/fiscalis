@@ -67,6 +67,41 @@ export const PIXEL_NAMES = Object.keys(PIXEL);
 export const ALL_ICONS = { ...ICONS, ...PIXEL };
 export const ICON_NAMES = Object.keys(ALL_ICONS);
 
+/**
+ * Which pack, and it is not a matter of taste.
+ *
+ * The two sets are two registers and mixing them on one slide is the
+ * commonest way these sheets go wrong: a pixel coffee cup next to a
+ * technical diagram reads as a slide that cannot decide who it is
+ * talking to. Pick the register from what the slide is DOING, then take
+ * every icon on that slide from the same pack.
+ */
+export const WHICH_PACK = {
+  kit: {
+    what: 'Flat objects, pale grey with a red accent. Neutral and plain.',
+    for: 'The technical register. A slide explaining how something works, '
+       + 'measuring it, or taking it apart: hosting, load time, markup, a '
+       + 'form, a figure. Anything where the reader should be taking notes.',
+    names: Object.keys(ICONS),
+  },
+  pixel: {
+    what: 'Coarse pixel art, coloured, off Ashley\'s own reference sheets.',
+    for: 'The playful register. A slide that is being warm rather than '
+       + 'precise: an opening, an aside, an ending, a joke about waiting, '
+       + 'a coffee, a game controller. It is the voice, not the evidence.',
+    names: Object.keys(PIXEL),
+  },
+  the_rule: 'One pack a slide. Never both on one sheet, and stay in the same '
+    + 'register for a run of slides: switching between them mid-argument is '
+    + 'what makes a set look assembled rather than designed.',
+  a_good_default: 'Teaching and evidence slides take the kit. The opening '
+    + 'and the sign-off can take pixel. If you are unsure, the kit is the '
+    + 'quieter mistake.',
+};
+
+/** Which pack a name is in, so a mixed row can be refused by name. */
+export const packOf = (name) => (name in PIXEL ? 'pixel' : name in ICONS ? 'kit' : null);
+
 /** Where the file lives, for both runtimes. */
 export const iconUrl = (name) =>
   (name in PIXEL ? `/assets/icons/pixel/${name}.png` : `/assets/icons/kit/${name}.png`);

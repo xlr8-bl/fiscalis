@@ -13,7 +13,7 @@
 import assert from 'node:assert';
 import { validateSlides, PER_LINE, LIMITS, RECAP_MAX } from '../lib/slides/spec.js';
 import { TEMPLATES, TEMPLATE_NAMES, BLOCKS, SLIDE_GROUND_NAMES, M, recapPitch } from '../assets/js/slides.js';
-import { ICON_NAMES, ICONS, PIXEL_NAMES, iconUrl } from '../assets/js/icons.js';
+import { ICON_NAMES, ICONS, PIXEL_NAMES, iconUrl, packOf, WHICH_PACK } from '../assets/js/icons.js';
 import { EXAMPLE_SLIDES } from '../lib/slides/examples.js';
 import { slideGuide, probeSlide } from '../lib/slides/guide.js';
 import { CUTOUTS, placementOf } from '../assets/js/cutouts.js';
@@ -89,11 +89,24 @@ ok('a made-up icon is refused rather than silently dropped', () => {
   assert.match(r.problems.join(' '), /no icon called sparkles/);
 });
 
-ok('every icon the pack holds is accepted', () => {
+ok('every icon the pack holds is accepted, in its own pack', () => {
+  /* Paired with a partner from its OWN pack: the two sets are two
+     registers and a row that mixes them is refused on purpose. */
   for (const name of ICON_NAMES) {
-    const r = one({ icons: [name, 'no'] });
+    const mate = packOf(name) === 'pixel' ? (name === 'coin' ? 'cup' : 'coin')
+      : (name === 'no' ? 'eye' : 'no');
+    const r = one({ icons: [name, mate] });
     assert.ok(r.ok, `${name} was refused: ${r.problems.join('; ')}`);
   }
+});
+
+ok('a row that mixes the two registers is refused', () => {
+  const r = one({ icons: ['bolt', 'coin'] });
+  assert.ok(!r.ok, 'a mixed row was accepted');
+  assert.match(r.problems.join(' '), /One pack a slide/);
+  // and the refusal says which is which, so it can be fixed in one go
+  assert.match(r.problems.join(' '), /kit: bolt/);
+  assert.match(r.problems.join(' '), /pixel: coin/);
 });
 
 ok('one chip is refused: a stack of one is not a set', () => {
@@ -398,7 +411,9 @@ ok('every set ends on the same sign-off, and it is not a choice', () => {
   /* Asked for and not written down, so it was not done: the outro must
      be him seated with the phone, on yellow, every time. */
   const signoff = EXAMPLE_SLIDES.find((s) => s._name === 'signoff');
-  const set = (last) => validateSlides({ slides: [base(), base(), last] });
+  // two different middles: a repeated arrangement is its own refusal
+  const set = (last) => validateSlides({
+    slides: [base(), { ...base(), template: 'proof' }, last] });
 
   assert.ok(set(signoff).ok, set(signoff).problems.join('; '));
 
@@ -412,6 +427,20 @@ ok('every set ends on the same sign-off, and it is not a choice', () => {
   }
   // and a teaching panel at the end is not an ending
   assert.match(set(base()).problems.join(' '), /every set ends on signoff/);
+});
+
+ok('two of one arrangement back to back is refused', () => {
+  /* The storyboard rule. Twenty-three templates does not help if the
+     first match is always the easiest one to reach for. */
+  const so = EXAMPLE_SLIDES.find((s) => s._name === 'signoff');
+  const same = validateSlides({ slides: [base(), base(), so] });
+  assert.ok(!same.ok);
+  assert.match(same.problems.join(' '), /Slides 1 and 2 are both "reasons"/);
+  assert.match(same.problems.join(' '), /picking_one/);
+
+  const varied = validateSlides({
+    slides: [base(), { ...base(), template: 'proof' }, so] });
+  assert.ok(varied.ok, varied.problems.join('; '));
 });
 
 ok('a field the template has not got is refused, not silently dropped', () => {
