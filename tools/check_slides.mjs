@@ -274,6 +274,26 @@ ok('a prompt carries answers, because that is what makes it answerable', () => {
   assert.ok(mk({ question: 'What did you find?', options: ['the phone', 'the form'] }).ok);
 });
 
+ok('a first slide that labels a topic instead of naming a thing is refused', () => {
+  /* The fault: "Leads going nowhere" could sit on anybody's post about
+     anything, so a scroller has to decode it at feed speed, which they
+     do not do. Name the thing and hold back what it costs. */
+  const opener = (title) => validateSlides({ slides: [{ ...base(), title }, base()] });
+  for (const vague of ['Leads going nowhere', 'Fix your online presence',
+                       'Growth is a system', 'Nothing looks broken']) {
+    const r = opener(vague);
+    assert.ok(!r.ok, `"${vague}" was accepted`);
+    assert.match(r.problems.join(' '), /label on a topic/);
+  }
+  // named object, or something counted, and it passes
+  for (const good of ['Your contact form emails nobody', 'Eleven fields before anyone asks',
+                      'Your hours on Google are wrong']) {
+    assert.ok(opener(good).ok, `"${good}" was refused`);
+  }
+  // and the refusal points at where the examples are
+  assert.match(opener('Leads going nowhere').problems.join(' '), /design_brief/);
+});
+
 ok('a field the template has not got is refused, not silently dropped', () => {
   /* The failure this catches: Spark filed slides carrying its own
      invented fields — an ACTION DIRECTIVE label and a slide number — and
