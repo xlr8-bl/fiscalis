@@ -9,7 +9,7 @@
  * things to discover on a phone screen later.
  */
 import { chromium } from 'playwright';
-import { CHOSEN } from '../lib/hooks/chosen.js';
+import { CHOSEN } from '../assets/js/hooks/chosen.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
 const base = process.env.BASE || 'http://127.0.0.1:8899';

@@ -2322,19 +2322,24 @@ async function drawTheDesigns() {
    * the message that the wrong drawer had been opened.
    */
   const teaching = owed.some((s) => s.design?.engine === 'slides');
-  const panels = owed.some((s) => s.design?.engine !== 'slides');
+  const sheets = owed.some((s) => s.design?.engine === 'hooks');
+  const panels = owed.some((s) => !['slides', 'hooks'].includes(s.design?.engine));
 
   /* Carry this file's own ?v= onto everything it pulls in. The stamp
      busts studio.js and nothing else, so a dynamic import kept serving
      the cached copy of a module that had changed underneath it — the
      renderer fix shipped and the browser went on running the old one. */
   const V = new URL(import.meta.url).search;
-  const [{ renderPanel }, slidesEngine, iconsMod, faces] = await Promise.all([
-    panels ? import(`./generate.js${V}`) : Promise.resolve({}),
-    teaching ? import(`./slides.js${V}`) : Promise.resolve(null),
-    teaching ? import(`./icons.js${V}`) : Promise.resolve(null),
-    teaching ? import(`./faces.js${V}`) : Promise.resolve(null),
-  ]);
+  const art2 = teaching || sheets;
+  const [{ renderPanel }, slidesEngine, iconsMod, faces, hookEngine, hookArt] =
+    await Promise.all([
+      panels ? import(`./generate.js${V}`) : Promise.resolve({}),
+      art2 ? import(`./slides.js${V}`) : Promise.resolve(null),
+      art2 ? import(`./icons.js${V}`) : Promise.resolve(null),
+      art2 ? import(`./faces.js${V}`) : Promise.resolve(null),
+      sheets ? import(`./compose.js${V}`) : Promise.resolve(null),
+      sheets ? import(`./hooks/layouts.js${V}`) : Promise.resolve(null),
+    ]);
 
   /* A canvas does not wait for a font: type set in a face the document
      has not loaded falls back to serif and draws anyway. The studio's
@@ -2346,7 +2351,7 @@ async function drawTheDesigns() {
   /* The teaching renderer is handed its art the way the preview harness
      hands it: every icon and every one of his photographs, by name. */
   const art = { icons: {}, portraits: {} };
-  if (teaching) {
+  if (art2) {
     await Promise.all(iconsMod.ICON_NAMES.map(async (n) => {
       art.icons[n] = await load(iconsMod.iconUrl(n));
     }));
@@ -2357,6 +2362,53 @@ async function drawTheDesigns() {
   const assets = {
     scene: await load(pick(c.scenes)),
     cutout: await load(pick(c.cutouts)),
+  };
+
+  /* A hook sheet names its art per slot rather than taking one scene and
+     one cut-out: `own` pins an exact photograph of his, `icon` names one
+     from the pack. Same resolution the preview harness does, so a sheet
+     drawn here matches the one drawn there. */
+  /* Most art slots on a sheet name a ROLE rather than a file — `figure`,
+     `portrait`, `scene` — and the resolver decides which of his
+     photographs or which stock picture answers it. Resolving only the
+     pinned ones left `figure` empty and the sheet refused to draw. Same
+     resolver the preview harness uses, so a sheet drawn here is the one
+     that was drawn there. */
+  const [ownPhotos, artMod, stockMod, cutMod] = sheets ? await Promise.all([
+    import(`./hooks/own.js${V}`).then((m) => m.OWN_PHOTOS),
+    import(`./hooks/art.js${V}`),
+    import(`./hooks/stock.js${V}`).then((m) => m.STOCK ?? {}, () => ({})),
+    import(`./hooks/cutouts.js${V}`).then((m) => m.CUTOUTS ?? {}, () => ({})),
+  ]) : [{}, null, {}, {}];
+
+  const seedOf = (t) => [...t].reduce((h, ch) => (h * 33 + ch.charCodeAt(0)) >>> 0, 5381);
+
+  const hookAssets = async (spec) => {
+    const out = {};
+    for (const slot of spec.slots.filter((x) => x.t === 'art')) {
+      if (slot.icon || slot.role === 'icon') {
+        out[slot.id] = await load(iconsMod.iconUrl(slot.icon));
+        continue;
+      }
+      const got = artMod.resolveArt(slot, {
+        stock: stockMod, cut: cutMod, seed: seedOf(spec.id),
+      });
+      if (got.from === 'own') {
+        const im = art.portraits[got.photo] ?? await load(got.url);
+        const p = ownPhotos[got.photo] ?? {};
+        if (im && (got.cut || p.cut)) {
+          const cut = slidesEngine.standee(im, { style: got.cut || p.cut });
+          out[slot.id] = ((got.stands ?? p.stands) && cut) ? [cut] : (cut ?? im);
+        } else if (im) {
+          out[slot.id] = slidesEngine.screened(im, im.naturalWidth, im.naturalHeight);
+        }
+      } else if (got.urls?.length > 1) {
+        out[slot.id] = await Promise.all(got.urls.map(load));
+      } else if (got.url) {
+        out[slot.id] = await load(got.url);
+      }
+    }
+    return out;
   };
 
   let done = 0;
@@ -2376,6 +2428,18 @@ async function drawTheDesigns() {
         const r = slidesEngine.drawSlide(canvas.getContext('2d'), slide.design, { art: mine });
         if (r.over) throw new Error(`the copy runs ${r.over} past the instruction`);
         report = { findings: [] };
+      } else if (slide.design?.engine === 'hooks') {
+        /* The other renderer: absolute boxes measured off a reference,
+           his photograph cut out and snapped to an edge it was cut on. */
+        canvas.width = hookEngine.W;
+        canvas.height = hookEngine.H;
+        const spec = hookArt.LAYOUTS[slide.design.hook];
+        if (!spec) throw new Error(`no hook sheet called ${slide.design.hook}`);
+        report = hookEngine.compose(canvas.getContext('2d'), spec, slide.design,
+                                    await hookAssets(spec));
+        if (report.missing?.length) {
+          throw new Error(`no picture for ${report.missing.join(', ')}`);
+        }
       } else {
         report = await renderPanel(canvas, slide.design, slide.design.seed, assets);
       }

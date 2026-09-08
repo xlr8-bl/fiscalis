@@ -571,7 +571,7 @@ function drawGrid(ctx, slot, g) {
  * bare paper, which is exactly what the references do with objects, and
  * a photograph of a 2019 handset dates in a year while this does not.
  * The keyless archive cannot supply a cut-out at all — measured, see
- * lib/hooks/art.js — so for these roles drawing is the better answer and
+ * assets/js/hooks/art.js — so for these roles drawing is the better answer and
  * not the consolation.
  */
 export const DRAWN = {
@@ -1650,7 +1650,7 @@ const DRAW = {
  * Draw one composed sheet.
  *
  * @param ctx    a 1080x1350 context
- * @param spec   a measured layout from lib/hooks/layouts.js
+ * @param spec   a measured layout from assets/js/hooks/layouts.js
  * @param copy   {slotId: string | string[]} — what the agent wrote
  * @param art    {slotId: HTMLImageElement} — already decoded
  */

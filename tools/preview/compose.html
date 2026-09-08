@@ -5,19 +5,19 @@ canvas{width:432px;height:540px}</style></head>
 <body><canvas id="c" width="1080" height="1350"></canvas>
 <script type="module">
 /*
- * Drives lib/hooks/layouts.js through assets/js/compose.js.
+ * Drives assets/js/hooks/layouts.js through assets/js/compose.js.
  * The browser is required: the layout engine measures with the real
  * font metrics and the halftone works on decoded pixels.
  */
 import { compose, W, H, FACES } from '/assets/js/compose.js';
-import { LAYOUTS, MEASURED, brief } from '/lib/hooks/layouts.js';
-import { EXAMPLES, sample } from '/lib/hooks/examples.js';
-import { resolveArt } from '/lib/hooks/art.js';
-import { OWN_PHOTOS } from '/lib/hooks/own.js';
+import { LAYOUTS, MEASURED, brief } from '/assets/js/hooks/layouts.js';
+import { EXAMPLES, sample } from '/assets/js/hooks/examples.js';
+import { resolveArt } from '/assets/js/hooks/art.js';
+import { OWN_PHOTOS } from '/assets/js/hooks/own.js';
 import { iconUrl } from '/assets/js/icons.js';
 import { screened, standee } from '/assets/js/slides.js';
-import { CUTOUTS } from '/lib/hooks/cutouts.js';
-import { STOCK } from '/lib/hooks/stock.js';
+import { CUTOUTS } from '/assets/js/hooks/cutouts.js';
+import { STOCK } from '/assets/js/hooks/stock.js';
 
 const ctx = document.getElementById('c').getContext('2d', { willReadFrequently: true });
 
@@ -68,10 +68,15 @@ window.EXAMPLES = EXAMPLES;
 /* n picks which of the layout's examples to draw, so the range can be
    seen rather than asserted. */
 const seedOf = (s) => [...s].reduce((h, c) => (h * 33 + c.charCodeAt(0)) >>> 0, 5381);
-window.render = async (id, n = 0) => {
+window.render = async (id, n = 0) => window.renderWith(id, null, n);
+
+/* `over` replaces named slots in the example copy, which is how
+   tools/measure_hooks.mjs finds each slot's real ceiling: it walks the
+   length up until the renderer says the slot had to shrink. */
+window.renderWith = async (id, over = null, n = 0) => {
   const spec = LAYOUTS[id];
   if (!spec) throw new Error(`no layout ${id}`);
-  const copy = (EXAMPLES[id]?.[n]) ?? sample(id);
+  const copy = { ...((EXAMPLES[id]?.[n]) ?? sample(id)), ...(over ?? {}) };
   /* Pictures come from the resolver, never from the spec, and `own` is
      left to it. Passing an empty object here was overriding the
      resolver's own mapping with nothing, so every layout rendered

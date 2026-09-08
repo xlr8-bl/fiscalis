@@ -5,18 +5,18 @@ canvas{width:432px;height:540px}</style></head>
 <body><canvas id="c" width="1080" height="1350"></canvas>
 <script type="module">
 /*
- * Drives lib/hooks/decks.js. Same engine as compose.html; the only
+ * Drives assets/js/hooks/decks.js. Same engine as compose.html; the only
  * difference is that a slide names its layout instead of being one, and
  * the layout may come from either file — measured hooks from
  * layouts.js, invented inside slides from inside.js.
  */
 import { compose, W, H } from '/assets/js/compose.js';
-import { LAYOUTS } from '/lib/hooks/layouts.js';
-import { INSIDE } from '/lib/hooks/inside.js';
-import { DECKS, DECK_IDS } from '/lib/hooks/decks.js';
-import { resolveArt } from '/lib/hooks/art.js';
-import { CUTOUTS } from '/lib/hooks/cutouts.js';
-import { STOCK } from '/lib/hooks/stock.js';
+import { LAYOUTS } from '/assets/js/hooks/layouts.js';
+import { INSIDE } from '/assets/js/hooks/inside.js';
+import { DECKS, DECK_IDS } from '/assets/js/hooks/decks.js';
+import { resolveArt } from '/assets/js/hooks/art.js';
+import { CUTOUTS } from '/assets/js/hooks/cutouts.js';
+import { STOCK } from '/assets/js/hooks/stock.js';
 
 const ctx = document.getElementById('c').getContext('2d', { willReadFrequently: true });
 
