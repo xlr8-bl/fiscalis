@@ -55,7 +55,16 @@ console.log('\nthe booking page');
   ok('is indexable', !/name="robots"[^>]*noindex/.test(body));
   ok('has a canonical', /<link rel="canonical" href="https:\/\/web3ashley\.com\/book"/.test(body));
   ok('has a description', /<meta name="description" content="[^"]{50,}"/.test(body));
-  ok('carries the site footer', /site_footer_grid/.test(body));
+  /* `site_footer_grid` is the JOURNAL's legal footer, out of
+     lib/templates.js. The static pages ship the shared site footer
+     instead, so this asserted a class the booking page has never had and
+     failed on a page that has carried a footer all along. What the check
+     is actually for is the legal links a platform review looks for, so
+     that is what it asks about now. */
+  ok('carries a footer', /class="[^"]*footer_wrap_main/.test(body));
+  for (const legal of ['/privacy', '/terms']) {
+    ok(`and links ${legal}`, new RegExp(`href="${legal}"`).test(body));
+  }
 }
 
 console.log('\nthe journal');
