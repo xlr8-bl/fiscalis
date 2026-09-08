@@ -39,6 +39,30 @@ export const PRICE =
 export const ASSERTED =
   /\b(trusted by|our values|our mission|why choose|award[- ]winning|industry[- ]leading|proven track record|years of experience|expert in|world[- ]renowned)\b/i;
 
+/**
+ * Slide numbers, banned outright.
+ *
+ * A carousel that counts itself tells a reader how much is left, which is
+ * an invitation to stop. The renderer stopped drawing them; nothing told
+ * the writer not to ask for them, so they came back set into the copy as
+ * "01 / 04".
+ */
+export const NUMBERING =
+  /\b\d{1,2}\s*(\/|of)\s*\d{1,2}\b|\bslide\s*\d|\bpart\s*\d\s*of\b/i;
+
+/**
+ * An instruction that needs a laptop.
+ *
+ * Every slide carries one thing to do today, alone. The audience is a
+ * business owner on a phone, so "open the performance profiler in Chrome
+ * DevTools" is not an instruction to them, it is a description of
+ * somebody else's job — and "audit the network tab on your phone" is
+ * worse, because there is no network tab on a phone and it sounds
+ * possible.
+ */
+export const NEEDS_A_LAPTOP =
+  /\b(dev ?tools|performance profiler|network tab|the console\b|command line|terminal|npm\b|webpack|lighthouse (cli|report)|waterfall chart|curl\b)/i;
+
 /** Emoji, in any context. */
 export const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u;
 
@@ -216,6 +240,15 @@ export const VOICE = {
     'Never: DM me, let\'s talk, book a call, link in bio, follow for more, passionate, '
     + 'innovative, cutting-edge, seamless, solutions, leverage, empower, emoji of any kind, '
     + 'invented testimonials or case studies.',
+  numbering:
+    'Never number the slides. No "01 / 04", no "slide 2 of 5", not in the copy and '
+    + 'not as a label. Counting tells a reader how much is left, which is an '
+    + 'invitation to stop reading.',
+  doable:
+    'The one thing to do on each slide has to be doable today, alone, on a phone, '
+    + 'without buying anything and without being a developer. DevTools, a '
+    + 'performance profiler, the network tab and the command line are all out: '
+    + 'the reader owns the business, they do not build it.',
 };
 
 /** The evidence standard. Nothing is written from memory. */
@@ -259,6 +292,10 @@ const RULES = [
   ['asserted trust', ASSERTED, 'trust is inferred from the diagnosis'],
   ['an emoji', EMOJI, 'never, in any context'],
   ['self-praise', SELF_PRAISE, 'competence is inferred, never claimed'],
+  ['a slide number', NUMBERING,
+   'a carousel never counts itself — it tells a reader how much is left'],
+  ['an instruction that needs a laptop', NEEDS_A_LAPTOP,
+   'the reader is an owner on a phone, so it has to be doable there'],
 ];
 
 /**
@@ -274,6 +311,8 @@ const RULES = [
  * check_context.mjs asserts every name below is a live RULES entry.
  */
 const ENFORCED = {
+  numbering: 'a slide number',
+  doable: 'an instruction that needs a laptop',
   close: 'asks for something',
   person: 'first person plural',
   price: 'a price or a package',
