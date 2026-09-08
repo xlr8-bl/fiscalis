@@ -103,6 +103,41 @@ Setup (database, R2 bucket, secrets, importing the existing articles) is in
 `content/README.md`. Until D1 is bound, `/journal/` returns a page telling you
 which commands to run rather than a 500.
 
+## Where every key goes
+
+Pages project → **Settings → Variables and Secrets → Add**. Tick **Encrypt**
+on anything that is a key or a token; leave it off for an account ID, which
+is not secret. A deploy does not disturb them — they live in a separate
+store from `wrangler.toml`, which is why none of them are in this repo.
+
+| | Encrypt | What breaks without it |
+|---|---|---|
+| `CF_ACCOUNT_ID` | no | no screenshots on slides |
+| `CF_BROWSER_TOKEN` | yes | no screenshots on slides |
+| `UNSPLASH_ACCESS_KEY` | yes | photographs fall back to Wikimedia Commons |
+
+## Photographs from Unsplash
+
+Optional. Without it `lib/photos.js` falls through to Wikimedia Commons,
+which needs no key at all — the pictures are more variable because it is an
+archive rather than a stock library, but nothing is broken.
+
+1. **unsplash.com/oauth/applications/new**. `docs/unsplash-application.md`
+   has the application text ready to paste, written so it claims nothing the
+   code does not do.
+2. Tick every guideline box. Two of them are what applications get rejected
+   over, and both are things `lib/photos.js` already does: it never re-hosts
+   a search result for display, and choosing a photograph sends the
+   authenticated download ping first.
+3. Open the application and copy the **Access Key**. Not the Secret Key —
+   the secret is for OAuth on behalf of a user and nothing here does that.
+4. Set it as `UNSPLASH_ACCESS_KEY`, encrypted.
+
+**You probably do not need production access.** A new application is in Demo
+mode at 50 requests an hour; production is 1000. One search per post is
+nowhere near 50, so apply only if that stops being true. Part two of
+`docs/unsplash-application.md` is the production form if you want it.
+
 ## Screenshots on slides
 
 `capture_page` opens a real page and screenshots it so a slide can cite it.
