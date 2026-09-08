@@ -2177,8 +2177,8 @@ function paintCarouselActions(host) {
      post. Two buttons instead, and the slot is only for something that
      genuinely wants one. */
   if (c.status === 'approved' || c.status === 'scheduled') {
-    acts.push(['Test post (only you see it)', () => postDirect('test')]);
-    acts.push(['Post it publicly', () => postDirect('public')]);
+    acts.push(['Test on TikTok (only you see it)', () => postDirect('test')]);
+    acts.push(['Post to both, publicly', () => postDirect('public')]);
     acts.push(['Send it back', () => move('changes')]);
   }
   if (c.status === 'scheduled') acts.push(['Take the slot off', () => move('approved')]);
@@ -2251,7 +2251,8 @@ async function postDirect(visibility) {
 
   if (!test) {
     const answer = await ask('Post it publicly?', {
-      body: 'This goes out under your accounts and cannot be taken back from here.',
+      body: 'Instagram and TikTok, under your own accounts, and it cannot be '
+          + 'taken back from here.',
       check: 'Also put slide one up as an Instagram story',
       yes: 'Post it',
       danger: true,
@@ -2260,7 +2261,7 @@ async function postDirect(visibility) {
     story = answer.checked === true;
   }
 
-  say(test ? 'Posting privately…' : 'Posting…');
+  say(test ? 'Posting to TikTok, privately…' : 'Posting to both…');
   try {
     const out = await api(`/carousels/${encodeURIComponent(c.slug)}/post`, {
       method: 'POST',

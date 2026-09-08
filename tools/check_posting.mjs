@@ -71,16 +71,25 @@ await okAsync('a slug that does not exist is refused rather than throwing', asyn
 
 console.log('\nthe quiet road stays quiet\n');
 
-await okAsync('a test post never reaches Instagram, and says why', async () => {
-  /* Instagram has no private post. Skipping it is the honest answer;
-     posting it in public during a rehearsal is the one outcome that
-     cannot be taken back. */
+await okAsync('a rehearsal is TikTok alone, and says that is the design', async () => {
+  /* Private means TikTok, because Instagram has no private post of any
+     kind. Not a shortfall to apologise for — the two honest options are
+     TikTok on its own or a real public post, and posting Instagram in
+     public during a rehearsal is the one outcome that cannot be undone. */
   const out = await postOne(fakeEnv(approved), 'the-form', { visibility: 'test' });
   assert.equal(out.visibility, 'test');
   assert.equal(out.results.instagram.skipped, true);
   assert.match(out.results.instagram.error, /no private post/i);
-  // and it points at the way to rehearse Instagram for real
-  assert.match(out.results.instagram.error, /second account/);
+  // and it says what the public button does, so the pair is legible
+  assert.match(out.results.instagram.error, /publicly/);
+});
+
+await okAsync('and a public post keeps both platforms', async () => {
+  const out = await postOne(fakeEnv(approved), 'the-form', { visibility: 'public' });
+  assert.equal(out.visibility, 'public');
+  // instagram is not filtered out of a real post, whatever else happens to it
+  assert.ok(!out.results.instagram?.error?.includes('private test'),
+            'Instagram was treated as a rehearsal on a public post');
 });
 
 await okAsync('a story is never part of a test post', async () => {

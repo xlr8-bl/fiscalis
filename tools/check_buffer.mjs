@@ -52,6 +52,50 @@ const CAROUSEL = {
   targets: ['instagram', 'tiktok'],
 };
 
+/*
+ * The Instagram metadata, which is where a story lives on this road.
+ *
+ * `InstagramPostMetadataInput.type` is a non-null PostType and it is
+ * what decides between the feed and a story, so a story is not a
+ * follow-on call here — it is a second post to the same channel with a
+ * different type. TikTok has no privacy field at all in its metadata,
+ * which is why a private test cannot go through Buffer.
+ */
+await step('every Instagram post says which kind it is', async () => {
+  const f = net([ORG, CHANS, MADE]);
+  await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
+  const vars = f.sent.find((b) => /CreatePost/.test(b.query))?.variables ?? {};
+  const ig = Object.values(vars).find((v) => v.channelId === 'ch1');
+  assert.equal(ig.metadata.instagram.type, 'post', 'the carousel is not typed');
+  const tt = Object.values(vars).find((v) => v.channelId === 'ch2');
+  assert.equal(tt.metadata, undefined, 'TikTok was sent metadata it has no field for');
+});
+
+await step('a story is a SECOND post, and the carousel keeps its own result', async () => {
+  const three = ['CreatePost', { json: { data: {
+    p0: { post: { id: 'p1' } }, p1: { post: { id: 'p2' } }, p2: { post: { id: 'p3' } },
+  } } }];
+  const f = net([ORG, CHANS, three]);
+  const out = await toBuffer(ENV, { ...CAROUSEL, story: true, fetcher: f });
+
+  const vars = Object.values(
+    f.sent.find((b) => /CreatePost/.test(b.query))?.variables ?? {});
+  const igs = vars.filter((v) => v.channelId === 'ch1');
+  assert.equal(igs.length, 2, `${igs.length} Instagram posts, not 2`);
+  assert.deepEqual(igs.map((v) => v.metadata.instagram.type).sort(), ['post', 'story']);
+
+  // the story carries slide one alone: the hook sheet, which is the cover
+  const story = igs.find((v) => v.metadata.instagram.type === 'story');
+  assert.equal(story.assets.length, 1);
+  assert.match(story.assets[0].image.url, /a\.jpg$/);
+
+  /* Reported apart. Keyed on `instagram` both would overwrite, and the
+     carousel would be reported as whatever the story did. */
+  assert.equal(out.instagram.ok, true);
+  assert.equal(out.story.ok, true);
+  assert.notEqual(out.instagram.id, out.story.id);
+});
+
 await step('it posts to every target', async () => {
   const f = net([ORG, CHANS, MADE]);
   const out = await toBuffer(ENV, { ...CAROUSEL, fetcher: f });

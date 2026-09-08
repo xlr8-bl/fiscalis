@@ -552,7 +552,7 @@ await step('and it can be approved without going through review', async () => {
 await step('an approved carousel offers both ways to post', async () => {
   const acts = await page.$$eval('[data-car-acts] .st-link',
                                  (n) => n.map((x) => x.textContent.trim()));
-  for (const want of ['Test post (only you see it)', 'Post it publicly']) {
+  for (const want of ['Test on TikTok (only you see it)', 'Post to both, publicly']) {
     if (!acts.includes(want)) throw new Error(`offered: ${acts.join(', ')}`);
   }
   // and the scheduling form is not in the way of either of them
@@ -562,7 +562,7 @@ await step('an approved carousel offers both ways to post', async () => {
 await step('posting publicly stops to ask, and offers the story there', async () => {
   const acts = await page.$$eval('[data-car-acts] .st-link',
                                  (n) => n.map((x) => x.textContent.trim()));
-  await page.click(`[data-car-acts] .st-link >> nth=${acts.indexOf('Post it publicly')}`);
+  await page.click(`[data-car-acts] .st-link >> nth=${acts.indexOf('Post to both, publicly')}`);
   await page.waitForSelector('.st-ask[open]', { timeout: 8000 });
 
   const title = await page.textContent('.st-ask [data-title]');
@@ -583,7 +583,7 @@ await step('a test post does not ask, and never offers a story', async () => {
      The tick must not be reachable from the private road at all. */
   const acts = await page.$$eval('[data-car-acts] .st-link',
                                  (n) => n.map((x) => x.textContent.trim()));
-  await page.click(`[data-car-acts] .st-link >> nth=${acts.indexOf('Test post (only you see it)')}`);
+  await page.click(`[data-car-acts] .st-link >> nth=${acts.indexOf('Test on TikTok (only you see it)')}`);
   const asked = await page.waitForSelector('.st-ask[open]', { timeout: 2500 })
     .then(() => true).catch(() => false);
   if (asked) throw new Error('the test post stopped to ask');
