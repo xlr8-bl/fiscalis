@@ -2156,9 +2156,17 @@ function paintCarouselActions(host) {
     // a background with no words on it is not undrawn, and offering to
     // draw it again would spend a generation on a picture already paid
     // for. Typesetting is the action it actually needs.
-    acts.push(c.slides.every((s) => s.needs_type || s.state === 'ready')
-      ? ['Set the type', setTheType]
-      : ['Draw the slides', drawSlides]);
+    /* Three engines, three buttons, and the slide says which it needs.
+       A slide carrying a `design` is drawn on a canvas here; offering
+       "Draw the slides" for one sent it to the image generator instead,
+       which answered "Workers AI is not bound" for a carousel that never
+       needed an image model at all. */
+    const owed = c.slides.filter((s) => s.state !== 'ready');
+    acts.push(owed.every((s) => s.needs_design)
+      ? ['Draw the panels', drawTheDesigns]
+      : owed.every((s) => s.needs_type || s.state === 'ready')
+        ? ['Set the type', setTheType]
+        : ['Draw the slides', drawSlides]);
   }
   if (readyToApprove.includes(c.status) && !blocked) {
     acts.push(['Approve it', () => move('approved')]);
