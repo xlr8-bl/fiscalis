@@ -18,7 +18,7 @@
  */
 
 import {
-  MODERN, SUPPORTED, SERVER_INFO, TOOLS, INSTRUCTIONS, CAPABILITIES,
+  MODERN, SUPPORTED, SERVER_INFO, TOOLS, toolsFor, INSTRUCTIONS, CAPABILITIES,
   eraOf, headerMismatch, rpcError, rpcResult, toolResult, toolFailed,
   PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, INVALID_PARAMS,
   INTERNAL_ERROR, HEADER_MISMATCH, UNSUPPORTED_VERSION,
@@ -59,6 +59,18 @@ const clean = (v, max = 400) => String(v ?? '').trim().slice(0, max);
 const asJson = (v) => {
   if (v === undefined || v === null || v === '') return '';
   try { return JSON.stringify(v).slice(0, 40_000); } catch { return ''; }
+};
+
+/* Which surface the agent gets. Carousel-only by default: it is the job
+   he asked for, and it is the only scope with nothing in it that makes
+   Gemini stop and ask. Reading it costs one settings row per request,
+   and a database that cannot answer falls back to the smaller surface,
+   which is the safe direction to fail in. */
+const agentScope = async (env) => {
+  try {
+    const v = await getSetting(env.DB, 'agent.scope');
+    return v === 'everything' ? 'everything' : 'carousel';
+  } catch { return 'carousel'; }
 };
 
 const json = (body, status = 200, headers = {}) =>
@@ -612,14 +624,15 @@ async function dispatch(method, params, env) {
       };
 
     case 'tools/list':
-      return { tools: TOOLS };
+      return { tools: toolsFor(await agentScope(env)) };
 
     case 'ping':
       return {};
 
     case 'tools/call': {
       const name = params?.name;
-      const known = TOOLS.some((t) => t.name === name);
+      const allowed = toolsFor(await agentScope(env));
+      const known = allowed.some((t) => t.name === name);
       if (!known) return { __rpcError: [METHOD_NOT_FOUND, `Unknown tool: ${name}`] };
       try {
         const out = await runTool(name, params?.arguments || {}, env);

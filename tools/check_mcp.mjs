@@ -110,6 +110,24 @@ const structured = (r) => {
 
 const made = [];
 
+/* Two of the checks below drive tools that are out of the default scope
+   — the agent gets the carousel path and nothing else — so they widen it
+   for the length of the check and put it back. Testing them against the
+   full surface is the point: the tools still exist, they are only out of
+   reach, and a change that broke one would otherwise go unnoticed until
+   somebody switched the setting. */
+const setScope = async (value) => {
+  await fetch(`${BASE}/api/studio/content/settings`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', cookie: globalThis.__cookie },
+    body: JSON.stringify({ 'agent.scope': value }),
+  });
+};
+const widened = async (fn) => {
+  await setScope('everything');
+  try { await fn(); } finally { await setScope('carousel'); }
+};
+
 /* ------------------------------------------------------------- protocol */
 
 await step('unauthenticated, it refuses and says how to authenticate', async () => {
@@ -221,18 +239,16 @@ await step('tools/list describes every tool with a schema', async () => {
     if (!t.name || !t.description) throw new Error(`${t.name}: missing description`);
     if (t.inputSchema?.type !== 'object') throw new Error(`${t.name}: no object inputSchema`);
   }
-  /* Frozen on purpose. Adding a tool to the agent's surface has to be a
-     line in a diff somebody wrote, not something that arrives with a
-     feature — this is the list of everything Spark can reach. */
+  /* Frozen on purpose, and this is what the wire actually serves: the
+     carousel scope. The full set is thirty-three and lives behind
+     `agent.scope`; check_context asserts that the rest is out of reach
+     rather than deleted. Adding a name here has to be a line in a diff
+     somebody wrote. */
   const names = tools.map((t) => t.name).sort();
   is(names.join(','),
-     'add_reference,brief,check_draft,check_posting,deliver_slide,design_brief,'
-     + 'design_carousel,design_status,draw,find_photo,finish_run,hand_over,'
-     + 'keep_photo,list_carousels,next_carousel,performance,plan_carousel,post_due,'
-     + 'progress,'
-     + 'publish_article,publish_articles,queue,schedule_articles,scheduled_articles,'
-     + 'send_digest,set_writing_schedule,teach_carousel,unschedule_article,'
-     + 'voice_rules,write_article,writing_brief,writing_run,writing_schedule',
+     'add_reference,brief,check_posting,deliver_slide,design_brief,design_carousel,'
+     + 'design_status,draw,hand_over,list_carousels,next_carousel,plan_carousel,'
+     + 'progress,queue,teach_carousel',
      'the tool set');
 });
 
@@ -257,8 +273,8 @@ await step('every tool is annotated, and honestly', async () => {
     }
   }
   const byName = Object.fromEntries(tools.map((t) => [t.name, t.annotations]));
-  is(byName.post_due.destructiveHint, true, 'post_due stays destructive');
   is(byName.brief.readOnlyHint, true, 'brief is read-only');
+  is(byName.next_carousel.readOnlyHint, true, 'the work order only reads');
   is(byName.design_carousel.destructiveHint, false, 'filing a design is additive');
   is(byName.design_status.readOnlyHint, true, 'design_status is read-only');
 });
@@ -317,19 +333,14 @@ await step('nothing can approve, schedule or delete a carousel', async () => {
      had not. The article queue is a different ceiling, deliberately, and
      it is checked on its own below. Scoped to the carousel side, so a
      schedule_carousel appearing tomorrow still trips it. */
-  const CAROUSEL_QUEUE = new Set([
-    'schedule_articles', 'scheduled_articles', 'unschedule_article',
-    'set_writing_schedule', 'writing_schedule',
-  ]);
   for (const forbidden of ['approve', 'schedule', 'delete']) {
-    const found = names.filter((x) => x.includes(forbidden) && !CAROUSEL_QUEUE.has(x));
+    const found = names.filter((x) => x.includes(forbidden));
     if (found.length) throw new Error(`exposes ${found.join(', ')}`);
   }
-  // and nothing on the carousel side decides a carousel is ready. post_due
-  // is a trigger; check_posting only rehearses and posts nothing.
-  const carouselSide = names
-    .filter((x) => /publish|post/.test(x) && !/article/.test(x)).sort();
-  is(carouselSide.join(','), 'check_posting,post_due', 'what can make a carousel public');
+  /* Nothing served can make a carousel public at all now: post_due is
+     out of the default scope, and check_posting only rehearses. */
+  const carouselSide = names.filter((x) => /publish|post/.test(x)).sort();
+  is(carouselSide.join(','), 'check_posting', 'what can make a carousel public');
 });
 
 /*
@@ -350,11 +361,12 @@ await step('exactly the two publishing tools ask, and nothing else does', async 
   /* Every one of these makes something public, or decides that it will.
      check_schedule asserts the same list from the other side, off the
      tool table rather than the running server, so they cannot drift. */
+  /* Zero, on the surface he actually gets. Every tool that publishes is
+     out of the carousel scope, so Gemini has nothing to stop and ask
+     about between "make me a carousel" and a finished one. */
   const asks = tools.filter((t) => t.annotations.destructiveHint === true)
     .map((t) => t.name).sort();
-  is(asks.join(','),
-     'post_due,publish_article,publish_articles,schedule_articles,set_writing_schedule',
-     'the tools a client should ask about');
+  is(asks.join(','), '', 'the tools a client should ask about');
 });
 
 await step('an unknown tool is a protocol error, not a tool error', async () => {
@@ -616,13 +628,16 @@ await step('progress says where everything stands and what is blocking', async (
 });
 
 await step('performance has nothing to report before anything has posted', async () => {
-  const out = structured(await call('performance'));
-  if (!Array.isArray(out.posts)) throw new Error('no posts array');
-  is(out.checked, 0, 'platforms asked');
-  if (!/null/.test(out.note)) throw new Error(out.note);
+  await widened(async () => {
+    const out = structured(await call('performance'));
+    if (!Array.isArray(out.posts)) throw new Error('no posts array');
+    is(out.checked, 0, 'platforms asked');
+    if (!/null/.test(out.note)) throw new Error(out.note);
+  });
 });
 
 await step('send_digest does not send a mail that would say nothing', async () => {
+  await widened(async () => {
   const cookie = globalThis.__cookie;
   const list = await (await fetch(`${BASE}/api/studio/carousels?status=review`, { headers: { cookie } })).json();
   for (const c of list.carousels) {
@@ -631,9 +646,10 @@ await step('send_digest does not send a mail that would say nothing', async () =
       body: JSON.stringify({ status: 'changes' }),
     });
   }
-  const out = structured(await call('send_digest'));
-  is(out.sent, false, 'sent');
-  is(out.count, 0, 'count');
+    const out = structured(await call('send_digest'));
+    is(out.sent, false, 'sent');
+    is(out.count, 0, 'count');
+  });
 });
 
 /* -------------------------------------------------------------- cleanup */
@@ -662,6 +678,6 @@ await step('what this run made is cleaned up', async () => {
 console.log(
   problems.length
     ? `\n${problems.length} failed: ${problems.join(', ')}`
-    : '\nthe endpoint speaks both eras, and only what publishes ever asks'
+    : '\nthe endpoint speaks both eras, and the surface he gets never asks'
 );
 process.exit(problems.length ? 1 : 0);

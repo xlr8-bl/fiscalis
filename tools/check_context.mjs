@@ -14,7 +14,7 @@
  * that was true for about a month.
  */
 
-import { INSTRUCTIONS, TOOLS, CAPABILITIES, SERVER_INFO } from '../lib/mcp.js';
+import { INSTRUCTIONS, TOOLS, CAPABILITIES, SERVER_INFO, toolsFor, CAROUSEL_TOOLS } from '../lib/mcp.js';
 import { AGENT_STATES } from '../lib/carousels.js';
 import { voiceRules, CHECKED, RULE_NAMES, VOICE, problems } from '../assets/js/brand.js';
 
@@ -118,6 +118,37 @@ console.log('\nand the checked ones are actually checked');
   const inArt = problems({ slides: [{ position: 2, copy: 'Leverage our solutions.' }] });
   ok('a rule broken inside a slide is caught too', inArt.length > 0);
   ok('and the refusal names the slide', /Slide 3/.test(inArt.join(' ')), inArt.join(' '));
+}
+
+console.log('\nthe surface it actually gets');
+{
+  /* Thirty-three tools with five that stop and ask is what he was
+     looking at, and none of those five is any part of making a
+     carousel. The default scope is the job he asked for and nothing
+     else, which is also the only scope that never interrupts him. */
+  const carousel = toolsFor('carousel');
+  ok('the default scope is the carousel path alone',
+     carousel.length === CAROUSEL_TOOLS.length && carousel.length < TOOLS.length,
+     `${carousel.length} of ${TOOLS.length}`);
+
+  const asks = carousel.filter((t) => t.annotations?.destructiveHint === true);
+  ok('and NOTHING in it interrupts him', asks.length === 0, asks.map((t) => t.name).join(', '));
+
+  ok('nothing in it publishes, which is why it does not ask',
+     !carousel.some((t) => /^publish|^post_due$/.test(t.name)),
+     carousel.filter((t) => /^publish|^post_due$/.test(t.name)).map((t) => t.name).join(', '));
+
+  ok('every name in the list is a real tool',
+     CAROUSEL_TOOLS.every((n) => TOOLS.some((t) => t.name === n)),
+     CAROUSEL_TOOLS.filter((n) => !TOOLS.some((t) => t.name === n)).join(', '));
+
+  ok('the whole cycle it is told to run is reachable',
+     ['next_carousel', 'teach_carousel', 'check_posting', 'hand_over']
+       .every((n) => CAROUSEL_TOOLS.includes(n)));
+
+  ok('and the journal is out of reach rather than deleted',
+     toolsFor('everything').length === TOOLS.length
+     && !carousel.some((t) => t.name === 'write_article'));
 }
 
 console.log('\nwhat the handshake hands over');
