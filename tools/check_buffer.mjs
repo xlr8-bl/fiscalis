@@ -61,14 +61,92 @@ const CAROUSEL = {
  * different type. TikTok has no privacy field at all in its metadata,
  * which is why a private test cannot go through Buffer.
  */
-await step('every Instagram post says which kind it is', async () => {
+/*
+ * Every non-null field on the input types, sent.
+ *
+ * This is the check the first real call bought. `shouldShareToFeed` is
+ * Boolean! on InstagramPostMetadataInput and was not being sent, and a
+ * variable that fails coercion fails the WHOLE document — so both
+ * platforms came back carrying the same Instagram error, which reads
+ * like two faults and is one. `needsApproval` is Boolean! on
+ * CreatePostInput and was the next one waiting.
+ *
+ * Listed here by name rather than inferred, because the only way to know
+ * a field is non-null is to have read the type, and the only way to keep
+ * knowing is to write it down.
+ *
+ *   CreatePostInput            assets, channelId, mode, needsApproval,
+ *                              schedulingType
+ *   InstagramPostMetadataInput type, shouldShareToFeed
+ *   TikTokPostMetadataInput    none
+ */
+const REQUIRED_ON_POST = ['assets', 'channelId', 'mode', 'needsApproval', 'schedulingType'];
+const REQUIRED_ON_IG_META = ['type', 'shouldShareToFeed'];
+
+await step('every non-null field on CreatePostInput is sent', async () => {
+  const f = net([ORG, CHANS, MADE]);
+  await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
+  const vars = Object.values(
+    f.sent.find((b) => /CreatePost/.test(b.query))?.variables ?? {});
+  assert.ok(vars.length, 'nothing was sent');
+  for (const v of vars) {
+    for (const field of REQUIRED_ON_POST) {
+      assert.ok(v[field] !== undefined, `${field} was not sent`);
+    }
+  }
+});
+
+await step('and on a draft too, which takes the same input type', async () => {
+  const f = net([ORG, CHANS, MADE]);
+  await toBuffer(ENV, { ...CAROUSEL, draft: true, fetcher: f });
+  const vars = Object.values(
+    f.sent.find((b) => /CreatePost/.test(b.query))?.variables ?? {});
+  for (const v of vars) {
+    for (const field of REQUIRED_ON_POST) {
+      assert.ok(v[field] !== undefined, `${field} was not sent on a draft`);
+    }
+  }
+});
+
+await step('nothing here asks anybody to approve it', async () => {
+  /* There is one person. A post held for approval is a post that does
+     not go out, which on the direct road would read as a silent
+     failure. */
+  const f = net([ORG, CHANS, MADE]);
+  await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
+  const vars = Object.values(
+    f.sent.find((b) => /CreatePost/.test(b.query))?.variables ?? {});
+  for (const v of vars) assert.equal(v.needsApproval, false);
+});
+
+await step('every Instagram post says which kind it is, and where it goes', async () => {
   const f = net([ORG, CHANS, MADE]);
   await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
   const vars = f.sent.find((b) => /CreatePost/.test(b.query))?.variables ?? {};
   const ig = Object.values(vars).find((v) => v.channelId === 'ch1');
+  for (const field of REQUIRED_ON_IG_META) {
+    assert.ok(ig.metadata.instagram[field] !== undefined, `${field} was not sent`);
+  }
   assert.equal(ig.metadata.instagram.type, 'post', 'the carousel is not typed');
+  assert.equal(ig.metadata.instagram.shouldShareToFeed, true, 'a feed post not going to the feed');
   const tt = Object.values(vars).find((v) => v.channelId === 'ch2');
   assert.equal(tt.metadata, undefined, 'TikTok was sent metadata it has no field for');
+});
+
+await step('a story does not also go to the feed', async () => {
+  /* True here would put slide one in the feed as well as in the story:
+     a second public post of the cover that nobody asked for, and not
+     one that can be taken back. */
+  const three = ['CreatePost', { json: { data: {
+    p0: { post: { id: 'p1' } }, p1: { post: { id: 'p2' } }, p2: { post: { id: 'p3' } },
+  } } }];
+  const f = net([ORG, CHANS, three]);
+  await toBuffer(ENV, { ...CAROUSEL, story: true, fetcher: f });
+  const vars = Object.values(
+    f.sent.find((b) => /CreatePost/.test(b.query))?.variables ?? {});
+  const asStory = vars.find((v) => v.metadata?.instagram?.type === 'story');
+  assert.ok(asStory, 'no story was sent');
+  assert.equal(asStory.metadata.instagram.shouldShareToFeed, false);
 });
 
 await step('a story is a SECOND post, and the carousel keeps its own result', async () => {
