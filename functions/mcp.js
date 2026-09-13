@@ -561,14 +561,14 @@ async function runTool(name, args, env) {
 
     case 'publish_articles': {
       const out = await publishArticles({ ...env, SITE },
-                                        Array.isArray(a.slugs) ? a.slugs : []);
+                                        Array.isArray(args.slugs) ? args.slugs : []);
       return out.published ? toolResult(out) : toolFailed(out.error);
     }
 
     case 'set_writing_schedule': {
       const plan = await setWritingPlan(db, {
-        every: a.every, day: a.day, at: a.at, count: a.count,
-        then: a.then, across: a.across_days,
+        every: args.every, day: args.day, at: args.at, count: args.count,
+        then: args.then, across: args.across_days,
       });
       return toolResult({
         plan, in_words: inWords(plan), set_this_up: recurrence(plan),
@@ -578,7 +578,7 @@ async function runTool(name, args, env) {
 
     case 'finish_run': {
       const out = await finishRun({ ...env, SITE },
-                                  Array.isArray(a.slugs) ? a.slugs : []);
+                                  Array.isArray(args.slugs) ? args.slugs : []);
       return out.ok === false && out.reason ? toolFailed(out.reason) : toolResult(out);
     }
 
@@ -591,18 +591,18 @@ async function runTool(name, args, env) {
     }
 
     case 'writing_run':
-      return toolResult(await writingRun(db, { force: a.force === true }));
+      return toolResult(await writingRun(db, { force: args.force === true }));
 
     case 'schedule_articles': {
       const out = await scheduleArticles(db, {
-        slugs: Array.isArray(a.slugs) ? a.slugs : [],
-        startIn: a.start_in_days ?? 0,
-        days: a.across_days ?? 3,
-        perDay: a.per_day ?? null,
-        from: a.from_hour ?? 8,
-        to: a.to_hour ?? 20,
-        minGap: a.min_gap ?? 75,
-        offset: a.offset_hours ?? 1,
+        slugs: Array.isArray(args.slugs) ? args.slugs : [],
+        startIn: args.start_in_days ?? 0,
+        days: args.across_days ?? 3,
+        perDay: args.per_day ?? null,
+        from: args.from_hour ?? 8,
+        to: args.to_hour ?? 20,
+        minGap: args.min_gap ?? 75,
+        offset: args.offset_hours ?? 1,
       });
       return out.ok ? toolResult(out) : toolFailed(out.reason);
     }
@@ -611,10 +611,10 @@ async function runTool(name, args, env) {
       return toolResult({ queued: await timetable(db) });
 
     case 'unschedule_article': {
-      const out = await unscheduleArticle(db, a.slug);
+      const out = await unscheduleArticle(db, args.slug);
       return out.ok
         ? toolResult({ ...out, note: 'Off the queue. It is an ordinary draft again.' })
-        : toolFailed(`There is nothing scheduled called "${a.slug}".`);
+        : toolFailed(`There is nothing scheduled called "${args.slug}".`);
     }
 
     case 'voice_rules':

@@ -2472,7 +2472,7 @@ async function drawTheDesigns() {
        carousel actually names: the bucket holds every screenshot ever
        taken and loading them all would be most of a megabyte for a
        slide that references one. */
-    const keys = [...new Set(slides
+    const keys = [...new Set(owed
       .map((s) => s.design?.shot?.src).filter(Boolean))];
     await Promise.all(keys.map(async (k) => {
       art.shots[k] = await load(`/media/${k}`);
