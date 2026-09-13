@@ -1784,6 +1784,9 @@ const BOARD_TABS = [
 
 let boardCtx = { status: 'review', query: '', carousels: [] };
 let carousel = null;
+/* Buffer or direct. It changes what both post buttons do, so it travels
+   with the carousel rather than being asked for separately. */
+let postRoute = 'buffer';
 
 async function viewBoard() {
   await ensureSchema();
@@ -1893,7 +1896,7 @@ let typesetting = false;
 
 async function viewCarousel(slug) {
   showView('carousel');
-  ({ carousel } = await api(`/carousels/${encodeURIComponent(slug)}`));
+  ({ carousel, route: postRoute = 'buffer' } = await api(`/carousels/${encodeURIComponent(slug)}`));
   $('[data-car-crumb]').textContent = carousel.title || carousel.slug;
   paintCarousel();
 
@@ -2178,7 +2181,13 @@ function paintCarouselActions(host) {
      genuinely wants one. */
   if (c.status === 'approved' || c.status === 'scheduled') {
     acts.push(['Check it first', checkThisOne]);
-    acts.push(['Test on TikTok (only you see it)', () => postDirect('test')]);
+    /* The rehearsal is a different thing on each road and the label has
+       to say which. Through Buffer it is a draft sitting in Buffer for
+       him to look at and publish himself; direct it is a real TikTok
+       post at SELF_ONLY, which only works on a private account. */
+    acts.push(postRoute === 'buffer'
+      ? ['Put it in Buffer as a draft', () => postDirect('test')]
+      : ['Test on TikTok (only you see it)', () => postDirect('test')]);
     acts.push(['Post to both, publicly', () => postDirect('public')]);
     acts.push(['Send it back', () => move('changes')]);
   }
@@ -2254,7 +2263,10 @@ async function postDirect(visibility) {
     story = answer.checked === true;
   }
 
-  say(test ? 'Posting to TikTok, privately…' : 'Posting to both…');
+  const buffered = postRoute === 'buffer';
+  say(test
+    ? (buffered ? 'Filing it in Buffer as a draft…' : 'Posting to TikTok, privately…')
+    : 'Posting to both…');
   try {
     const out = await api(`/carousels/${encodeURIComponent(c.slug)}/post`, {
       method: 'POST',
@@ -2267,11 +2279,16 @@ async function postDirect(visibility) {
       .map(([n, r]) => `${n}: ${r.error}`);
     const skipped = rows.filter(([, r]) => r.skipped)
       .map(([n, r]) => `${n}: ${r.error}`);
+    /* A draft has not gone anywhere, and saying "posted" about one is
+       the kind of wrong that gets found out on the account. */
+    const landed = out.drafted
+      ? `In Buffer as a draft on ${went.join(', ')}. Nothing is public: open `
+        + 'Buffer, read it, and publish it there when you are happy.'
+      : `${test ? 'Posted privately to' : 'Posted to'} ${went.join(', ')}.`;
     say(
       failed.length ? failed.join(' · ')
         : went.length
-          ? `${test ? 'Posted privately to' : 'Posted to'} ${went.join(', ')}.${
-            skipped.length ? ` (${skipped.join(' · ')})` : ''}`
+          ? `${landed}${skipped.length ? ` (${skipped.join(' · ')})` : ''}`
           : skipped.join(' · ') || 'Nothing went out.',
       failed.length ? 'err' : undefined
     );
@@ -2667,6 +2684,7 @@ async function viewAccounts() {
   const ig = state.instagram;
   const tt = state.tiktok;
   const free = state.drawing?.provider !== 'gemini';
+  const viaBuffer = state.posting?.route !== 'direct';
   const line = (label, ok, detail) =>
     `<div><dt>${escapeHtml(label)}</dt><dd>${ok ? '' : 'Not connected'}${
       escapeHtml(detail || '')}</dd></div>`;
@@ -2682,15 +2700,45 @@ async function viewAccounts() {
                 : '')}
        ${line('Drawing', state.drawing?.ready,
               state.drawing?.ready ? `Ready — ${escapeHtml(state.drawing.model)}` : '')}
-       ${line('TikTok', tt.connected,
+       ${viaBuffer
+         ? `<div><dt>Posting</dt><dd>Through Buffer, which holds both connections</dd></div>`
+         : line('TikTok', tt.connected,
               tt.connected
                 ? [tt.username ? `@${tt.username}` : 'Connected',
                    tt.can_renew ? 'renews itself'
                      : 'cannot renew: add TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET',
+                   /* Only on the direct road. It is an unaudited-client
+                      rule, and Buffer posts under Buffer's audited apps,
+                      so saying it on that road sends him to change a
+                      setting that changes nothing. */
                    tt.audited ? null : 'not audited, so posts are private',
                   ].filter(Boolean).join(' — ')
                 : '')}
      </dl>
+
+     <h2 class="st-h2">How posts go out</h2>
+     <p class="st-note u-text-style-main">Buffer holds the connections and posts under
+       its own apps, so nothing here needs TikTok's posting API. Direct needs TikTok to
+       have approved an application for it, which they grant on a commercial use case.</p>
+     <div class="st-field">
+       <label class="st-label u-text-style-main" for="post-road">Post through</label>
+       <select class="st-input" id="post-road" data-f="post_route">
+         <option value="buffer"${viaBuffer ? ' selected' : ''}
+           >Buffer — one account, both platforms</option>
+         <option value="direct"${viaBuffer ? '' : ' selected'}
+           >Direct — the platform APIs, one app each</option>
+       </select>
+     </div>
+     ${viaBuffer && !state.posting?.buffer_key
+       ? `<p class="st-note u-text-style-main">BUFFER_API_KEY is not set on this
+          deployment, so nothing can go out. Add it under Settings, Variables and
+          Secrets, then retry the deployment.</p>`
+       : ''}
+     ${viaBuffer
+       ? `<p class="st-note u-text-style-main">On this road a rehearsal is a Buffer
+          draft: it lands in Buffer, nothing is public, and you publish it there when
+          you are happy with it.</p>`
+       : ''}
 
      <h2 class="st-h2">Drawing the slides</h2>
      <p class="st-note u-text-style-main">The site draws them itself, so Spark never has
@@ -2778,6 +2826,12 @@ async function viewAccounts() {
        : ''}
 
      <h2 class="st-h2">TikTok</h2>
+     ${viaBuffer
+       ? `<p class="st-note u-text-style-main">Nothing below is in use: posts go through
+          Buffer, which holds the TikTok connection itself. This is only for the direct
+          road, and that needs TikTok to have approved a Content Posting API application
+          for the account.</p>`
+       : ''}
      <p class="st-note u-text-style-main">TikTok has no token to copy out of a dashboard —
        it hands one over at the end of an approval. This does that round trip for you.
        ${tt.connected
@@ -2850,6 +2904,10 @@ async function viewAccounts() {
     const how = $('#draw-how', host);
     if (how && how.value && how.value !== state.drawing?.provider) {
       body.draw_provider = how.value;
+    }
+    const road = $('#post-road', host);
+    if (road && road.value && road.value !== state.posting?.route) {
+      body.post_route = road.value;
     }
     // the checkbox is a state rather than a value, so it is sent whenever
     // it disagrees with what is stored — including when it is turned off

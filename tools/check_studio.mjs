@@ -556,11 +556,15 @@ await step('an approved carousel offers both ways to post', async () => {
      Accounts: what the Accounts check proves is that the tokens are
      live, which is not the same question as whether this carousel's
      pictures are reachable and its words fit. */
-  for (const want of ['Check it first', 'Test on TikTok (only you see it)',
-                      'Post to both, publicly']) {
+  /* The rehearsal's label depends on the road, because what it DOES
+     depends on the road: a Buffer draft, or a private TikTok post. A
+     label that does not say which is a button somebody presses once. */
+  const rehearse = acts.find((a) => /Buffer as a draft|Test on TikTok/.test(a));
+  for (const want of ['Check it first', 'Post to both, publicly']) {
     if (!acts.includes(want)) throw new Error(`offered: ${acts.join(', ')}`);
   }
-  if (acts.indexOf('Check it first') > acts.indexOf('Test on TikTok (only you see it)')) {
+  if (!rehearse) throw new Error(`no rehearsal offered: ${acts.join(', ')}`);
+  if (acts.indexOf('Check it first') > acts.indexOf(rehearse)) {
     throw new Error('the rehearsal is offered after the post');
   }
   // and the scheduling form is not in the way of either of them
@@ -607,7 +611,9 @@ await step('a test post does not ask, and never offers a story', async () => {
      The tick must not be reachable from the private road at all. */
   const acts = await page.$$eval('[data-car-acts] .st-link',
                                  (n) => n.map((x) => x.textContent.trim()));
-  await page.click(`[data-car-acts] .st-link >> nth=${acts.indexOf('Test on TikTok (only you see it)')}`);
+  const at = acts.findIndex((a) => /Buffer as a draft|Test on TikTok/.test(a));
+  if (at < 0) throw new Error(`no rehearsal offered: ${acts.join(', ')}`);
+  await page.click(`[data-car-acts] .st-link >> nth=${at}`);
   const asked = await page.waitForSelector('.st-ask[open]', { timeout: 2500 })
     .then(() => true).catch(() => false);
   if (asked) throw new Error('the test post stopped to ask');

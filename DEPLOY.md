@@ -124,9 +124,31 @@ store from `wrangler.toml`, which is why none of them are in this repo.
 
 | | Encrypt | What breaks without it |
 |---|---|---|
+| `BUFFER_API_KEY` | yes | nothing can be posted at all |
 | `CF_ACCOUNT_ID` | no | no screenshots on slides |
 | `CF_BROWSER_TOKEN` | yes | no screenshots on slides |
 | `UNSPLASH_ACCESS_KEY` | yes | photographs fall back to Wikimedia Commons |
+
+## How posts go out
+
+Through **Buffer**, which holds both connections and posts under its own
+platform apps. That is the default and needs only `BUFFER_API_KEY`; connect
+Instagram and TikTok inside Buffer itself.
+
+The other road, `direct`, posts through the platforms' own APIs and needs an
+app per platform. TikTok's half of it is not available here: the Content
+Posting API application was refused, because their terms want a commercial
+use case and a one-person business posting its own work is not one they
+grant. Instagram's half still works. Switch roads in the studio under
+Accounts, *How posts go out*.
+
+A rehearsal means something different on each road, and the button says
+which:
+
+| | Rehearsal | What it does |
+|---|---|---|
+| Buffer | *Put it in Buffer as a draft* | Lands in Buffer with status `draft`. Nothing is public; you read it in the Buffer app and publish it there. Both platforms. |
+| Direct | *Test on TikTok (only you see it)* | A real TikTok post at `SELF_ONLY`, which needs the account set to private. TikTok only. Instagram has no private post of any kind. |
 
 ## Photographs from Unsplash
 

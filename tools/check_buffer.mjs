@@ -335,9 +335,49 @@ await step('the rehearsal reads them live rather than trusting the cache', async
 await step('the road is a setting, not the presence of a key', async () => {
   assert.equal(await postingRoute({}, async () => 'buffer'), 'buffer');
   assert.equal(await postingRoute({}, async () => 'BUFFER'), 'buffer');
-  assert.equal(await postingRoute({}, async () => null), 'direct');
-  // the old broker's name must not quietly select the new one
-  assert.equal(await postingRoute({}, async () => 'ayrshare'), 'direct');
+  assert.equal(await postingRoute({}, async () => 'direct'), 'direct');
+  assert.equal(await postingRoute({}, async () => 'DIRECT'), 'direct');
+});
+
+await step('and unset means Buffer, because direct is half unusable', async () => {
+  /* TikTok refused the Content Posting API application: their terms want
+     a commercial use case and a one-person business posting its own work
+     is not one they grant. An unset route pointing at `direct` pointed
+     at a road whose TikTok half cannot work, and the symptom was a
+     message telling him to make his account private. */
+  assert.equal(await postingRoute({}, async () => null), 'buffer');
+  assert.equal(await postingRoute({}, async () => ''), 'buffer');
+  // and a name nobody recognises does not silently select direct either
+  assert.equal(await postingRoute({}, async () => 'ayrshare'), 'buffer');
+});
+
+await step('a draft is filed as one and never scheduled', async () => {
+  /* Buffer's own rehearsal, and the only honest one on this road:
+     `saveToDraft` sets the post's status to draft rather than scheduled
+     and nothing publishes until a person schedules it. TikTok's privacy
+     level is not ours to set here, so asking for a private post through
+     Buffer would have posted publicly. */
+  const f = net([ORG, CHANS, MADE]);
+  const out = await toBuffer(ENV, { ...CAROUSEL, draft: true, fetcher: f });
+  const vars = Object.values(
+    f.sent.find((b) => /CreatePost/.test(b.query))?.variables ?? {});
+  assert.equal(vars.length, 2, `${vars.length} posts, not 2`);
+  for (const v of vars) {
+    assert.equal(v.saveToDraft, true, 'not filed as a draft');
+    assert.equal(v.mode, 'addToQueue');
+    assert.equal(v.dueAt, undefined, 'a draft was given a time');
+  }
+  // and it says so, or a draft reads as a post that went out
+  for (const r of Object.values(out)) assert.equal(r.draft, true);
+});
+
+await step('a real post is never marked a draft', async () => {
+  const f = net([ORG, CHANS, MADE]);
+  const out = await toBuffer(ENV, { ...CAROUSEL, fetcher: f });
+  const vars = Object.values(
+    f.sent.find((b) => /CreatePost/.test(b.query))?.variables ?? {});
+  for (const v of vars) assert.equal(v.saveToDraft, undefined);
+  for (const r of Object.values(out)) assert.equal(r.draft, undefined);
 });
 
 console.log(problems.length

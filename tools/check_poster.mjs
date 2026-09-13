@@ -145,7 +145,18 @@ const ENV = (db, over = {}) => ({
   ...over,
 });
 
-const runOnce = (state, over = {}) => worker.runDue(ENV(fakeDb(state), over));
+/* The road is Buffer unless a state names one, and everything below is
+   about the direct road: the Instagram and TikTok apps, their tokens,
+   what each returns. Set on the state rather than on a copy of it — two
+   overlapping runs share one state object on purpose, and a copy would
+   give each its own claim counter. */
+const direct = (state) => {
+  state.settings = state.settings || {};
+  if (!state.settings['post.route']) state.settings['post.route'] = 'direct';
+  return state;
+};
+
+const runOnce = (state, over = {}) => worker.runDue(ENV(fakeDb(direct(state)), over));
 
 /* ------------------------------------------------------------------ run */
 
@@ -261,7 +272,7 @@ await step('with no credentials at all, every platform is skipped', async () => 
     tiktok: stub({ ok: true, id: 'never' }),
   });
   const state = { carousels: [carousel()], slides: slides(3) };
-  await worker.runDue({ DB: fakeDb(state), SITE: 'https://web3ashley.com' });
+  await worker.runDue({ DB: fakeDb(direct(state)), SITE: 'https://web3ashley.com' });
   // nothing went out, so it goes back rather than being marked posted
   is(state.carousels[0].status, 'approved', 'status');
   const results = JSON.parse(state.carousels[0].results);

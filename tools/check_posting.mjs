@@ -33,18 +33,27 @@ const okAsync = async (what, fn) => {
   catch (e) { bad++; console.log(`  FAIL ${what}\n       ${e.message}`); }
 };
 
-/** A carousel row and nothing else: nothing here reaches a platform. */
-const fakeEnv = (row) => ({
+/**
+ * A carousel row and nothing else: nothing here reaches a platform.
+ *
+ * `route` is which road the settings table says to take, and it changes
+ * what a rehearsal IS, so these tests name it rather than inheriting the
+ * default. Buffer is the default now; direct is the road these
+ * TikTok-privacy tests are about.
+ */
+const fakeEnv = (row, route = 'direct') => ({
   SITE: 'https://web3ashley.com',
   DB: {
-    prepare: () => ({
+    prepare: (sql) => ({
       bind: () => ({
-        first: async () => row,
+        first: async () => (/FROM settings|settings WHERE/i.test(sql || '')
+          ? { value: route } : row),
         all: async () => ({ results: [] }),
         run: async () => ({}),
       }),
       all: async () => ({ results: [] }),
-      first: async () => row,
+      first: async () => (/FROM settings|settings WHERE/i.test(sql || '')
+        ? { value: route } : row),
     }),
   },
 });
@@ -106,6 +115,28 @@ await okAsync('a story never goes up when the carousel did not', async () => {
                             { visibility: 'public', story: true });
   assert.equal(out.results.story.ok, false);
   assert.ok(out.results.story.skipped, 'a story was attempted after a failed post');
+});
+
+console.log('\nthrough Buffer, which is the road now\n');
+
+await okAsync('a rehearsal is a draft, and it keeps both platforms', async () => {
+  /* The difference that matters. Direct, a rehearsal is a private TikTok
+     post and Instagram cannot join in. Through Buffer it is a draft,
+     which every channel takes, so nothing is set aside and nothing is
+     public either. */
+  const out = await postOne(fakeEnv(approved, 'buffer'), 'the-form',
+                            { visibility: 'test' });
+  assert.equal(out.route, 'buffer');
+  assert.ok(!out.results.instagram?.skipped,
+            'Instagram was set aside on a road where a draft covers it');
+});
+
+await okAsync('and a draft is never reported as posted', async () => {
+  /* Reporting one as posted would write posted_at, take the row off the
+     board, and leave him believing a rehearsal went out. */
+  const env = fakeEnv(approved, 'buffer');
+  const out = await postOne(env, 'the-form', { visibility: 'test' });
+  assert.notEqual(out.posted, true, 'a draft was recorded as a post');
 });
 
 console.log('\nwhat TikTok itself decides\n');

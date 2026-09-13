@@ -51,7 +51,8 @@ import { send as sendMail } from '../../../../lib/mail.js';
 import { gather, compose } from '../../../../lib/digest.js';
 import { runDue, postOne } from '../../../../lib/publish.js';
 import { preflight, preflightAccounts } from '../../../../lib/preflight.js';
-import { accountState, putSetting } from '../../../../lib/tokens.js';
+import { accountState, putSetting, getSetting } from '../../../../lib/tokens.js';
+import { postingRoute } from '../../../../lib/buffer.js';
 import { refreshStats, storedStats } from '../../../../lib/insights.js';
 import { progress } from '../../../../lib/progress.js';
 import { drawCarousel } from '../../../../lib/draw.js';
@@ -238,6 +239,11 @@ async function route({ request, env, params }) {
           // paid on Google. A switch, not a credential, but it belongs
           // with them because it is the same screen and the same tap.
           'draw.provider': body.draw_provider,
+          /* Which road a post takes. Only ever one of the two names: a
+             typo here would fall through to the default and post down a
+             road nobody chose. */
+          'post.route': body.post_route === 'direct' ? 'direct'
+            : body.post_route === 'buffer' ? 'buffer' : undefined,
           'tiktok.token': body.tiktok_token,
           'tiktok.refresh_token': body.tiktok_refresh_token,
           // which TikTok client to act as. Kept here rather than in the
@@ -408,7 +414,14 @@ async function route({ request, env, params }) {
 
   const action = rest[0] || null;
 
-  if (!action && method === 'GET') return json({ carousel: existing });
+  /* The road travels with the carousel because the two post buttons
+     mean different things on each: through Buffer a rehearsal is a
+     draft and both platforms take it, direct it is a private TikTok
+     post and Instagram cannot join in. A button that does not say which
+     is a button somebody presses once. */
+  if (!action && method === 'GET') {
+    return json({ carousel: existing, route: await postingRoute(env.DB, getSetting) });
+  }
 
   /*
    * The rehearsal. Everything the posting run does, stopping before the

@@ -122,8 +122,14 @@ const TT_OK = ['creator_info', {
   json: { data: { creator_username: 'web3ashley', privacy_level_options: ['SELF_ONLY'], comment_disabled: false } },
 }];
 
+/* The road defaults to Buffer in the server now, so a state that does
+   not name one would take these token checks down a road that resolves
+   no tokens. Named here instead: a test about Instagram's token is a
+   test about the direct road. */
 const ENV = (state, over = {}) => ({
-  DB: fakeDb(state),
+  DB: fakeDb(state.settings?.['post.route']
+    ? state
+    : { ...state, settings: { ...state.settings, 'post.route': 'direct' } }),
   MEDIA: bucket(),
   SITE: 'https://web3ashley.com',
   IG_USER_ID: '178',
