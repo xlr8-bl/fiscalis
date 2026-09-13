@@ -116,6 +116,29 @@ async function runTool(name, args, env) {
       return toolResult({ carousels: await listCarousels(db, { status: args.status || null }) });
 
     case 'plan_carousel': {
+      /*
+       * Refused unless the picture path is deliberately switched on.
+       *
+       * This files slides with a prompt and no arrangement, so nothing
+       * on the canvas can draw them and they need an image model. It is
+       * the path from before the templates, and every carousel that came
+       * out of it was undrawable on a deployment with no model bound.
+       *
+       * It was taken out of the default tool scope and that was not
+       * enough: on a deployment whose `agent.scope` is `everything` it is
+       * still listed, and Spark reached for it anyway. INSTRUCTIONS says
+       * there is one road; a description says this one is old. Neither
+       * held. A refusal holds.
+       */
+      if (String(await getSetting(db, 'agent.picture_path') ?? '') !== '1') {
+        return toolFailed(
+          'This is the older path: it files slides that only an image model can '
+          + 'draw, and the site draws teaching panels on a canvas instead, with '
+          + 'measured type and no model. Use teach_carousel. Call next_carousel '
+          + 'first for the work order. (A person can turn this path back on under '
+          + 'Settings, What Spark can do, if a generated picture is really wanted.)'
+        );
+      }
       const title = clean(args.title) || clean(args.topic) || 'Untitled carousel';
       const slides = Array.isArray(args.slides) ? args.slides : [];
       if (slides.length < MIN_SLIDES) {

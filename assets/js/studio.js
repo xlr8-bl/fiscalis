@@ -2713,6 +2713,7 @@ async function viewAccounts() {
   const tt = state.tiktok;
   const free = state.drawing?.provider !== 'gemini';
   const viaBuffer = state.posting?.route !== 'direct';
+  const wide = state.agent?.scope === 'everything';
   const line = (label, ok, detail) =>
     `<div><dt>${escapeHtml(label)}</dt><dd>${ok ? '' : 'Not connected'}${
       escapeHtml(detail || '')}</dd></div>`;
@@ -2750,15 +2751,10 @@ async function viewAccounts() {
      <p class="st-note u-text-style-main">Buffer holds the connections and posts under
        its own apps, so nothing here needs TikTok's posting API. Direct needs TikTok to
        have approved an application for it, which they grant on a commercial use case.</p>
-     <div class="st-field">
-       <label class="st-label u-text-style-main" for="post-road">Post through</label>
-       <select class="st-input" id="post-road" data-f="post_route">
-         <option value="buffer"${viaBuffer ? ' selected' : ''}
-           >Buffer — one account, both platforms</option>
-         <option value="direct"${viaBuffer ? '' : ' selected'}
-           >Direct — the platform APIs, one app each</option>
-       </select>
-     </div>
+     <p class="st-note u-text-style-main">Going through <strong>${
+       viaBuffer ? 'Buffer' : 'the platform APIs'}</strong>. Settings, How posts go
+       out, changes it — and Settings, What Spark can do, is where the picture path
+       and Spark's tool list live.</p>
      ${viaBuffer && !state.posting?.buffer_key
        ? `<p class="st-note u-text-style-main">BUFFER_API_KEY is not set on this
           deployment, so nothing can go out. Add it under Settings, Variables and
@@ -2934,10 +2930,6 @@ async function viewAccounts() {
     const how = $('#draw-how', host);
     if (how && how.value && how.value !== state.drawing?.provider) {
       body.draw_provider = how.value;
-    }
-    const road = $('#post-road', host);
-    if (road && road.value && road.value !== state.posting?.route) {
-      body.post_route = road.value;
     }
     // the checkbox is a state rather than a value, so it is sent whenever
     // it disagrees with what is stored — including when it is turned off

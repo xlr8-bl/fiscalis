@@ -116,13 +116,18 @@ const made = [];
    full surface is the point: the tools still exist, they are only out of
    reach, and a change that broke one would otherwise go unnoticed until
    somebody switched the setting. */
-const setScope = async (value) => {
+const setting = async (key, value) => {
   await fetch(`${BASE}/api/studio/content/settings`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json', cookie: globalThis.__cookie },
-    body: JSON.stringify({ 'agent.scope': value }),
+    body: JSON.stringify({ [key]: value }),
   });
 };
+const setScope = (value) => setting('agent.scope', value);
+/* plan_carousel refuses unless the older picture path is deliberately
+   switched on, so the block that drives it turns it on and off again.
+   The refusal itself is checked before that, with it off. */
+const setPicturePath = (on) => setting('agent.picture_path', on ? '1' : '0');
 const widened = async (fn) => {
   await setScope('everything');
   try { await fn(); } finally { await setScope('carousel'); }
@@ -431,6 +436,24 @@ await step('the brief hands over the voice, not just the pillars', async () => {
  */
 await setScope('everything');
 
+await step('the older picture path is refused until a person turns it on', async () => {
+  /* Out of the default tool scope was not enough: on a deployment whose
+     scope is `everything` it is still listed, and Spark reached for it
+     and filed a carousel nothing could draw. A refusal holds where a
+     description did not. */
+  await setPicturePath(false);
+  const r = await call('plan_carousel', {
+    title: 'The old way',
+    slides: [{ kind: 'hook', copy: 'a' }, { kind: 'slide', copy: 'b' }],
+  });
+  is(r.body.result.isError, true, 'isError');
+  const said = r.body.result.content.map((c) => c.text).join(' ');
+  if (!/teach_carousel/.test(said)) throw new Error(said);
+  if (!/older path/.test(said)) throw new Error(said);
+});
+
+await setPicturePath(true);
+
 await step('off-voice copy is named the moment a plan is filed', async () => {
   const out = structured(await call('plan_carousel', {
     title: 'Our seamless solutions',
@@ -621,6 +644,7 @@ await step('once a person approves it, Spark cannot touch it', async () => {
   is(h.body.result.isError, true, 'handing over an approved carousel');
 });
 
+await setPicturePath(false);
 await setScope('carousel');
 
 /* -------------------------------------------------- the kit, and the numbers */

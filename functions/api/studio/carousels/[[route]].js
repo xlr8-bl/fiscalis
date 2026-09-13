@@ -242,8 +242,9 @@ async function route({ request, env, params }) {
           /* Which road a post takes. Only ever one of the two names: a
              typo here would fall through to the default and post down a
              road nobody chose. */
-          'post.route': body.post_route === 'direct' ? 'direct'
-            : body.post_route === 'buffer' ? 'buffer' : undefined,
+          /* post.route, agent.scope and agent.picture_path are NOT here.
+             They live in Settings, which already had a screen for them,
+             and two places to set one value is a bug waiting to happen. */
           'tiktok.token': body.tiktok_token,
           'tiktok.refresh_token': body.tiktok_refresh_token,
           // which TikTok client to act as. Kept here rather than in the
