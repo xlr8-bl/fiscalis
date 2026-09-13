@@ -196,9 +196,19 @@ ok('the SET carries an instruction, and not every slide does', () => {
      carousel, which the sign-off guarantees; a DO THIS: panel on a
      teaching panel is now refused by name. */
   const tool = TOOLS.find((t) => t.name === 'teach_carousel');
-  const req = tool.inputSchema.properties.slides.items.required;
-  assert.ok(!req.includes('action'), 'action is still required on every slide');
-  assert.ok(req.includes('template'), 'template is not required');
+  const slide = tool.inputSchema.properties.slides.items;
+  assert.ok(!(slide.required ?? []).includes('action'),
+            'action is still required on every slide');
+  /* `template` used to be required, which made a hook SHEET impossible to
+     express: the validator demanded slide one be a sheet and the schema
+     had no `hook` field at all, so there was no shape that satisfied
+     both. One run spent its whole budget on that and filed a carousel
+     with no slides. Nothing is required now; a slide is one or the other
+     and the validator names whichever is missing. */
+  assert.ok(slide.properties.hook, 'a slide cannot be a hook sheet');
+  assert.ok(slide.properties.template, 'a slide cannot be a template');
+  assert.ok(!(slide.required ?? []).includes('template'),
+            'template is required again, which makes a hook sheet unexpressible');
 
   const asking = TEMPLATE_NAMES.filter((n) => TEMPLATES[n].blocks.includes('action'));
   assert.ok(asking.length < TEMPLATE_NAMES.length / 2,

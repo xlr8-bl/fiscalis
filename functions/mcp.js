@@ -26,7 +26,7 @@ import {
 import { timingSafeEqual } from '../lib/auth.js';
 import { readToken, resourceUri, SCOPE } from '../lib/oauth.js';
 import { SITE } from '../lib/templates.js';
-import { fileTeaching, planTeaching, designBrief, planDesign, fileDesign, designQueue, designStatus,
+import { fileTeaching, checkTeaching, planTeaching, designBrief, planDesign, fileDesign, designQueue, designStatus,
          hasDesignColumns, MIGRATION_MESSAGE } from '../lib/designer.js';
 import {
   brief, agentQueue, getCarousel, listCarousels, setSlides,
@@ -511,6 +511,15 @@ async function runTool(name, args, env) {
       }
 
       if (!(await hasDesignColumns(env))) return toolFailed(MIGRATION_MESSAGE);
+
+      /* Every rule BEFORE the row is created. The insert used to come
+         first and fileTeaching could still refuse — on the hook sheet, or
+         on a repeat — so each failed attempt left a carousel with no
+         slides under it. */
+      const shaped = await checkTeaching(env, { slides, topic: args.topic, title });
+      if (!shaped.ok) {
+        return toolFailed(`This carousel cannot be drawn:\n- ${shaped.errors.join('\n- ')}`);
+      }
 
       const slug = await uniqueSlug(db, args.slug || title);
       await db

@@ -97,8 +97,13 @@ await okAsync('and the two together, which is the real opening cost', async () =
 console.log('\nwhat a retry costs\n');
 
 ok('the schema paid again on every refused call', () => {
+  /* It grew by the hook sheets' fifty slot names, which is what makes a
+     sheet expressible at all — the schema had no `hook` field and
+     required `template`, so slide one could not be written and one run
+     spent its whole budget discovering that. The names are bare: a
+     description on each would be the same sentence fifty times. */
   const teach = toolsFor('carousel').find((t) => t.name === 'teach_carousel');
-  under('teach_carousel', size(teach), 5_800);
+  under('teach_carousel', size(teach), 7_500);
 });
 
 await okAsync('the design brief, which is the OTHER engine and had this one inside it', async () => {

@@ -62,6 +62,10 @@ export const hookCatalogue = (only = null) => CHOSEN.map((id) => {
   };
 }).filter(Boolean);
 
+/** Every slot name any chosen sheet takes, so a schema can accept them. */
+export const HOOK_SLOTS = [...new Set(
+  hookCatalogue().flatMap((h) => h.slots.map((s) => s.name)))].sort();
+
 /** One line a sheet, for choosing without reading all twelve. */
 export const hookIndex = () => Object.fromEntries(
   hookCatalogue().map((h) => [h.id, h.does]));
