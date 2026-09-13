@@ -132,6 +132,29 @@ await okAsync('naming a designed slide by position does not force it either', as
   assert.equal(drew.length, 0, 'asking by position reached the model');
 });
 
+console.log('\nand the fork is not offered at all\n');
+
+await okAsync('the image-model path is out of the default scope', async () => {
+  /* Spark was told which path was the old one and called it anyway,
+     which is this project's one recurring lesson. Out of scope is the
+     refusal. Neither tool is deleted: both answer under `everything`. */
+  const { CAROUSEL_TOOLS, TOOLS } = await import('../lib/mcp.js');
+  for (const gone of ['plan_carousel', 'draw']) {
+    assert.ok(!CAROUSEL_TOOLS.includes(gone), `${gone} is still in the default scope`);
+    assert.ok(TOOLS.some((t) => t.name === gone), `${gone} was deleted rather than moved`);
+  }
+  // and the one road is still there
+  assert.ok(CAROUSEL_TOOLS.includes('teach_carousel'));
+  assert.ok(CAROUSEL_TOOLS.includes('hand_over'));
+});
+
+await okAsync('and nothing tells Spark to take it', async () => {
+  const { INSTRUCTIONS } = await import('../lib/mcp.js');
+  assert.ok(!/plan_carousel then draw/.test(INSTRUCTIONS),
+            'the instructions still advertise the older path');
+  assert.match(INSTRUCTIONS, /ONE road/);
+});
+
 console.log(bad
   ? `\n${bad} failed`
   : '\na measured panel is never handed to an image model');

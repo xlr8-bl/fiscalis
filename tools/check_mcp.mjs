@@ -248,7 +248,7 @@ await step('tools/list describes every tool with a schema', async () => {
   is(names.join(','),
      'add_reference,brief,capture_page,check_posting,deliver_slide,design_brief,'
      + 'design_carousel,'
-     + 'design_status,draw,hand_over,list_carousels,next_carousel,plan_carousel,'
+     + 'design_status,hand_over,list_carousels,next_carousel,'
      + 'progress,queue,teach_carousel,template',
      'the tool set');
 });
@@ -421,6 +421,16 @@ await step('the brief hands over the voice, not just the pillars', async () => {
   if (!b.anchors?.length) throw new Error('no anchor rotation');
 });
 
+/*
+ * Everything from here to "once a person approves it" builds its
+ * fixtures with plan_carousel, which is the path from before the
+ * templates and is out of the default scope now. The tools still exist
+ * and still have to work, so the scope is widened for the block and put
+ * back after it — the same thing `widened` does, as a bracket rather
+ * than a wrapper because the fixtures carry across steps.
+ */
+await setScope('everything');
+
 await step('off-voice copy is named the moment a plan is filed', async () => {
   const out = structured(await call('plan_carousel', {
     title: 'Our seamless solutions',
@@ -591,6 +601,8 @@ await step('once a person approves it, Spark cannot touch it', async () => {
   const h = await call('hand_over', { carousel: slug });
   is(h.body.result.isError, true, 'handing over an approved carousel');
 });
+
+await setScope('carousel');
 
 /* -------------------------------------------------- the kit, and the numbers */
 
