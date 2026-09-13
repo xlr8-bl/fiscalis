@@ -56,6 +56,7 @@ import { postingRoute } from '../../../../lib/buffer.js';
 import { refreshStats, storedStats } from '../../../../lib/insights.js';
 import { progress } from '../../../../lib/progress.js';
 import { drawCarousel } from '../../../../lib/draw.js';
+import { NO_AI } from '../../../../lib/paint.js';
 import { apiKey, imageModel, drawProvider } from '../../../../lib/imagen.js';
 
 const MAX_FIELD = 400;
@@ -607,10 +608,7 @@ async function route({ request, env, params }) {
       }
       ({ model } = await imageModel(env.DB, env, { getSetting }));
     } else if (!env.AI) {
-      return json({
-        error: 'Workers AI is not bound on this deployment yet. It arrives with the '
-             + 'next deploy, or switch to Google under Social, Accounts.',
-      }, 503);
+      return json({ error: NO_AI }, 503);
     }
 
     const out = await drawCarousel({ ...env, SITE }, slug, {

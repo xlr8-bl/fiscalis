@@ -538,7 +538,12 @@ await step('draw names what is missing rather than half-drawing', async () => {
   is(r.body.result.isError, true, 'isError');
   const said = r.body.result.content.map((c) => c.text).join(' ');
   if (!/Workers AI is not bound|API key/i.test(said)) throw new Error(said);
-  if (!/studio|deploys/i.test(said)) throw new Error(`does not say who fixes it: ${said}`);
+  /* Matched on the meaning rather than on a word that happened to be in
+     the old sentence: what matters is that the agent is told a PERSON
+     does this, so it stops rather than trying to route around it. */
+  if (!/A person does that; you cannot|studio/i.test(said)) {
+    throw new Error(`does not say who fixes it: ${said}`);
+  }
   // and never silently: an empty error is the failure this guards against
   if (said.trim().length < 20) throw new Error(`too terse to act on: ${said}`);
 });

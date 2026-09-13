@@ -99,9 +99,13 @@ await step('a stream is read as well as a base64 string', async () => {
 });
 
 await step('no binding is said plainly, not thrown', async () => {
+  /* This used to require the word "wrangler" in the message, which is
+     what kept the wrong instruction alive: the message said to put the
+     binding in wrangler.toml, a test insisted on it, and doing it breaks
+     every local run. What the message has to contain is checked below,
+     against where the binding actually goes. */
   const out = await paint.paintGround({}, { slide });
   if (!/not bound/i.test(out.error)) throw new Error(out.error);
-  if (!/wrangler/i.test(out.error)) throw new Error('does not say how to fix it');
 });
 
 await step('running out of the free allowance says so, and that it resets', async () => {
@@ -183,6 +187,39 @@ await step('the typeset frame is the frame the platforms take', async () => {
   // and it is the same frame imagen.js asks Google for, so approval has
   // one shape to check rather than one per path
   is(`${WIDTH}x${HEIGHT}`, '1024x1280', 'the frame');
+});
+
+await step('with no binding it says what to do, and not the thing that breaks it', async () => {
+  /* The message used to say "add an [ai] binding to wrangler.toml",
+     which is the one thing that must NOT be done: Workers AI has no
+     local implementation, so declaring it there makes `wrangler pages
+     dev` open a remote proxy session and every local run and every
+     check suite dies at startup. A refusal that gives instructions has
+     to give ones that work. */
+  const out = await paint.paintGround({}, { slide: { ground: 'ink' } });
+  if (!out.error) throw new Error('it drew something with no binding');
+  if (/wrangler\.toml/.test(out.error)) {
+    throw new Error('it tells you to put the binding in wrangler.toml again');
+  }
+  // and it names where the binding actually goes, or it is a dead end
+  for (const want of [/Settings/, /Functions/, /Bindings/, /NEW deployment/]) {
+    if (!want.test(out.error)) throw new Error(`the message does not say ${want}`);
+  }
+  // and the other way out, for somebody who would rather not
+  if (!/Google/.test(out.error)) throw new Error('it does not mention the paid path');
+});
+
+/* Said in three places once, and one of them was wrong. One constant
+   now, so they cannot drift apart again. */
+await step('and every caller says the same thing', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const f of ['functions/mcp.js', 'functions/api/studio/carousels/[[route]].js']) {
+    const src = readFileSync(f, 'utf8');
+    if (!/NO_AI/.test(src)) throw new Error(`${f} does not use the shared message`);
+    if (/Workers AI is not bound[^`']*wrangler/.test(src)) {
+      throw new Error(`${f} has its own copy`);
+    }
+  }
 });
 
 console.log(

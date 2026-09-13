@@ -47,6 +47,7 @@ import { capture } from '../lib/shots.js';
 import { progress } from '../lib/progress.js';
 import { refreshStats } from '../lib/insights.js';
 import { drawCarousel } from '../lib/draw.js';
+import { NO_AI } from '../lib/paint.js';
 import { apiKey, imageModel, drawProvider } from '../lib/imagen.js';
 import { getSetting } from '../lib/tokens.js';
 import {
@@ -331,10 +332,10 @@ async function runTool(name, args, env) {
         }
         ({ model } = await imageModel(db, env, { getSetting }));
       } else if (!env.AI) {
-        return toolFailed(
-          'Workers AI is not bound on this deployment, so nothing can be drawn. '
-          + 'A person deploys it, or switches to Google in the studio.'
-        );
+        /* The agent cannot fix this and must not try to draw around it,
+           so it is told what a person has to do rather than only that it
+           failed. */
+        return toolFailed(`${NO_AI} A person does that; you cannot.`);
       }
 
       const out = await drawCarousel({ ...env, SITE }, clean(args.carousel, 120), {
