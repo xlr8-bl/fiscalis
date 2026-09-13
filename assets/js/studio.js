@@ -2164,12 +2164,18 @@ function paintCarouselActions(host) {
        "Draw the slides" for one sent it to the image generator instead,
        which answered "Workers AI is not bound" for a carousel that never
        needed an image model at all. */
+    /* ANY, not EVERY. It asked whether every owed slide carried a
+       design, so one slide that did not — a slide Spark filed without
+       one, a panel that failed — sent the whole carousel to the image
+       model and answered "Workers AI is not bound" for five panels that
+       only needed the canvas. The canvas is free and cannot spoil
+       anything, so it goes first and the remainder is offered after. */
     const owed = c.slides.filter((s) => s.state !== 'ready');
-    acts.push(owed.every((s) => s.needs_design)
-      ? ['Draw the panels', drawTheDesigns]
-      : owed.every((s) => s.needs_type || s.state === 'ready')
-        ? ['Set the type', setTheType]
-        : ['Draw the slides', drawSlides]);
+    const designed = owed.filter((s) => s.needs_design);
+    const typed = owed.filter((s) => s.needs_type);
+    acts.push(designed.length ? ['Draw the panels', drawTheDesigns]
+      : typed.length ? ['Set the type', setTheType]
+      : ['Draw the slides', drawSlides]);
   }
   if (readyToApprove.includes(c.status) && !blocked) {
     acts.push(['Approve it', () => move('approved')]);
@@ -2220,6 +2226,28 @@ function paintCarouselActions(host) {
     p.textContent = c.scheduled_for
       ? 'Its slot has passed. Nothing posts on its own; press one of the two post buttons.'
       : 'Due now. Nothing posts on its own; press one of the two post buttons.';
+    host.append(p);
+  }
+
+  /* What each undrawn slide is waiting for, by name.
+     "Workers AI is not bound" on a carousel of teaching panels was
+     impossible to read: it named a thing that carousel had nothing to do
+     with, and there was no way to see WHICH slide had asked for it. */
+  const owed = c.slides.filter((s) => s.state !== 'ready');
+  if (owed.length) {
+    const wants = (s) => (s.needs_design
+      ? 'a panel, drawn here on the canvas'
+      : s.needs_type
+        ? 'the type set over a background already drawn'
+        : 'a picture from the image model, which this one has no design for');
+    const odd = owed.filter((s) => !s.needs_design && !s.needs_type);
+    const p = document.createElement('p');
+    p.className = 'st-note u-text-style-main';
+    p.textContent = odd.length && odd.length < owed.length
+      ? `${owed.length - odd.length} slide(s) want the canvas and ${odd.length} `
+        + `want an image model: ${odd.map((s) => s.position + 1).join(', ')}. `
+        + 'Draw the panels first; the rest stay as they are.'
+      : owed.map((s) => `Slide ${s.position + 1} wants ${wants(s)}.`).join(' ');
     host.append(p);
   }
 
