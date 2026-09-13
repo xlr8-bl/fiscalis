@@ -124,10 +124,11 @@ const setting = async (key, value) => {
   });
 };
 const setScope = (value) => setting('agent.scope', value);
-/* plan_carousel refuses unless the older picture path is deliberately
-   switched on, so the block that drives it turns it on and off again.
-   The refusal itself is checked before that, with it off. */
-const setPicturePath = (on) => setting('agent.picture_path', on ? '1' : '0');
+/* plan_carousel and design_carousel refuse unless the older engines are
+   deliberately switched on, so the block that drives them turns the
+   setting on and off again. The refusals themselves are checked before
+   that, with it off. */
+const setPicturePath = (on) => setting('agent.other_engines', on ? '1' : '0');
 const widened = async (fn) => {
   await setScope('everything');
   try { await fn(); } finally { await setScope('carousel'); }
@@ -251,9 +252,8 @@ await step('tools/list describes every tool with a schema', async () => {
      somebody wrote. */
   const names = tools.map((t) => t.name).sort();
   is(names.join(','),
-     'add_reference,brief,capture_page,check_posting,deliver_slide,design_brief,'
-     + 'design_carousel,'
-     + 'design_status,hand_over,list_carousels,next_carousel,'
+     'add_reference,brief,capture_page,check_posting,deliver_slide,'
+     + 'hand_over,list_carousels,next_carousel,'
      + 'progress,queue,teach_carousel,template',
      'the tool set');
 });
@@ -281,8 +281,8 @@ await step('every tool is annotated, and honestly', async () => {
   const byName = Object.fromEntries(tools.map((t) => [t.name, t.annotations]));
   is(byName.brief.readOnlyHint, true, 'brief is read-only');
   is(byName.next_carousel.readOnlyHint, true, 'the work order only reads');
-  is(byName.design_carousel.destructiveHint, false, 'filing a design is additive');
-  is(byName.design_status.readOnlyHint, true, 'design_status is read-only');
+  is(byName.teach_carousel.readOnlyHint, true, 'filing a teaching carousel only reads');
+  is(byName.template.readOnlyHint, true, 'template is read-only');
 });
 
 await step('making a carousel asks the account holder for nothing', async () => {
@@ -293,6 +293,13 @@ await step('making a carousel asks the account holder for nothing', async () => 
   const asks = tools.filter((t) => t.annotations?.readOnlyHint !== true);
   if (asks.length) throw new Error(`these prompt: ${asks.map((t) => t.name).join(', ')}`);
 });
+
+/* The design engine is out of the default scope and refused behind a
+   setting, because Spark used it to make a whole set that rendered
+   perfectly and was not the templates. It still has to work when
+   somebody opens it, so the three checks below open it and shut it. */
+await setScope('everything');
+await setting('agent.other_engines', '1');
 
 await step('the design tools describe what can actually be made', async () => {
   const r = await call('design_brief', {});
@@ -336,6 +343,9 @@ await step('a good design spec comes back with its plan and files nothing on che
     if (!p.device || !p.ground) throw new Error('a planned panel has no device or ground');
   }
 });
+
+await setting('agent.other_engines', '0');
+await setScope('carousel');
 
 await step('nothing can approve, schedule or delete a carousel', async () => {
   const names = (await modern('tools/list')).body.result.tools.map((t) => t.name);
@@ -436,20 +446,24 @@ await step('the brief hands over the voice, not just the pillars', async () => {
  */
 await setScope('everything');
 
-await step('the older picture path is refused until a person turns it on', async () => {
+await step('both other engines are refused until a person turns them on', async () => {
   /* Out of the default tool scope was not enough: on a deployment whose
-     scope is `everything` it is still listed, and Spark reached for it
-     and filed a carousel nothing could draw. A refusal holds where a
-     description did not. */
+     scope is `everything` they are still listed, and Spark called them —
+     plan_carousel once, then design_carousel, which drew a whole set
+     that rendered perfectly and was not the templates at all. */
   await setPicturePath(false);
-  const r = await call('plan_carousel', {
-    title: 'The old way',
-    slides: [{ kind: 'hook', copy: 'a' }, { kind: 'slide', copy: 'b' }],
-  });
-  is(r.body.result.isError, true, 'isError');
-  const said = r.body.result.content.map((c) => c.text).join(' ');
-  if (!/teach_carousel/.test(said)) throw new Error(said);
-  if (!/older path/.test(said)) throw new Error(said);
+  for (const [tool, args] of [
+    ['plan_carousel', { title: 'The old way',
+      slides: [{ kind: 'hook', copy: 'a' }, { kind: 'slide', copy: 'b' }] }],
+    ['design_carousel', { title: 'The other way',
+      panels: [{ setup: 'a', payoff: ['b'] }, { setup: 'c', payoff: ['d'] }] }],
+  ]) {
+    const r = await call(tool, args);
+    is(r.body.result.isError, true, `${tool} isError`);
+    const said = r.body.result.content.map((c) => c.text).join(' ');
+    if (!/teach_carousel/.test(said)) throw new Error(`${tool}: ${said}`);
+    if (!/switched off/.test(said)) throw new Error(`${tool}: ${said}`);
+  }
 });
 
 await setPicturePath(true);

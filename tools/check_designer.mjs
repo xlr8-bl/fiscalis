@@ -187,12 +187,16 @@ console.log('\nthe instructions');
      /do not design a slide yourself/i.test(INSTRUCTIONS));
   ok('the agent is told not to render in a canvas',
      /canvas/i.test(INSTRUCTIONS));
-  /* It used to be "the usual path". The usual path is next_carousel and a
-     hook sheet now; design_carousel is the one for a set of designed
-     panels with no sheet, and the instructions have to say which is
-     which or the agent picks by whichever it read last. */
-  ok('design_carousel is named, and named as the panel path',
-     /design_carousel/.test(INSTRUCTIONS) && /DESIGNED PANELS/i.test(INSTRUCTIONS));
+  /* This used to require the opposite: that INSTRUCTIONS name
+     design_carousel as the path for a set of designed panels. It did, four
+     paragraphs above where it also said there was ONE road — and Spark
+     took the one it read, filing a whole set of setup-and-payoff panels
+     on device mockups that rendered perfectly and were not the templates.
+     Offering two roads and calling it one is not guidance. */
+  ok('the instructions offer one road and do not name a second',
+     !/design_carousel/.test(INSTRUCTIONS) && /ONE road/.test(INSTRUCTIONS));
+  ok('and teach_carousel is the one they name',
+     /teach_carousel/.test(INSTRUCTIONS));
   ok('and next_carousel is named as where to start',
      /next_carousel/.test(INSTRUCTIONS) && /THIS IS THE WHOLE JOB/i.test(INSTRUCTIONS));
 }
