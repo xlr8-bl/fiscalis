@@ -57,7 +57,6 @@ import { refreshStats, storedStats } from '../../../../lib/insights.js';
 import { progress } from '../../../../lib/progress.js';
 import { drawCarousel } from '../../../../lib/draw.js';
 import { apiKey, imageModel, drawProvider } from '../../../../lib/imagen.js';
-import { getSetting } from '../../../../lib/tokens.js';
 
 const MAX_FIELD = 400;
 const MAX_TEXT = 8_000;

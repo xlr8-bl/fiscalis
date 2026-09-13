@@ -2716,6 +2716,8 @@ async function viewAccounts() {
                 : '')}
      </dl>
 
+     <p class="st-note u-text-style-main" data-acc-build>Checking which build this is…</p>
+
      <h2 class="st-h2">How posts go out</h2>
      <p class="st-note u-text-style-main">Buffer holds the connections and posts under
        its own apps, so nothing here needs TikTok's posting API. Direct needs TikTok to
@@ -2920,6 +2922,28 @@ async function viewAccounts() {
       await viewAccounts();
     } catch (e) { say(e.message, 'err'); }
   });
+
+  /* Which build is live, said on the screen rather than worked out from
+     whether a message changed. A deployment that is behind looks exactly
+     like a fix that did not work. */
+  (async () => {
+    const into = $('[data-acc-build]', host);
+    if (!into) return;
+    try {
+      const res = await fetch('/api/version', { cache: 'no-store' });
+      if (!res.ok) throw new Error(String(res.status));
+      const v = await res.json();
+      into.textContent = v.from_git
+        ? `Running commit ${v.short} on ${v.branch}. If that is behind the branch, `
+          + 'this deployment is stale: make a new deployment rather than retrying '
+          + 'an old one, which rebuilds the same commit.'
+        : 'This deployment did not come from git, so pushing will never update it.';
+    } catch {
+      // the endpoint itself is new, so its absence is the answer
+      into.textContent = 'This build has no /api/version, which means it predates '
+        + 'that endpoint. Whatever is live is older than it looks.';
+    }
+  })();
 
   $('[data-acc-check]', host).addEventListener('click', async () => {
     const into = $('[data-acc-checks]', host);
