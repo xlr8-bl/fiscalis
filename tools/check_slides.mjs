@@ -12,10 +12,11 @@
  */
 import assert from 'node:assert';
 import { validateSlides, PER_LINE, LIMITS, RECAP_MAX } from '../lib/slides/spec.js';
-import { TEMPLATES, TEMPLATE_NAMES, BLOCKS, SLIDE_GROUND_NAMES, M, recapPitch } from '../assets/js/slides.js';
+import { TEMPLATES, TEMPLATE_NAMES, BLOCKS, SLIDE_GROUND_NAMES, M, recapPitch,
+         slideCatalogue } from '../assets/js/slides.js';
 import { ICON_NAMES, ICONS, PIXEL_NAMES, iconUrl, packOf, WHICH_PACK } from '../assets/js/icons.js';
 import { EXAMPLE_SLIDES } from '../lib/slides/examples.js';
-import { slideGuide, probeSlide } from '../lib/slides/guide.js';
+import { slideGuide, probeSlide, TEMPLATE_GUIDE, TEMPLATE_INDEX } from '../lib/slides/guide.js';
 import { CUTOUTS, placementOf } from '../assets/js/cutouts.js';
 import { designBrief } from '../lib/designer.js';
 import { TOOLS } from '../lib/mcp.js';
@@ -154,13 +155,27 @@ ok('the characters-a-line figures are wrapped ones, not average advance', () => 
   assert.ok(PER_LINE.action <= 36.5, `action is ${PER_LINE.action}; average advance was 40.5`);
 });
 
-ok('the brief tells Spark about the templates, and names the tool', () => {
+ok('the design brief points at the teaching engine rather than containing it', () => {
+  /* It used to inline the catalogue and the whole guide, which made one
+     tool call 86KB and was where the carousels were timing out. The
+     choice between the engines still belongs here; what follows the
+     choice belongs to next_carousel. */
   const b = designBrief();
   assert.ok(b.teaching, 'no teaching section in the brief');
   assert.equal(b.teaching.tool, 'teach_carousel');
-  assert.equal(b.teaching.templates.length, TEMPLATE_NAMES.length);
-  for (const t of b.teaching.templates) assert.ok(t.what, `${t.name} has no description`);
-  for (const i of b.teaching.icons) assert.ok(i.means, `${i.name} has no meaning`);
+  assert.match(b.teaching.then, /next_carousel/);
+  assert.ok(!b.teaching.templates, 'the catalogue is inlined again');
+  assert.ok(!b.teaching.guide, 'the guide is inlined again');
+  assert.ok(JSON.stringify(b).length < 5000, `the design brief is ${JSON.stringify(b).length} bytes`);
+});
+
+ok('and every template still says what it is for, where they now live', () => {
+  const named = TEMPLATE_INDEX();
+  assert.equal(Object.keys(named).length, TEMPLATE_NAMES.length);
+  for (const [name, forWhat] of Object.entries(named)) {
+    assert.ok(forWhat, `${name} has no "for"`);
+  }
+  for (const t of TEMPLATE_GUIDE()) assert.ok(t.what, `${t.name} has no description`);
 });
 
 ok('the tool has no coordinate in it anywhere', () => {
@@ -240,7 +255,8 @@ ok('the packs sum, no name collides, and the brief agrees', () => {
   const both = PIXEL_NAMES.filter((n) => n in ICONS);
   assert.equal(both.length, 0, `these names are in both packs: ${both.join(', ')}`);
   for (const n of PIXEL_NAMES) assert.match(iconUrl(n), /\/pixel\//);
-  assert.equal(designBrief().teaching.icons.length, ICON_NAMES.length);
+  assert.equal(slideCatalogue().icons.length, ICON_NAMES.length);
+  for (const i of slideCatalogue().icons) assert.ok(i.means, `${i.name} has no meaning`);
 });
 
 ok('the guide\'s room figures come from the validator, not from a second sum', () => {
@@ -390,7 +406,7 @@ ok('a first slide that labels a topic instead of naming a thing is refused', () 
     assert.ok(opener(good).ok, `"${good}" was refused`);
   }
   // and the refusal points at where the examples are
-  assert.match(opener('Leads going nowhere').problems.join(' '), /design_brief/);
+  assert.match(opener('Leads going nowhere').problems.join(' '), /the work order/);
 });
 
 ok('a hook sheet is held to the same rules the rest of the set is', () => {
@@ -455,7 +471,7 @@ ok('two of one arrangement back to back is refused', () => {
   const same = validateSlides({ slides: [base(), base(), so] });
   assert.ok(!same.ok);
   assert.match(same.problems.join(' '), /Slides 1 and 2 are both "reasons"/);
-  assert.match(same.problems.join(' '), /picking_one/);
+  assert.match(same.problems.join(' '), /the_other_templates/);
 
   const varied = validateSlides({
     slides: [base(), { ...base(), template: 'proof' }, so] });

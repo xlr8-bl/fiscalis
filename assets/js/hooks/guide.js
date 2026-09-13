@@ -37,9 +37,9 @@ const artOf = (spec) => {
  * and the type comes out smaller than the sheet was designed at. A `wrap`
  * slot flows inside its box, so its number is the whole box.
  */
-export const hookCatalogue = () => CHOSEN.map((id) => {
+export const hookCatalogue = (only = null) => CHOSEN.map((id) => {
   const spec = LAYOUTS[id];
-  if (!spec) return null;
+  if (!spec || (only && !only.includes(id))) return null;
   const budgets = HOOK_BUDGETS[id] ?? {};
   return {
     id,
@@ -54,11 +54,17 @@ export const hookCatalogue = () => CHOSEN.map((id) => {
       name: s.id,
       wants: s.wants,
       characters: budgets[s.id] ?? null,
-      sets: s.fit === 'wrap' ? 'wraps inside its box'
-        : 'one line, shrunk to fit — the number is a hard ceiling',
+      /* `sets` said the same two sentences on every slot of every sheet,
+         which is most of a catalogue nobody reads twice. Said once in
+         `what_the_numbers_mean` instead. */
+      wraps: s.fit === 'wrap',
     })),
   };
 }).filter(Boolean);
+
+/** One line a sheet, for choosing without reading all twelve. */
+export const hookIndex = () => Object.fromEntries(
+  hookCatalogue().map((h) => [h.id, h.does]));
 
 export const HOW_TO_USE_A_HOOK = {
   what_it_is:
@@ -76,6 +82,12 @@ export const HOW_TO_USE_A_HOOK = {
     + 'something else.',
     'Do not use the same sheet twice in a week. The set has twelve.',
   ],
+
+  what_the_numbers_mean: {
+    wraps_true: 'The slot flows inside its box, so `characters` is the whole box.',
+    wraps_false: 'One line, shrunk to fit, so `characters` is a hard ceiling: '
+      + 'one over and the type comes out smaller than the sheet was designed at.',
+  },
 
   the_copy: [
     'Every slot has a measured ceiling in `characters`, taken off the '

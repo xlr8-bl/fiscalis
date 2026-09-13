@@ -67,10 +67,14 @@ console.log('\nthe instructions describe this server, not an older one');
 
 console.log('\nthe brief tells the truth about what is checked');
 {
-  const rules = voiceRules();
+  /* What `checked` means is said once at the top rather than in a
+     sentence on every rule, which was a fifth of this payload. */
+  const { rules, what_checked_means: means } = voiceRules();
   ok('every voice rule comes back', Object.keys(rules).length === Object.keys(VOICE).length);
   ok('each one says whether the server will catch it',
-     Object.values(rules).every((r) => typeof r.checked === 'boolean' && r.how));
+     Object.values(rules).every((r) => typeof r.checked === 'boolean'));
+  ok('and both verdicts are explained, once',
+     /refuses/.test(means.true) && /Nothing checks it/.test(means.false));
 
   /* The map from a voice rule to the pattern that enforces it is written
      by hand, so it is the thing that rots. Every name in it has to be a
@@ -78,14 +82,12 @@ console.log('\nthe brief tells the truth about what is checked');
   const claimed = CHECKED.map((k) => rules[k]);
   ok('nothing claims to be checked that is not', claimed.every(Boolean));
   for (const k of CHECKED) {
-    const named = /trips "([^"]+)"/.exec(rules[k].how)?.[1];
-    ok(`the rule behind "${k}" is a real one`, RULE_NAMES.includes(named), named);
+    ok(`the rule behind "${k}" is a real one`,
+       RULE_NAMES.includes(rules[k].caught_as), rules[k].caught_as);
   }
 
-  const unchecked = Object.entries(rules).filter(([, r]) => !r.checked).map(([k]) => k);
-  ok('and the unchecked ones say so plainly, rather than staying quiet',
-     unchecked.every((k) => /Nothing checks this/.test(rules[k].how)),
-     unchecked.join(', '));
+  ok('and an unchecked rule does not claim a pattern it has not got',
+     Object.values(rules).every((r) => r.checked || !r.caught_as));
 }
 
 console.log('\nand the checked ones are actually checked');

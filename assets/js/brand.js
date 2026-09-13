@@ -345,14 +345,24 @@ const ENFORCED = {
   banned: 'a word the spec bans',
 };
 
-export const voiceRules = () =>
-  Object.fromEntries(Object.entries(VOICE).map(([k, text]) => [k, {
-    rule: text,
-    checked: Boolean(ENFORCED[k]),
-    how: ENFORCED[k]
-      ? `The server refuses copy that trips "${ENFORCED[k]}". A refusal names the phrase.`
-      : 'Nothing checks this. It passes whether you followed it or not, so read it back yourself.',
-  }]));
+/**
+ * The two verdicts said once rather than once per rule.
+ *
+ * Each rule used to carry its own sentence explaining what `checked`
+ * meant, which is the same sentence fourteen times and about a fifth of
+ * everything the agent reads before it writes.
+ */
+export const voiceRules = () => ({
+  what_checked_means: {
+    true: 'The server refuses copy that trips it, naming the phrase. A '
+        + 'refusal costs a round trip, so it is cheaper to get right first.',
+    false: 'Nothing checks it. It passes whether you followed it or not, so '
+         + 'read it back yourself.',
+  },
+  rules: Object.fromEntries(Object.entries(VOICE).map(([k, text]) => [k, ENFORCED[k]
+    ? { rule: text, checked: true, caught_as: ENFORCED[k] }
+    : { rule: text, checked: false }])),
+});
 
 export const CHECKED = Object.keys(ENFORCED);
 export const RULE_NAMES = RULES.map((r) => r[0]);

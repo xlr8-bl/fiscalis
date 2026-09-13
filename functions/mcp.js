@@ -40,6 +40,8 @@ import { writingPlan, setWritingPlan, inWords, recurrence, finishRun } from '../
 import { runDue } from '../lib/publish.js';
 import { preflight, preflightAccounts } from '../lib/preflight.js';
 import { workOrder } from '../lib/workorder.js';
+import { TEMPLATE_GUIDE, TEMPLATE_INDEX, COMMON_FIELDS } from '../lib/slides/guide.js';
+import { hookCatalogue, hookIndex } from '../assets/js/hooks/guide.js';
 import { addReference } from '../lib/references.js';
 import { capture } from '../lib/shots.js';
 import { progress } from '../lib/progress.js';
@@ -390,6 +392,20 @@ async function runTool(name, args, env) {
 
     case 'design_brief':
       return toolResult(designBrief());
+
+    case 'template': {
+      const name = clean(args.name);
+      const [one] = TEMPLATE_GUIDE([name]);
+      if (one) return toolResult({ ...one, every_slide_also_takes: COMMON_FIELDS });
+      // a hook sheet is named the same way and asked for the same way
+      const [sheet] = hookCatalogue([name]);
+      if (sheet) return toolResult(sheet);
+      return toolResult({
+        error: `There is no template or hook sheet called "${name}".`,
+        the_templates: Object.keys(TEMPLATE_INDEX()),
+        the_hook_sheets: Object.keys(hookIndex()),
+      });
+    }
 
     case 'design_carousel': {
       const title = clean(args.title) || clean(args.topic) || 'Untitled carousel';

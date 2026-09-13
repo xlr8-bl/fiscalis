@@ -249,7 +249,7 @@ await step('tools/list describes every tool with a schema', async () => {
      'add_reference,brief,capture_page,check_posting,deliver_slide,design_brief,'
      + 'design_carousel,'
      + 'design_status,draw,hand_over,list_carousels,next_carousel,plan_carousel,'
-     + 'progress,queue,teach_carousel',
+     + 'progress,queue,teach_carousel,template',
      'the tool set');
 });
 
@@ -278,6 +278,15 @@ await step('every tool is annotated, and honestly', async () => {
   is(byName.next_carousel.readOnlyHint, true, 'the work order only reads');
   is(byName.design_carousel.destructiveHint, false, 'filing a design is additive');
   is(byName.design_status.readOnlyHint, true, 'design_status is read-only');
+});
+
+await step('making a carousel asks the account holder for nothing', async () => {
+  /* The whole point of the default scope. One tool in it that reads as
+     destructive puts a prompt in front of every carousel, and a person
+     who taps yes eleven times has stopped reading the eleventh. */
+  const tools = (await modern('tools/list')).body.result.tools;
+  const asks = tools.filter((t) => t.annotations?.readOnlyHint !== true);
+  if (asks.length) throw new Error(`these prompt: ${asks.map((t) => t.name).join(', ')}`);
 });
 
 await step('the design tools describe what can actually be made', async () => {
@@ -386,17 +395,20 @@ await step('brief returns the pillars and the kit', async () => {
 
 await step('the brief hands over the voice, not just the pillars', async () => {
   const b = structured(await call('brief'));
-  if (!b.voice?.person?.rule?.includes('never "we build"')) throw new Error('no person rule');
-  if (!b.voice?.price) throw new Error('no price rule');
-  if (!b.voice?.capability) throw new Error('no capability rule');
+  const v = b.voice?.rules ?? {};
+  if (!v.person?.rule?.includes('never "we build"')) throw new Error('no person rule');
+  if (!v.price) throw new Error('no price rule');
+  if (!v.capability) throw new Error('no capability rule');
   /* Each rule says whether the server will actually catch it. Without
      that, a clean pass reads as approval and the four rules nothing
-     checks get filed unread. */
-  if (!Object.values(b.voice).every((r) => typeof r.checked === 'boolean' && r.how)) {
+     checks get filed unread. What `checked` means is said once at the
+     top rather than on every rule. */
+  if (!Object.values(v).every((r) => typeof r.checked === 'boolean')) {
     throw new Error('a voice rule does not say whether it is enforced');
   }
-  if (b.voice.price.checked !== true) throw new Error('price is enforced and should say so');
-  if (b.voice.jargon.checked !== false) throw new Error('jargon is not machine checkable');
+  if (!b.voice?.what_checked_means?.true) throw new Error('checked is never explained');
+  if (v.price.checked !== true) throw new Error('price is enforced and should say so');
+  if (v.jargon.checked !== false) throw new Error('jargon is not machine checkable');
   if (!b.research?.needs?.length) throw new Error('no evidence standard');
   if (!b.self_check?.length) throw new Error('no self check');
   /* This asserted a fixed sign-off, and asserting it is now backwards.
