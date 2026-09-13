@@ -48,7 +48,7 @@ export const ASSERTED =
  * "01 / 04".
  */
 export const NUMBERING =
-  /\b\d{1,2}\s*(\/|of)\s*\d{1,2}\b|\bslide\s*\d|\bpart\s*\d\s*of\b|\bno\.?\s*\d{1,2}\b/i;
+  /\b\d{1,2}\s*(\/|of)\s*\d{1,2}\b|\bslide\s*\d|\bpart\s*\d\s*of\b|\bno\.?\s*\d{1,2}\b|№\s*\d+/i;
 
 /**
  * Where he is. Never named, anywhere.

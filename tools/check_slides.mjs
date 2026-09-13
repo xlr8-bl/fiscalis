@@ -564,4 +564,23 @@ ok('the guide tells Spark how to use icons and pictures, not just that they exis
   }
 });
 
+ok('a number on its own in any hook slot is refused, not just `index`', () => {
+  /* It reached a real carousel as "No 044" in a slot that was not
+     `index`, which was the only one checked. The written ban missed it
+     twice over: the numero sign is not "no." and 044 is three digits. */
+  const sheet = (over) => ({ slides: [
+    { hook: 'h004', handle: '@web3ashley', series: 'SITE CHECKS',
+      kicker: 'WHY CRAMPED SITES LOOK CHEAP', head: 'WHITE SPACE', ...over },
+    { template: 'signoff', ground: 'amber', handle: 'WEB3ASHLEY',
+      series: 'SITE CHECKS', portrait: 'phone-chair', context: 'signoff',
+      anchor: 'top', title: 'A', say: 'B', action: 'C' },
+  ] });
+  for (const [slot, value] of [['code', '\u2116 44'], ['glyph', '04'], ['lens', '044']]) {
+    const out = validateSlides(sheet({ [slot]: value }), { opener: true });
+    const said = out.problems.join(' ');
+    assert.match(said, /number on its own|never numbers itself|slide number/,
+                 `${slot}: "${value}" drew: ${said || 'no complaint at all'}`);
+  }
+});
+
 console.log(`\n${pass} checks passed\n`);
