@@ -322,20 +322,12 @@ async function runTool(name, args, env) {
       // only the paid path needs a key; the free one draws on Cloudflare
       let key = null;
       let model = null;
+      /* Resolved, not demanded: the gate that used to be here refused on
+         a missing model before drawCarousel could say the carousel did
+         not need one. */
       if (provider === 'gemini') {
         ({ key } = await apiKey(db, env, { getSetting }));
-        if (!key) {
-          return toolFailed(
-            'No Gemini API key is set, so nothing can be drawn. A person sets it in '
-            + 'the studio under Social, Accounts.'
-          );
-        }
         ({ model } = await imageModel(db, env, { getSetting }));
-      } else if (!env.AI) {
-        /* The agent cannot fix this and must not try to draw around it,
-           so it is told what a person has to do rather than only that it
-           failed. */
-        return toolFailed(`${NO_AI} A person does that; you cannot.`);
       }
 
       const out = await drawCarousel({ ...env, SITE }, clean(args.carousel, 120), {

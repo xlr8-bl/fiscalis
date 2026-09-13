@@ -599,16 +599,18 @@ async function route({ request, env, params }) {
     // Only the paid path needs a key. Asking for one before drawing on
     // Cloudflare would put a card in front of the free option, which is
     // the whole reason the free option exists.
+    /* The model is resolved but NOT demanded here.
+       This used to refuse on a missing binding before drawCarousel ran,
+       so a carousel that needed no image model at all — every teaching
+       panel — was answered with "Workers AI is not bound". The gate was
+       in front of the code that knows whether a model is wanted.
+       drawCarousel decides, and asks for the model only if it reaches a
+       slide that needs one. */
     let key = null;
     let model = null;
     if (provider === 'gemini') {
       ({ key } = await apiKey(env.DB, env, { getSetting }));
-      if (!key) {
-        return json({ error: 'No Gemini API key is set. Add it under Social, Accounts.' }, 503);
-      }
       ({ model } = await imageModel(env.DB, env, { getSetting }));
-    } else if (!env.AI) {
-      return json({ error: NO_AI }, 503);
     }
 
     const out = await drawCarousel({ ...env, SITE }, slug, {

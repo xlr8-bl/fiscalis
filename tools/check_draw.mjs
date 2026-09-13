@@ -132,6 +132,32 @@ await okAsync('naming a designed slide by position does not force it either', as
   assert.equal(drew.length, 0, 'asking by position reached the model');
 });
 
+await okAsync('a carousel made the OLD way says so, not "bind a model"', async () => {
+  /* plan_carousel stored a prompt and no arrangement, so there is no
+     canvas path for these and an image model really is the only way to
+     draw them. Naming the binding is true and useless: the answer is
+     that the carousel was made the old way. */
+  const env = fakeEnv([picture(0), picture(1)], []);
+  delete env.AI;
+  const out = await drawCarousel(env, 'the-form', { provider: 'workers' });
+  assert.equal(out.made_the_old_way, true);
+  assert.match(out.error, /older path/);
+  assert.match(out.error, /teach_carousel/);
+  assert.ok(!/Workers AI/.test(out.error), 'it leads with the binding again');
+});
+
+await okAsync('but a real picture carousel with no model does name the binding',
+  async () => {
+    /* The message is right when a model is genuinely wanted. What was
+       wrong was WHEN it was reached: the callers refused on the binding
+       before drawCarousel could say a model was not needed at all. */
+    const env = fakeEnv([picture(0), panel(1)], []);
+    delete env.AI;
+    const out = await drawCarousel(env, 'the-form', { provider: 'workers' });
+    assert.match(out.error, /Workers AI is not bound/);
+    assert.equal(out.made_the_old_way, undefined);
+  });
+
 console.log('\nand the fork is not offered at all\n');
 
 await okAsync('the image-model path is out of the default scope', async () => {

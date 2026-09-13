@@ -543,15 +543,34 @@ await step('draw names what is missing rather than half-drawing', async () => {
    * see the studio and has no authority to fix this, so the tool has to
    * say what is missing and who fixes it rather than failing vaguely or
    * drawing half a carousel.
+   *
+   * Its own carousel, with nothing delivered into it. It used to reuse
+   * the one above, whose slides the deliver_slide checks had already
+   * filled, so `draw` had nothing owed and never reached the code this
+   * is about — it was passing on a gate in the route that refused
+   * before drawCarousel ran at all, which was itself the bug that made
+   * a carousel of teaching panels ask for a Workers AI binding.
    */
-  const r = await call('draw', { carousel: slug });
+  const fresh = structured(await call('plan_carousel', {
+    title: 'Nothing drawn yet',
+    slides: [
+      { kind: 'hook', copy: 'a', prompt: 'a stopwatch' },
+      { kind: 'slide', copy: 'b', prompt: 'a phone' },
+    ],
+  }));
+  made.push(fresh.slug);
+  const r = await call('draw', { carousel: fresh.slug });
   is(r.body.result.isError, true, 'isError');
   const said = r.body.result.content.map((c) => c.text).join(' ');
-  if (!/Workers AI is not bound|API key/i.test(said)) throw new Error(said);
+  /* A plan_carousel carousel carries no arrangement, so the honest
+     answer is that it was made the old way rather than that a binding is
+     missing. Either sentence satisfies the rule this step is about: say
+     what is missing and who fixes it. */
+  if (!/older path|Workers AI is not bound|API key/i.test(said)) throw new Error(said);
   /* Matched on the meaning rather than on a word that happened to be in
      the old sentence: what matters is that the agent is told a PERSON
      does this, so it stops rather than trying to route around it. */
-  if (!/A person does that; you cannot|studio/i.test(said)) {
+  if (!/A person does that; you cannot|studio|Ask Spark to make it again/i.test(said)) {
     throw new Error(`does not say who fixes it: ${said}`);
   }
   // and never silently: an empty error is the failure this guards against
