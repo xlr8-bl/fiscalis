@@ -2177,6 +2177,7 @@ function paintCarouselActions(host) {
      post. Two buttons instead, and the slot is only for something that
      genuinely wants one. */
   if (c.status === 'approved' || c.status === 'scheduled') {
+    acts.push(['Check it first', checkThisOne]);
     acts.push(['Test on TikTok (only you see it)', () => postDirect('test')]);
     acts.push(['Post to both, publicly', () => postDirect('public')]);
     acts.push(['Send it back', () => move('changes')]);
@@ -2208,8 +2209,8 @@ function paintCarouselActions(host) {
     const p = document.createElement('p');
     p.className = 'st-note u-text-style-main';
     p.textContent = c.scheduled_for
-      ? `Its slot has passed. Nothing posts on its own — press Post it now.`
-      : 'Due now. Nothing posts on its own — press Post it now.';
+      ? 'Its slot has passed. Nothing posts on its own; press one of the two post buttons.'
+      : 'Due now. Nothing posts on its own; press one of the two post buttons.';
     host.append(p);
   }
 
@@ -2223,14 +2224,6 @@ function paintCarouselActions(host) {
   }
 }
 
-/**
- * Post what is due, from the carousel that is due.
- *
- * The same run the Accounts screen and Spark's scheduled task call. It
- * posts everything past its slot, not only this one — there is one run,
- * so there is no second implementation to drift — and then reloads this
- * carousel so the result lands where you are looking.
- */
 /**
  * Post this one, now.
  *
@@ -2285,24 +2278,28 @@ async function postDirect(visibility) {
   } catch (e) { say(e.message, 'err'); }
 }
 
-async function postNow() {
+/**
+ * The same run as posting, stopped before the post.
+ *
+ * The two post buttons cannot be taken back, and the Accounts screen's
+ * check only asks whether the credentials are live. This one asks it of
+ * this carousel: are the pictures reachable, do the words fit, will
+ * TikTok take it.
+ */
+async function checkThisOne() {
   const c = carousel;
-  say('Posting…');
+  say('Checking…');
   try {
-    const out = await api('/carousels/-/post', { method: 'POST', body: '{}' });
-    await viewCarousel(c.slug);
-    const mine = (out.summary || []).find((r) => r.slug === c.slug);
-    if (!mine) { say('Nothing was due.'); return; }
-    const went = Object.entries(mine.results || {})
-      .filter(([, r]) => r.ok).map(([name]) => name);
-    const failed = Object.entries(mine.results || {})
-      .filter(([, r]) => !r.ok && !r.skipped)
-      .map(([name, r]) => `${name}: ${r.error}`);
+    const out = await api(`/carousels/${encodeURIComponent(c.slug)}/preflight`);
+    const stops = out.checks.filter((x) => x.verdict === 'stop');
+    const warns = out.checks.filter((x) => x.verdict === 'warn');
+    const lines = [...stops, ...warns].map((x) => `${x.what}: ${x.detail}`);
     say(
-      failed.length
-        ? failed.join(' · ')
-        : went.length ? `Posted to ${went.join(', ')}.` : 'Nothing went out.',
-      failed.length ? 'err' : undefined
+      out.ready
+        ? `Ready. Going out through ${out.route}.${
+          warns.length ? ` Worth knowing: ${lines.join(' · ')}` : ''}`
+        : `Not ready. ${lines.join(' · ')}`,
+      out.ready ? undefined : 'err'
     );
   } catch (e) { say(e.message, 'err'); }
 }
@@ -2831,13 +2828,11 @@ async function viewAccounts() {
      <div class="st-acts">
        <button class="st-link" type="button" data-acc-save>Save</button>
        <button class="st-link" type="button" data-acc-check>Check posting</button>
-       <button class="st-link" type="button" data-acc-post>Post anything that is due</button>
      </div>
      <p class="st-note u-text-style-main">Check posting spends the tokens on a real
        read and fetches a picture the way the platforms will, then stops. It posts
        nothing.</p>
-     <div data-acc-checks></div>
-     <p class="st-note u-text-style-main" data-acc-out></p>`;
+     <div data-acc-checks></div>`;
 
   $('[data-acc-save]', host).addEventListener('click', async () => {
     const body = {};
@@ -2887,15 +2882,6 @@ async function viewAccounts() {
     }
   });
 
-  $('[data-acc-post]', host).addEventListener('click', async () => {
-    $('[data-acc-out]', host).textContent = 'Posting…';
-    try {
-      const out = await api('/carousels/-/post', { method: 'POST', body: '{}' });
-      $('[data-acc-out]', host).textContent = out.ran
-        ? `${out.ran} carousel${out.ran === 1 ? '' : 's'} handled. Check the board for what went where.`
-        : 'Nothing was due.';
-    } catch (e) { $('[data-acc-out]', host).textContent = e.message; }
-  });
 }
 
 async function viewKit(which) {

@@ -552,11 +552,35 @@ await step('and it can be approved without going through review', async () => {
 await step('an approved carousel offers both ways to post', async () => {
   const acts = await page.$$eval('[data-car-acts] .st-link',
                                  (n) => n.map((x) => x.textContent.trim()));
-  for (const want of ['Test on TikTok (only you see it)', 'Post to both, publicly']) {
+  /* The rehearsal is offered first and on the carousel, not only in
+     Accounts: what the Accounts check proves is that the tokens are
+     live, which is not the same question as whether this carousel's
+     pictures are reachable and its words fit. */
+  for (const want of ['Check it first', 'Test on TikTok (only you see it)',
+                      'Post to both, publicly']) {
     if (!acts.includes(want)) throw new Error(`offered: ${acts.join(', ')}`);
+  }
+  if (acts.indexOf('Check it first') > acts.indexOf('Test on TikTok (only you see it)')) {
+    throw new Error('the rehearsal is offered after the post');
   }
   // and the scheduling form is not in the way of either of them
   if (acts.includes('Give it a slot')) throw new Error('the slot button is still there');
+});
+
+await step('the rehearsal posts nothing and says what would stop it', async () => {
+  const acts = await page.$$eval('[data-car-acts] .st-link',
+                                 (n) => n.map((x) => x.textContent.trim()));
+  await page.click(`[data-car-acts] .st-link >> nth=${acts.indexOf('Check it first')}`);
+  await page.waitForFunction(
+    () => /Ready|Not ready/.test(document.querySelector('[data-status]')?.textContent || ''),
+    null, { timeout: 15000 }
+  );
+  // it is a read: the carousel is still approved afterwards, not posted
+  const after = await page.evaluate(async (slug) => {
+    const r = await fetch(`/api/studio/carousels/${slug}`, { credentials: 'include' });
+    return (await r.json()).carousel?.status;
+  }, byHand.slug);
+  if (after !== 'approved') throw new Error(`status after the check: ${after}`);
 });
 
 await step('posting publicly stops to ask, and offers the story there', async () => {

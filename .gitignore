@@ -24,3 +24,6 @@ wrangler.local.toml
 # ours; the images are not, and they do not belong in the repository.
 # Renders and triage sheets are rebuildable from those measurements.
 .refs/
+
+# local-only studio password for the checks
+.dev.vars

@@ -1,0 +1,19 @@
+# Copy to .dev.vars for local runs. Every value here is a fixture, not a
+# credential: the checks hardcode these same defaults, so changing one
+# means passing it back in as an env var on every check.
+#
+# Without this file `wrangler pages dev` serves a deployment with no
+# accounts on it, sign-in 503s, and the seven suites that need a session
+# fail with 401s that look like broken routes.
+
+STUDIO_PASSWORD=hunter2
+SESSION_SECRET=a-long-enough-string-for-local-checks-only
+AGENT_TOKEN=sparktoken123
+SITE=http://127.0.0.1:8801
+
+MCP_CLIENT_ID=gemini-spark
+MCP_CLIENT_SECRET=spark-secret-value
+MCP_REDIRECT_URIS=https://gemini.google.com/oauth/callback
+
+TIKTOK_CLIENT_KEY=awx1234567890abc
+TIKTOK_CLIENT_SECRET=ttsecretvalue123

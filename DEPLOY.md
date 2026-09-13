@@ -20,6 +20,18 @@ npm run dev      # npx wrangler pages dev .  -> http://127.0.0.1:8788
 That runs the Function too, so the booking form works locally. `npm run serve`
 starts a plain static server instead, where the form falls back to composing an email.
 
+## Run the checks
+
+```bash
+cp .dev.vars.example .dev.vars
+npx wrangler pages dev . --port 8801 --ip 127.0.0.1 --d1 DB --r2 MEDIA
+npm run check
+```
+
+Port 8801 and those fixtures are what every suite defaults to. Without the
+file, sign-in returns 503 and the suites that need a session fail with 401s
+that read like broken routes rather than a missing password.
+
 ## Deploy
 
 **Connect the repo (recommended).** Cloudflare dashboard → Workers & Pages → Create →
