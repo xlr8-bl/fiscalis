@@ -226,9 +226,14 @@ export const BLOCKS = {
       return M.chip.h + (n - 1) * M.chip.pitch;
     },
     draw(ctx, block, g, box) {
+      /* Left, with everything else, and on the ground's own accent.
+         `accentSoft` is #C9D9E8 — a pale blue that belongs to no part of
+         this palette, and on cream beside black type and a red accent it
+         reads as a form control somebody pasted in. */
       (block.items ?? []).forEach((text, i) => {
         const y = box.y + i * px.h(M.chip.pitch);
-        chip(ctx, g, text, box.x + box.w / 2, y, { fill: 'accentSoft' });
+        chip(ctx, g, text, alignX(box, block.align), y,
+             { fill: 'accent', ink: 'ground', align: block.align });
       });
     },
   },
@@ -429,7 +434,7 @@ export const BLOCKS = {
         const y = top + r * px.h(M.chip.h + M.prompt.row);
         row.forEach((o) => {
           chip(ctx, g, o.text, x + o.w / 2, y,
-               { fill: n++ === 0 ? 'accentSoft' : 'accentSoft2' });
+               { fill: 'accent', ink: 'ground' });
           x += o.w + gap;
         });
       });
@@ -480,7 +485,7 @@ export const BLOCKS = {
       const half = box.w / 2;
       [[a, box.x + half / 2], [b, box.x + half + half / 2]].forEach(([item, cx]) => {
         if (!item) return;
-        chip(ctx, g, item.head, cx, box.y, { fill: 'accentSoft' });
+        chip(ctx, g, item.head, cx, box.y, { fill: 'accent', ink: 'ground' });
         if (!item.tail) return;
         setType(ctx, g, 'say');
         ctx.fillText(item.tail, cx,
@@ -1064,7 +1069,12 @@ export const BLOCKS = {
         const gap = px.w(M.icons.gap);
         const got = names.map((n) => [n, art?.icons?.[n]]).filter(([, i]) => i);
         const total = got.reduce((t, [, i]) => t + wide(i), 0) + (got.length - 1) * gap;
-        let x = box.x + (box.w - total) / 2;
+        /* With the rest of the column. A centred row under left-set type
+           is the thing that made these read as decoration dropped in
+           rather than part of the page. */
+        let x = block.align === 'center' ? box.x + (box.w - total) / 2
+          : block.align === 'right' ? box.x + box.w - total
+          : box.x;
         for (const [name, img] of got) {
           ctx.filter = iconFilter(g, name);
           ctx.drawImage(img, x, box.y, wide(img), s);
@@ -1175,24 +1185,30 @@ export const BLOCKS = {
             panelW + halo * 2, panelH + halo * 2, px.h(M.chip.r));
       ctx.fill();
 
-      ctx.fillStyle = g.accentSoft2 ?? g.accentSoft;
+      /* The panel was `accentSoft2`, #DCD0E8 — a lilac that belongs to no
+         part of this palette. Beside a blue label on amber it read as a
+         browser's own form chrome pasted onto the slide. The ground's
+         own halo instead: a tone of the slide rather than a fourth
+         colour, so the panel reads as a raised area and not a sticker. */
+      ctx.fillStyle = g.halo ?? g.ground;
       round(ctx, panelX, panelY, panelW, panelH, px.h(M.chip.r));
       ctx.fill();
 
-      ctx.fillStyle = g.chipInk ?? g.mark;
+      ctx.fillStyle = g.mark;
       ctx.font = face(g, 'action');
       ctx.letterSpacing = trackOf('action');
-      ctx.textAlign = 'center';
+      // left, with the column it belongs to
+      ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       ls.forEach((line, i) => {
-        ctx.fillText(line, panelX + panelW / 2,
+        ctx.fillText(line, panelX + px.w(M.action.padX),
           panelY + clear + sizeOf('action') * CAP
           + i * px.size(M.action.body * M.action.lead));
       });
 
       // the label last, so it laps OVER the panel rather than under it
       chip(ctx, g, label, labelX, box.y,
-           { fill: 'accentSoft', role: 'label', align: 'left',
+           { fill: 'accent', ink: 'ground', role: 'label', align: 'left',
              width: px.w(M.action.labelW) });
     },
   },
@@ -1494,7 +1510,8 @@ function chipWidth(ctx, text, role = 'chip') {
  * placed on the sheet.
  */
 function chip(ctx, g, text, cx, y, { fill = 'accentSoft', role = 'chip',
-                                     align = 'center', width = null } = {}) {
+                                     align = 'center', width = null,
+                                     ink = null } = {}) {
   ctx.font = face(g, role);
   ctx.letterSpacing = trackOf(role);
   const padX = px.w(M.chip.padX);
@@ -1530,7 +1547,9 @@ function chip(ctx, g, text, cx, y, { fill = 'accentSoft', role = 'chip',
   round(ctx, x, y, w, h, px.h(M.chip.r));
   ctx.fill();
 
-  ctx.fillStyle = g.chipInk ?? g.mark;
+  /* A chip on the accent needs the ground's colour, not the ink: the
+     accent is dark enough that near-black on it is unreadable. */
+  ctx.fillStyle = (ink && g[ink]) ?? g.chipInk ?? g.mark;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   // centred on the box that was actually drawn, whatever the type did
@@ -2045,7 +2064,18 @@ export function layOut(ctx, slide, g) {
        placement while columnOf narrowed for the one the slide asked
        for, so the renderer drew a bigger figure than the type made room
        for and the headline ran into his shoulder. */
-    const block = { align: slide.align, context: slide.context,
+    /*
+     * LEFT unless the slide asks otherwise.
+     *
+     * `align` was undefined on almost every block, and every alignment
+     * helper falls through to centre — so the headline, the paragraph,
+     * the chips and the icons all stacked down the middle with ragged
+     * edges on both sides and no edge for the eye to run down. Beside
+     * hook sheets that are hard left, the panels read as a different
+     * account. Set here rather than in the helpers, which each carry
+     * their own centre fallback for blocks that are genuinely placed.
+     */
+    const block = { align: slide.align ?? 'left', context: slide.context,
                     name, key, ...blockData(slide, name, key) };
     const h = spec.height(ctx, block, g, col);
     (spec.pinned ? (pinned = { block, h, spec }) : flowing.push({ block, h, spec }));
