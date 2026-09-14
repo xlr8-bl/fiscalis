@@ -1538,20 +1538,67 @@ function chip(ctx, g, text, cx, y, { fill = 'accentSoft', role = 'chip',
   ctx.fillText(String(text ?? ''), x + (w - tw) / 2, y + h / 2 + em * CAP / 2);
 }
 
+/*
+ * How the rail is drawn. Three, so it can be chosen by looking.
+ *
+ *   band   a full-bleed bar of `accent` across the top. 5.53% of the
+ *          height, so about 71px of 1280, and the loudest thing on a
+ *          slide whose content is type. Its colour comes from the
+ *          ground, so a set of paper slides and one amber sign-off has
+ *          a red bar four times and a blue bar once.
+ *   quiet  no fill. The same two words in the ground's own ink, with a
+ *          hairline under them.
+ *   tab    a short accent tab behind the handle only, the series bare
+ *          on the ground beside it.
+ *
+ * Nothing here changes what the rail SAYS, which is checked and refused
+ * if it varies between slides of one carousel.
+ */
+export const RAIL_STYLES = ['band', 'quiet', 'tab'];
+export let RAIL_STYLE = 'band';
+export const setRailStyle = (name) => {
+  if (RAIL_STYLES.includes(name)) RAIL_STYLE = name;
+};
+
 /** The rail. The same on every slide, and the only branding on a sheet. */
 function rail(ctx, g, { handle, series }) {
   const h = px.h(M.rail.h);
-  ctx.fillStyle = g.accent;
-  ctx.fillRect(0, 0, W, h);
+  const pad = px.w(M.rail.pad);
+
+  if (RAIL_STYLE === 'band') {
+    ctx.fillStyle = g.accent;
+    ctx.fillRect(0, 0, W, h);
+  } else if (RAIL_STYLE === 'tab' && handle) {
+    ctx.font = face(g, 'rail');
+    ctx.letterSpacing = trackOf('rail');
+    const w = ctx.measureText(handle).width + pad * 2;
+    ctx.fillStyle = g.accent;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   ctx.font = face(g, 'rail');
   ctx.letterSpacing = trackOf('rail');
-  ctx.fillStyle = g.railInk ?? g.ground;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  if (handle) ctx.fillText(handle, px.w(M.rail.pad), h / 2);
+  if (handle) {
+    // on `tab` the handle sits on the accent, the series on the ground
+    ctx.fillStyle = RAIL_STYLE === 'quiet' ? g.mark : (g.railInk ?? g.ground);
+    ctx.fillText(handle, pad, h / 2);
+  }
   ctx.textAlign = 'right';
-  if (series) ctx.fillText(series, W - px.w(M.rail.pad), h / 2);
+  if (series) {
+    ctx.fillStyle = RAIL_STYLE === 'band' ? (g.railInk ?? g.ground) : g.mark;
+    ctx.fillText(series, W - pad, h / 2);
+  }
+
+  /* A hairline rather than a block: it still separates the rail from the
+     column, and it is the ground's own ink rather than a second colour. */
+  if (RAIL_STYLE === 'quiet') {
+    ctx.fillStyle = g.mark;
+    ctx.globalAlpha = 0.22;
+    ctx.fillRect(pad, h - px.h(0.0012), W - pad * 2, px.h(0.0012));
+    ctx.globalAlpha = 1;
+  }
 }
 
 /** The outros. A set ends on one, so they are the slides with no SWIPE. */

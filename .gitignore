@@ -27,3 +27,7 @@ wrangler.local.toml
 
 # local-only studio password for the checks
 .dev.vars
+
+# rendered slides, for looking at
+.looks/
+_looks.html
