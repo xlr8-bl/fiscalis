@@ -221,19 +221,44 @@ export const BLOCKS = {
     what: 'Two to four short phrases, each picked out on its own chip. For a '
         + 'set of things that belong together: what something depends on, '
         + 'what it gets you, what to have ready.',
-    height(_ctx, block) {
-      const n = Math.max(1, (block.items ?? []).length);
-      return M.chip.h + (n - 1) * M.chip.pitch;
+    /* A ROW that wraps, not a column of pills.
+       Stacked one per line they read as a form: four buttons waiting to
+       be pressed, each on its own row, with the whole right half of the
+       column empty beside them. Side by side they read as a set of
+       things, which is what a chip stack is for. */
+    rows(ctx, block, g, col) {
+      ctx.font = face(g, 'chip');
+      ctx.letterSpacing = trackOf('chip');
+      const padX = px.w(M.chip.padX);
+      const gap = px.w(0.018);
+      const out = [[]];
+      let w = 0;
+      for (const text of block.items ?? []) {
+        const cw = ctx.measureText(String(text ?? '')).width + padX * 2;
+        if (out.at(-1).length && w + gap + cw > col) { out.push([]); w = 0; }
+        out.at(-1).push({ text, w: cw });
+        w += (w ? gap : 0) + cw;
+      }
+      return { rows: out.filter((r) => r.length), gap };
+    },
+    height(ctx, block, g, col) {
+      const { rows } = BLOCKS.chips.rows(ctx, block, g, col);
+      return M.chip.h + (rows.length - 1) * M.chip.pitch;
     },
     draw(ctx, block, g, box) {
-      /* Left, with everything else, and on the ground's own accent.
-         `accentSoft` is #C9D9E8 — a pale blue that belongs to no part of
-         this palette, and on cream beside black type and a red accent it
-         reads as a form control somebody pasted in. */
-      (block.items ?? []).forEach((text, i) => {
-        const y = box.y + i * px.h(M.chip.pitch);
-        chip(ctx, g, text, alignX(box, block.align), y,
-             { fill: 'accent', ink: 'ground', align: block.align });
+      /* On the ground's own accent. `accentSoft` is #C9D9E8, a pale blue
+         that belongs to no part of this palette, and on cream beside
+         black type and a red accent it read as a form control. */
+      const { rows, gap } = BLOCKS.chips.rows(ctx, block, g, box.w);
+      rows.forEach((row, r) => {
+        const total = row.reduce((t, c) => t + c.w, 0) + (row.length - 1) * gap;
+        let x = block.align === 'center' ? box.x + (box.w - total) / 2
+          : block.align === 'right' ? box.x + box.w - total : box.x;
+        const y = box.y + r * px.h(M.chip.pitch);
+        for (const c of row) {
+          chip(ctx, g, c.text, x, y, { fill: 'accent', ink: 'ground', align: 'left' });
+          x += c.w + gap;
+        }
       });
     },
   },
@@ -2113,27 +2138,57 @@ export function layOut(ctx, slide, g) {
   const gaps = flowing.map((_, i) => gapBefore(i));
   const gapTotal = gaps.reduce((a, b) => a + b, 0);
   const slack = room - tall;
-  let stretch = 1;
-  if (slack > 0 && gapTotal > 0) {
-    /* 1.5, not 2.6. Opening the gaps is how a thin slide breathes, but
-       past about half again the sheet stops reading as the reference's
-       dense stack and starts reading as widely spaced paragraphs, which
-       is the thing that made the first set look timid. Whatever is left
-       after the cap goes to centring, where it shows less. */
-    stretch = Math.min(1.5, 1 + slack / gapTotal);
-  }
+  /* The gaps are a rhythm, not an accordion. They used to stretch up to
+     half again to fill the room, so the same two blocks sat a different
+     distance apart on every slide of one set. Fixed now; the slack goes
+     to the foot. */
+  const stretch = 1;
   const stretched = tall + gapTotal * (stretch - 1);
   /* Centring is right for a teaching slide, where the stack IS the slide.
      A CTA has a figure holding the foot, so centring floats the type in
      the middle with a void above it. `anchor: 'top'` gives the void back
      to the photograph. */
-  let y = slide.anchor === 'top' || stretched >= room
-    ? M.top : M.top + (room - stretched) / 2;
+  /*
+   * TWO ANCHORS, not one centred stack.
+   *
+   * The stack used to centre itself in whatever room was left, with the
+   * gaps stretched to half again first. So a short slide floated in the
+   * middle with equal air above and below, every slide sat at a
+   * different height, and nothing in one slide of a set lined up with
+   * anything in the next. It read as filled in rather than laid out.
+   *
+   * A poster has a top and a foot. The headline starts on a fixed top
+   * line, the same on every slide of every set, and everything after it
+   * hangs off the foot above the band. The air between the two is the
+   * composition rather than what was left over — and it is where the
+   * headline gets to be big.
+   *
+   * A slide with nothing but a headline keeps its natural flow: there is
+   * no second group to hang.
+   */
+  const headFirst = flowing.length > 1 && flowing[0].block.name === 'title';
+  const head = headFirst ? flowing.slice(0, 1) : [];
+  const rest = headFirst ? flowing.slice(1) : flowing;
 
-  flowing.forEach((item, i) => {
-    y += gaps[i] * stretch;
+  let y = M.top;
+  head.forEach((item) => {
     out.push({ ...item, box: { x, y: px.h(y), w: col, h: px.h(item.h) } });
     y += item.h;
+  });
+
+  /* The tail hangs off the foot, unless it is too tall to, in which case
+     it carries on from the headline and the slide reports the overflow
+     the way it always did. */
+  const tailTall = rest.reduce((sum, item, i) =>
+    sum + item.h + (i ? gaps[i + head.length] : 0), 0);
+  const hangFrom = floor - tailTall;
+  let ry = headFirst && hangFrom > y + M.gap.afterTitle
+    ? hangFrom : y + (head.length ? M.gap.afterTitle : 0);
+
+  rest.forEach((item, i) => {
+    if (i) ry += gaps[i + head.length] * stretch;
+    out.push({ ...item, box: { x, y: px.h(ry), w: col, h: px.h(item.h) } });
+    ry += item.h;
   });
 
   /* Did it fit? Reported rather than clipped: a slide whose copy is too
