@@ -32,16 +32,7 @@ export const M = {
   margin:   0.085,                                    // the text column's inset
 
   // caps 0.0816 of frame = 0.113 em; lines 0.0893 apart, ie under one em
-  /* `glue` is what a connective word is set at beside the words that
-     carry the meaning. 0.54 is the point where "is" stops competing
-     with "EMPTY" and still reads at a thumbnail. */
-  /* `drop` is a MISREGISTRATION, not a drop shadow: a second impression
-     of the same word a few pixels off, the way a two colour press lands
-     when the plates are not quite aligned. At 0.0062 in grey at 0.18 it
-     read as a blurred duplicate and muddied every headline; tight and
-     fully saturated it reads as printing. */
-  title:    { size: 0.1133, lead: 0.0893 / 0.1133, glue: 0.54,
-              drop: 0.0040, grow: 1.85 },
+  title:    { size: 0.1133, lead: 0.0893 / 0.1133 },
   say:      { size: 0.0208, lead: 0.0330 / 0.0208 },  // line pitch 0.0330
 
   // centred: three reference sheets land on 0.4964, 0.4964, 0.4970
@@ -111,37 +102,6 @@ export const M = {
   band:     { h: 0.0520, pad: 0.018, line: 0.0155, linePad: 0.009,
               mark: 0.0135, tag: 0.0195, tagH: 0.0300 },
 
-  /* The surface and the marks on it. Chosen, not measured off a
-     reference: there is no reference card for this, and saying so is
-     better than implying one. `grid` is the dot pitch as a fraction of
-     the width; `marks` is how many land before it stops trying. */
-  surface:  { grid: 0.0260, dot: 1.25, gridAlpha: 0.10,
-              /* Six, not thirteen. Thirteen small marks spread over a
-                 sheet read as specks on the scan; a few large ones read
-                 as somebody marking it up. */
-              marks: 6, markMin: 0.018, markMax: 0.034, markStroke: 3.4,
-              cropLen: 0.030, cropInset: 0.026, rulerTicks: 13 },
-
-  /* The plate.
-   *
-   * The teaching panels used to be a headline at the top, a paragraph
-   * hung off the foot, and a third of the sheet of nothing between them.
-   * Marks in the hole only made it a hole with specks in it. What fills
-   * a hole is mass, so the lower part of the sheet is a card: the
-   * paragraph, the chips and the icons sit reversed out of it, and the
-   * headline gets the paper above.
-   *
-   * `top` is fixed rather than sized to the copy, so every panel in a
-   * set has its card in the same place and the set reads as one thing.
-   */
-  /* `padX` is 0.040 for a reason: the card runs 0.045..0.955, so its
-     inner column is exactly 0.830, which is the sheet's own column. The
-     paragraph therefore starts on the same left edge as the headline
-     above it, and every block's height was measured against that width
-     before the card existed. */
-  plate:    { top: 0.560, rise: 0.430, low: 0.660, x: 0.045, right: 0.955, bottom: 0.932,
-              padX: 0.040, padTop: 0.052, padBot: 0.050, drop: 0.0125 },
-
   // read off the reference's runs, rounded, not tuned
   gap:      { afterTitle: 0.063, between: 0.034, beforeIcons: 0.036 },
   top:      0.117,      // where the headline's cap starts
@@ -177,60 +137,34 @@ export const BLOCKS = {
     what: 'The headline. Three to six words, sentence case, and it has to '
         + 'work as the whole slide if somebody reads nothing else.',
     height(ctx, block, g, col) {
-      const n = composeHead(ctx, g, block.text, col).rows.length;
+      const n = lines(ctx, block.text, face(g, 'title'), col, trackOf('title')).length;
       return M.title.size * CAP + (n - 1) * M.title.size * M.title.lead;
     },
     draw(ctx, block, g, box) {
+      setType(ctx, g, 'title');
+      const ls = lines(ctx, block.text, face(g, 'title'), box.w, trackOf('title'));
+      /* Off by default. At 0.18 nearly a fifth of a headline came out in
+         the bitmap face, and a swapped letter inside a common word does
+         not read as a device: "broken" read as a typo and "second" as a
+         glyph that failed to load, because the bitmap is lighter than the
+         800-weight grotesque around it. It also contradicted the rule
+         written on TYPE below, which says the pixel face carries the rail
+         and the label and never the headline. A slide can still ask for
+         it by name; nothing asks by accident. */
+      const mix = block.mix ?? 0;
       /* A word wider than the column cannot wrap, so it overflows: a big
          cut-out narrowed the portrait slide's column to 336px and
          "checking" is 537px, which came out with its first letter off the
-         sheet. fitHead shrinks instead. Clipping is the one failure that
-         is invisible until it has posted. */
-      const { head, k } = fitHead(ctx, g, block.text, box.w, block.fill ? box.h : 0);
-      const big = px.size(M.title.size) * k;
-      const small = big * M.title.glue;
-
-      /* ONE word in the accent, with an outline. Seeded off the headline
-         so it is the same word every time this headline is drawn, and a
-         different one on the next slide. Only a word that carries
-         meaning is eligible: picking out "is" would be a joke. */
-      const content = [];
-      head.rows.forEach((row, r) => row.forEach((m, c) => {
-        if (m.big) content.push(`${r},${c}`);
-      }));
-      const pick = content.length
-        ? content[Math.floor(rng(hash(`pick|${block.text}`))() * content.length)]
-        : null;
-
-      const drop = px.w(M.title.drop) * k;
-
-      head.rows.forEach((row, r) => {
-        const rowW = head.widths[r] * k;
-        let x = block.align === 'center' ? box.x + (box.w - rowW) / 2
-          : block.align === 'right' ? box.x + box.w - rowW : box.x;
-        const y = box.y + big * CAP + r * px.size(M.title.size * M.title.lead) * k;
-
-        row.forEach((m, c) => {
-          const size = m.big ? big : small;
-          ctx.font = sized(g, 'title', size);
-          ctx.letterSpacing = `${TYPE.title.track * size}px`;
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'alphabetic';
-          const hit = pick === `${r},${c}`;
-
-          /* Two plates, a hair out of register. The under-impression is
-             the colour the word is NOT, so an ink word carries an accent
-             edge and the accent word carries an ink one: that is what a
-             press does, and it is why the effect has to be tight. The
-             earlier version offset a grey ghost six pixels down and read
-             as a blur, with the ghost of one word sitting inside the
-             next. */
-          ctx.fillStyle = hit ? g.mark : g.accent;
-          ctx.fillText(m.text, x + drop, y + drop);
-          ctx.fillStyle = hit ? g.accent : g.mark;
-          ctx.fillText(m.text, x, y);
-          x += m.w * k + (c < row.length - 1 ? head.gap * k : 0);
-        });
+         sheet. Shrink the headline to fit instead. Clipping is the one
+         failure that is invisible until it has posted. */
+      const widest = Math.max(...ls.map((line, i) =>
+        mixedRun(ctx, g, line, mix, `${block.text}|${i}`).total));
+      const k = widest > box.w ? box.w / widest : 1;
+      ls.forEach((line, i) => {
+        const y = box.y + px.size(M.title.size) * CAP
+          + i * px.size(M.title.size * M.title.lead);
+        drawMixed(ctx, g, line, alignX(box, block.align), y, mix,
+                  `${block.text}|${i}`, block.align, k);
       });
     },
   },
@@ -1092,36 +1026,7 @@ export const BLOCKS = {
          the redo loop redraws single slides, and a random tilt would
          make the same slide come back different. */
       const where = block.where ?? 'row';
-      if (where === 'objects') {
-        /* Loose on the paper between the headline and the card, turned
-           off square and at mixed sizes: objects dropped on a sheet, not
-           a row of buttons. Seeded off the names so a redo of one slide
-           comes back the same.
-
-           This is where a row-placed set of icons ends up whenever the
-           headline leaves a band of paper under it, because the band has
-           to carry something and these are what the slide already has. */
-        const r = rng(hash(`objects|${names.join(',')}`));
-        const pick = names.slice(0, 4);
-        const step = box.w / (pick.length + 0.6);
-        pick.forEach((name, i) => {
-          const img = art?.icons?.[name];
-          if (!img) return;
-          const scale = (1.35 + r() * 0.55) * Math.min(1, box.h / (s * 1.9));
-          const h = s * scale;
-          const w = wide(img) * scale;
-          const cx = box.x + step * (0.55 + i) + (r() - 0.5) * step * 0.3;
-          const cy = box.y + box.h * (0.40 + r() * 0.22);
-          const d = px.w(M.plate.drop) * 0.55;
-          ctx.save();
-          ctx.translate(cx, cy);
-          ctx.rotate((r() - 0.5) * 0.46);
-          stamp(ctx, img, -w / 2 + d, -h / 2 + d, w, h, g.accent);
-          ctx.filter = iconFilter(g, name);
-          ctx.drawImage(img, -w / 2, -h / 2, w, h);
-          ctx.restore();
-        });
-      } else if (where === 'corner') {
+      if (where === 'corner') {
         const tilts = [-0.22, 0.15, -0.09];
         names.slice(0, 3).forEach((name, i) => {
           const img = art?.icons?.[name];
@@ -1834,26 +1739,12 @@ function band(ctx, g, slide) {
     so a display-only ground is no use. */
 export const SLIDE_GROUNDS = {
   paper: { ...GROUNDS.paper, accentSoft: '#C9D9E8', accentSoft2: '#DCD0E8',
-           chipInk: '#14120F', railInk: '#F2ECE0', halo: '#E4E0CF',
-           /* The card and the colours the type takes once it is on it.
-              Not a straight swap of ground and mark: paper's #D93B0F
-              goes dull against black, so the plate borrows ink's hotter
-              #F26A1B, which is the pairing already proven on the ink
-              ground. */
-           plate: { ground: '#191612', mark: '#F2ECE0', accent: '#F26A1B',
-                    chipInk: '#191612', halo: '#241F1A' } },
+           chipInk: '#14120F', railInk: '#F2ECE0', halo: '#E4E0CF' },
   ink:   { ...GROUNDS.ink, accentSoft: '#2A3B4D', accentSoft2: '#3A3050',
-           chipInk: '#F2ECE0', railInk: '#14120F', halo: '#2E2A24',
-           plate: { ground: '#F2ECE0', mark: '#14120F', accent: '#D93B0F',
-                    chipInk: '#F2ECE0', halo: '#E4E0CF' } },
+           chipInk: '#F2ECE0', railInk: '#14120F', halo: '#2E2A24' },
   amber: { ...GROUNDS.amber, accentSoft: '#C9D9E8', accentSoft2: '#DCD0E8',
-           chipInk: '#14120F', railInk: '#F2ECE0', halo: '#E2B824',
-           plate: { ground: '#191612', mark: '#EFC22B', accent: '#F2ECE0',
-                    chipInk: '#191612', halo: '#241F1A' } },
+           chipInk: '#14120F', railInk: '#F2ECE0', halo: '#E2B824' },
 };
-
-/** The same ground, as it behaves for type standing on the card. */
-export const onPlate = (g) => (g.plate ? { ...g, ...g.plate } : g);
 
 export const SLIDE_GROUND_NAMES = Object.keys(SLIDE_GROUNDS);
 
@@ -2279,86 +2170,9 @@ export function layOut(ctx, slide, g) {
   const head = headFirst ? flowing.slice(0, 1) : [];
   const rest = headFirst ? flowing.slice(1) : flowing;
 
-  /*
-   * THE CARD.
-   *
-   * Only when the slide is a headline over a tail and nothing else is
-   * already carrying the foot. A pinned instruction is its own opaque
-   * sticker down there and two slabs stacked is one too many; a scene
-   * slide is a photograph and a card would cover it; `plate: false`
-   * turns it off by hand.
-   */
-  const wantsPlate = headFirst && rest.length && !pinned
-    && slide.plate !== false && !slide.scene;
-  let plate = null;
-  let objects = null;
-  if (wantsPlate) {
-    /* The card is sized to what it holds and hung off the same bottom
-       edge every time. `rise` and `low` are the lines it may not cross:
-       above `rise` it is most of the sheet, below `low` it is a strip
-       with no presence. */
-    const topFor = (items) => {
-      const tall = items.reduce((sum, item, i) =>
-        sum + item.h + (i ? gaps[i + 1] : 0), 0);
-      return Math.max(M.plate.rise, Math.min(M.plate.low,
-        M.plate.bottom - tall - M.plate.padTop - M.plate.padBot));
-    };
-
-    /* How tall the headline will ACTUALLY be, grown into the room the
-       card leaves it. This is the whole reason fitHead is shared with
-       draw: laying out against the natural height and then growing the
-       type in the renderer is how the hole got there in the first
-       place. */
-    const tallF = fitHead(ctx, g, head[0].block.text, col,
-                          px.h(topFor(rest) - M.gap.between - M.top)).tall / H;
-    const under = M.top + tallF + M.gap.between;
-
-    /* Paper still loose under the headline goes to OBJECTS if the slide
-       has any and there is room for them, and otherwise to the card,
-       which rises to take it. A band of empty paper between the two is
-       the one thing not allowed: it is what made these panels read as a
-       document rather than a poster. */
-    const icons = rest.findIndex((i) => i.block.name === 'icons'
-      && (i.block.where ?? 'row') === 'row' && i.block.icons?.length);
-    let top = topFor(rest);
-    if (icons >= 0) {
-      const loose = topFor(rest.filter((_, i) => i !== icons)) - under;
-      if (loose >= M.icons.h * 1.35) {
-        /* The band is capped at twice the icon height. Given the whole
-           gap, three objects sat in a third of the sheet and read as
-           three things lost on it rather than as a band. */
-        const bandH = Math.min(loose, M.icons.h * 2.0);
-        objects = { ...rest[icons], block: { ...rest[icons].block, where: 'objects' },
-                    box: { x: px.w(M.margin), y: px.h(under),
-                           w: px.w(1 - M.margin * 2), h: px.h(bandH) } };
-        rest.splice(icons, 1);
-        top = Math.max(M.plate.rise, Math.min(topFor(rest), under + bandH));
-      }
-    }
-    if (!objects) top = Math.max(M.plate.rise, Math.min(top, under));
-
-    plate = { x: px.w(M.plate.x), y: px.h(top),
-              w: px.w(M.plate.right - M.plate.x),
-              h: px.h(M.plate.bottom - top), top };
-  }
-
-  /* The headline is given the ROOM, not just its own height, and fills
-     it. A three-word headline used to be set at the same size as a
-     twelve-word one and leave a third of the sheet empty under it; the
-     designer's move there is to make the type bigger, not to shrug. */
-  const tailFirst = rest.reduce((sum, item, i) =>
-    sum + item.h + (i ? gaps[i + head.length] : 0), 0);
-  /* With a card, the headline's room ends at the card's top edge, which
-     is why the card also cures the hole: the type grows into the space
-     instead of being hung above it. */
-  const headFloor = plate ? plate.top - M.gap.between
-    : (rest.length ? floor - tailFirst - M.gap.afterTitle : floor);
-  const roomForHead = Math.max(head[0]?.h ?? 0, headFloor - M.top);
-
   let y = M.top;
   head.forEach((item) => {
-    out.push({ ...item, fill: true,
-               box: { x, y: px.h(y), w: col, h: px.h(roomForHead) } });
+    out.push({ ...item, box: { x, y: px.h(y), w: col, h: px.h(item.h) } });
     y += item.h;
   });
 
@@ -2371,32 +2185,16 @@ export function layOut(ctx, slide, g) {
   let ry = headFirst && hangFrom > y + M.gap.afterTitle
     ? hangFrom : y + (head.length ? M.gap.afterTitle : 0);
 
-  /* On the card the tail hangs off the card's floor and takes the card's
-     inset, not the sheet's margin. */
-  let tx = x;
-  let tcol = col;
-  if (plate) {
-    tx = plate.x + px.w(M.plate.padX);
-    tcol = plate.w - px.w(M.plate.padX) * 2;
-    /* Centred in the card, not hung off its floor. When the card has
-       risen to close a gap it is taller than its copy, and hanging put
-       the hole back inside it in black. */
-    ry = plate.top + (M.plate.bottom - plate.top - tailTall) / 2;
-  }
-
   rest.forEach((item, i) => {
     if (i) ry += gaps[i + head.length] * stretch;
-    out.push({ ...item, onPlate: !!plate,
-               box: { x: tx, y: px.h(ry), w: tcol, h: px.h(item.h) } });
+    out.push({ ...item, box: { x, y: px.h(ry), w: col, h: px.h(item.h) } });
     ry += item.h;
   });
-  if (objects) out.push(objects);
 
   /* Did it fit? Reported rather than clipped: a slide whose copy is too
      long is a copy problem, and silently overlapping the instruction is
      how a carousel goes out unreadable. */
-  return { placed: out, plate,
-           over: tall > room ? Number((tall - room).toFixed(4)) : 0 };
+  return { placed: out, over: tall > room ? Number((tall - room).toFixed(4)) : 0 };
 }
 
 const blockData = (slide, name, key) => {
@@ -2422,30 +2220,10 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
   ctx.fillRect(0, 0, W, H);
   if (art.scene) cover(ctx, art.scene, g, slide.veil);
   if (slide.grain !== false) grain(ctx, g, slide.slug ?? slide.title ?? '');
-  /* A measuring surface under everything. Off with `grid: false` for a
-     slide that is mostly photograph, where it fights the halftone. */
-  if (slide.grid !== false && !art.scene) dotGrid(ctx, g);
 
   rail(ctx, g, slide);
   band(ctx, g, slide);
-  const { placed, plate, over } = layOut(ctx, slide, g);
-
-  /* Crop marks and a ruler down the edge: the sheet says it is a proof
-     before a word is read, which is the whole claim of a series called
-     SITE CHECKS. Fixed positions, so they are furniture and not litter. */
-  if (slide.marks !== false && !art.scene) { cropMarks(ctx, g); ruler(ctx, g); }
-
-  /* The marks go down before the type, and they are told where the type
-     will be so they land beside it rather than across it. */
-  if (slide.marks !== false) {
-    scatterMarks(ctx, g, slide.slug ?? slide.title ?? '',
-                 placed.map((i) => i.box).concat(plate ? [plate] : []));
-  }
-
-  if (plate) card(ctx, g, plate);
-  /* Type standing on the card takes the card's colours. Threaded per
-     item rather than switched globally: the headline is still on paper. */
-  const gFor = (item) => (item.onPlate ? onPlate(g) : g);
+  const { placed, over } = layOut(ctx, slide, g);
 
   /* Where the headline landed, and how wide each of its lines is.
      `scatter` needs it: an icon dropped into type has to know where the
@@ -2465,7 +2243,7 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
      and on top they take letters out of it: an X across "nobody" and a
      bolt through "calls". Behind, the same overlap reads as depth. */
   const back = placed.filter((i) => i.block.name === 'icons' && i.block.where === 'scatter');
-  for (const item of back) item.spec.draw(ctx, item.block, gFor(item), item.box, art, head);
+  for (const item of back) item.spec.draw(ctx, item.block, g, item.box, art, head);
   /* The instruction goes LAST. It is an opaque sticker that keeps full
      width and lies over the photograph rather than dodging it, and
      layOut pushes it first so it was drawing UNDER: the cut-out ate the
@@ -2473,7 +2251,7 @@ export function drawSlide(ctx, slide, { art = {} } = {}) {
   const front = placed.filter((i) => i.block.name === 'action');
   for (const item of placed) {
     if (back.includes(item) || front.includes(item)) continue;
-    item.spec.draw(ctx, item.block, gFor(item), item.box, art, head);
+    item.spec.draw(ctx, item.block, g, item.box, art, head);
   }
   for (const item of front) item.spec.draw(ctx, item.block, g, item.box, art, head);
 
@@ -2962,329 +2740,6 @@ export function screened(src, W_, H_, opts) {
  * Paper grain: single pixels, low strength. Seeded from the slide, so a
  * redrawn slide still matches the ones around it.
  */
-/*
- * ---------------------------------------------------------------------
- * THE SURFACE, AND THE THINGS ON IT
- *
- * A flat fill with type on it reads as generated, and it read that way
- * because it is: there was nothing on the sheet that a person would have
- * had to decide. Everything below is the vocabulary that makes a panel a
- * made object rather than a filled-in one.
- *
- * It is deliberately NOT the scrapbook language of the references —
- * stars, gingham, torn paper, pastel. Those belong to a lifestyle
- * account. This is the same density and the same nerve in his own
- * subject: the series is SITE CHECKS, the whole project is measurement,
- * so the surface is a measuring surface and the marks are the marks you
- * find on a proof. Registration crosses, crop brackets, rings, ticks.
- *
- * Everything here is seeded off the slide's own text, so a slide looks
- * the same every time it is drawn and two slides never look alike.
- */
-
-/*
- * A COMPOSED HEADLINE.
- *
- * Set flat, at one size on one baseline in one colour, a headline is
- * type. Composed, it is the picture on the slide — which is the single
- * biggest difference between these panels and any carousel worth
- * stopping on.
- *
- * The scale is decided by GRAMMAR, not at random. The words that carry
- * the meaning get the size; the glue holding them together gets set
- * small and tucks under. "The EMPTY SPACE is DOING WORK" reads as the
- * four words that matter, and reads faster, because the eye is given a
- * route through the line instead of a wall of equal weight.
- *
- * One content word takes the accent and an outline. Seeded off the
- * headline, so it is the same word every time that headline is drawn
- * and a different one on the next slide.
- */
-const GLUE = new Set([
-  'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'be',
-  'of', 'in', 'on', 'at', 'to', 'for', 'from', 'with', 'by', 'as', 'it',
-  'its', 'this', 'that', 'these', 'those', 'you', 'your', 'my', 'me',
-  'can', 'do', 'does', 'did', 'not', 'no', 'if', 'so', 'than', 'then',
-  'has', 'have', 'had', 'will', 'would', 'they', 'them', 'their',
-]);
-
-const bare = (w) => w.toLowerCase().replace(/[^a-z0-9']/g, '');
-
-/**
- * The headline as sized runs, wrapped to the column.
- *
- * @returns {{rows: Array<Array<{text,big,w}>>, lineH: number, wide: number}}
- */
-function composeHead(ctx, g, text, col) {
-  const words = String(text ?? '').split(/\s+/).filter(Boolean);
-  const big = px.size(M.title.size);
-  const small = big * M.title.glue;
-  const space = () => ctx.measureText(' ').width;
-
-  const measured = words.map((w) => {
-    const isBig = !GLUE.has(bare(w)) || words.length <= 2;
-    ctx.font = sized(g, 'title', isBig ? big : small);
-    ctx.letterSpacing = trackOf('title');
-    return { text: w, big: isBig, w: ctx.measureText(w).width };
-  });
-
-  /* One word space, measured at the BIG size, for every pair. Measured
-     at the small size it was 54% of a space, so "The empty" set as
-     "Theempty" and "on a" as "ona": the glue word shrinks, and the space
-     beside it must not shrink with it or the words touch. */
-  ctx.font = sized(g, 'title', big);
-  ctx.letterSpacing = trackOf('title');
-  const gap = space();
-
-  const rows = [[]];
-  let w = 0;
-  for (const m of measured) {
-    const add = (rows.at(-1).length ? gap : 0) + m.w;
-    if (rows.at(-1).length && w + add > col) { rows.push([]); w = 0; }
-    rows.at(-1).push(m);
-    w += rows.at(-1).length === 1 ? m.w : add;
-  }
-  const widths = rows.map((row) =>
-    row.reduce((t, m) => t + m.w, 0) + (row.length - 1) * gap);
-  return {
-    rows, gap,
-    lineH: px.size(M.title.size * M.title.lead),
-    wide: Math.max(0, ...widths),
-    widths,
-  };
-}
-
-/**
- * The headline at the size it will actually be set.
- *
- * Shared by draw and by layOut, which has to know how tall the GROWN
- * headline is before it can decide what happens under it. Two passes,
- * because growing the type changes where the words wrap.
- *
- * `room` of 0 means do not grow, only shrink to fit the column.
- */
-function fitHead(ctx, g, text, col, room = 0) {
-  setType(ctx, g, 'title');
-  let k = 1;
-  let head = composeHead(ctx, g, text, col);
-  if (head.wide > col) k = col / head.wide;
-  if (room > 0) {
-    const natural = (h) => px.size(M.title.size) * CAP
-      + (h.rows.length - 1) * px.size(M.title.size * M.title.lead);
-    /* Up to the cap, and never past the column. 1.85 is where a two word
-       headline stops being a headline and becomes a logo. */
-    const grow = Math.min(M.title.grow, room / Math.max(1, natural(head)),
-                          col / Math.max(1, head.wide));
-    if (grow > 1.02) {
-      k = grow;
-      head = composeHead(ctx, g, text, col / k);
-      k = Math.min(k, col / Math.max(1, head.wide));
-    }
-  }
-  const tall = px.size(M.title.size) * CAP * k
-    + (head.rows.length - 1) * px.size(M.title.size * M.title.lead) * k;
-  return { head, k, tall };
-}
-
-/** The same face at an arbitrary size, for the runs. */
-const sized = (g, role, size) =>
-  `${(TYPE[role] ?? TYPE.say).weight} ${size}px ${(TYPE[role] ?? TYPE.say).family}`;
-
-/**
- * The card the lower half of a teaching panel stands on.
- *
- * Square corners and a hard offset in the accent, which is the same
- * misregistration the headline uses: one object, printed twice, the
- * plates a hair out. A blurred shadow here would read as a slide deck.
- */
-function card(ctx, g, p) {
-  const d = px.w(M.plate.drop);
-  ctx.save();
-  ctx.fillStyle = g.accent;
-  ctx.fillRect(p.x + d, p.y + d, p.w, p.h);
-  ctx.fillStyle = onPlate(g).ground;
-  ctx.fillRect(p.x, p.y, p.w, p.h);
-
-  /* Brackets inside its corners, the same ones the sheet carries. They
-     are what stops a filled rectangle reading as a filled rectangle. */
-  const ins = px.w(0.024);
-  const len = px.w(0.026);
-  ctx.strokeStyle = g.accent;
-  ctx.lineWidth = Math.max(2, px.w(0.0024));
-  for (const [cx, sx] of [[p.x + ins, 1], [p.x + p.w - ins, -1]]) {
-    for (const [cy, sy] of [[p.y + ins, 1], [p.y + p.h - ins, -1]]) {
-      ctx.beginPath();
-      ctx.moveTo(cx, cy + sy * len); ctx.lineTo(cx, cy); ctx.lineTo(cx + sx * len, cy);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
-
-/**
- * A flat silhouette of an image, in one colour.
- *
- * The icons are pixel sprites in their own palette and land on the sheet
- * as clip art. An offset impression of each in the accent puts them in
- * the same two plate register as everything else, and ties a borrowed
- * sprite to the page it is standing on.
- */
-function stamp(ctx, img, x, y, w, h, colour) {
-  const off = new OffscreenCanvas(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
-  const o = off.getContext('2d');
-  o.drawImage(img, 0, 0, off.width, off.height);
-  o.globalCompositeOperation = 'source-in';
-  o.fillStyle = colour;
-  o.fillRect(0, 0, off.width, off.height);
-  ctx.drawImage(off, x, y, w, h);
-}
-
-/** Crop marks at the corners of the live area. */
-function cropMarks(ctx, g) {
-  const ins = px.w(M.surface.cropInset);
-  const len = px.w(M.surface.cropLen);
-  const top = px.h(M.rail.h) + ins;
-  const bot = H - px.h(M.band.h) - ins;
-  ctx.save();
-  ctx.strokeStyle = g.mark;
-  ctx.globalAlpha = 0.45;
-  ctx.lineWidth = Math.max(2, px.w(0.0022));
-  for (const [cx, sx] of [[ins, 1], [W - ins, -1]]) {
-    for (const [cy, sy] of [[top, 1], [bot, -1]]) {
-      ctx.beginPath();
-      ctx.moveTo(cx, cy + sy * len); ctx.lineTo(cx, cy);
-      ctx.lineTo(cx + sx * len, cy);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
-
-/** A ruler down the left edge. Ticks, and a longer one every fifth. */
-function ruler(ctx, g) {
-  const x = px.w(M.surface.cropInset);
-  const top = px.h(M.rail.h + 0.085);
-  const bot = H - px.h(M.band.h + 0.085);
-  const n = M.surface.rulerTicks;
-  ctx.save();
-  ctx.strokeStyle = g.mark;
-  ctx.globalAlpha = 0.32;
-  ctx.lineWidth = Math.max(2, px.w(0.0020));
-  for (let i = 0; i <= n; i++) {
-    const y = top + (bot - top) * (i / n);
-    const len = px.w(i % 5 === 0 ? 0.020 : 0.010);
-    ctx.beginPath();
-    ctx.moveTo(x, y); ctx.lineTo(x + len, y);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-/** A measuring grid. Faint, so it is a surface rather than a pattern. */
-function dotGrid(ctx, g) {
-  const step = px.w(M.surface.grid);
-  // a raw radius in pixels, NOT a fraction of the frame: px.w(1.25) is
-  // 1350 and paints the whole sheet in one dot
-  const r = M.surface.dot;
-  ctx.save();
-  ctx.fillStyle = g.mark;
-  ctx.globalAlpha = M.surface.gridAlpha;
-  for (let y = step; y < H; y += step) {
-    for (let x = step; x < W; x += step) {
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.restore();
-}
-
-/* The marks. Each draws at the origin in the current stroke colour, at
-   radius 1, so the caller scales and rotates. */
-const MARKS = {
-  /* A registration cross: the thing printers align plates against, and
-     the most literal possible mark for a series called SITE CHECKS. */
-  cross(ctx) {
-    ctx.beginPath();
-    ctx.moveTo(-1, 0); ctx.lineTo(1, 0);
-    ctx.moveTo(0, -1); ctx.lineTo(0, 1);
-    ctx.stroke();
-  },
-  ring(ctx) {
-    ctx.beginPath();
-    ctx.arc(0, 0, 0.82, 0, Math.PI * 2);
-    ctx.stroke();
-  },
-  /* A crop bracket. One corner of the frame somebody was cutting to. */
-  crop(ctx) {
-    ctx.beginPath();
-    ctx.moveTo(-1, -0.25); ctx.lineTo(-1, -1); ctx.lineTo(-0.25, -1);
-    ctx.stroke();
-  },
-  tick(ctx) {
-    ctx.beginPath();
-    ctx.moveTo(-1, 0); ctx.lineTo(1, 0);
-    ctx.moveTo(-0.55, -0.4); ctx.lineTo(-0.55, 0.4);
-    ctx.moveTo(0.55, -0.4); ctx.lineTo(0.55, 0.4);
-    ctx.stroke();
-  },
-  chevron(ctx) {
-    ctx.beginPath();
-    ctx.moveTo(-0.5, -0.9); ctx.lineTo(0.6, 0); ctx.lineTo(-0.5, 0.9);
-    ctx.stroke();
-  },
-  dot(ctx) {
-    ctx.beginPath();
-    ctx.arc(0, 0, 0.55, 0, Math.PI * 2);
-    ctx.fill();
-  },
-};
-const MARK_NAMES = Object.keys(MARKS);
-
-/**
- * Marks scattered where the type is not.
- *
- * They fill the field the way confetti does on the references, which is
- * what stops empty space reading as a hole. Kept OUT of the boxes the
- * type occupies: a mark across a word is a blemish, and beside one it is
- * a decision.
- */
-function scatterMarks(ctx, g, seed, avoid = []) {
-  const r = rng(hash(`marks|${seed}`));
-  const clear = (x, y, pad) => avoid.every((b) =>
-    x < b.x - pad || x > b.x + b.w + pad || y < b.y - pad || y > b.y + b.h + pad);
-
-  ctx.save();
-  ctx.lineCap = 'round';
-  let placed = 0;
-  /* Inside the crop marks and clear of the ruler. A scattered mark
-     landing on a corner bracket reads as a smudge on the print rather
-     than as either of the two things it is. */
-  const x0 = M.surface.cropInset + M.surface.cropLen + 0.020;
-  for (let i = 0; i < 90 && placed < M.surface.marks; i++) {
-    const x = px.w(x0 + r() * (0.955 - x0));
-    const y = px.h(0.14 + r() * 0.74);
-    const size = px.w(M.surface.markMin + r() * (M.surface.markMax - M.surface.markMin));
-    if (!clear(x, y, size * 1.6)) continue;
-    const name = MARK_NAMES[Math.floor(r() * MARK_NAMES.length)];
-    /* The accent carries most of them. A field of marks in the ink
-       reads as dirt; in the accent it reads as somebody's pen. */
-    const ink = r() < 0.72 ? g.accent : g.mark;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate((r() - 0.5) * 0.9);
-    ctx.scale(size, size);
-    ctx.globalAlpha = 0.5 + r() * 0.5;
-    ctx.strokeStyle = ink;
-    ctx.fillStyle = ink;
-    ctx.lineWidth = M.surface.markStroke / size;
-    MARKS[name](ctx);
-    ctx.restore();
-    placed++;
-  }
-  ctx.restore();
-}
-
 function grain(ctx, g, seed) {
   const r = rng(hash(String(seed)));
   const img = ctx.createImageData(W, H);
